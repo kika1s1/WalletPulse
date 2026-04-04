@@ -1,0 +1,12 @@
+[
+  {"id":"g-001","packageName":"com.grey.android","title":"Deposit Successful","body":"500.00 USD has been deposited to your wallet","expected":{"amount":50000,"currency":"USD","type":"income","merchant":"Grey","confidence":0.9}},
+  {"id":"g-002","packageName":"com.grey.android","title":"Deposit Successful","body":"1,250.00 NGN was deposited to your account","expected":{"amount":125000,"currency":"NGN","type":"income","merchant":"Grey","confidence":0.9}},
+  {"id":"g-003","packageName":"com.grey.android","title":"Transfer Complete","body":"You transferred 300.00 USD to Jane Smith","expected":{"amount":30000,"currency":"USD","type":"expense","merchant":"Jane Smith","confidence":0.95}},
+  {"id":"g-004","packageName":"com.grey.android","title":"Transfer Complete","body":"You transferred 2,500.50 EUR to Mike Johnson","expected":{"amount":250050,"currency":"EUR","type":"expense","merchant":"Mike Johnson","confidence":0.95}},
+  {"id":"g-005","packageName":"com.grey.android","title":"Card Transaction","body":"Card payment of 45.99 USD at Amazon.com","expected":{"amount":4599,"currency":"USD","type":"expense","merchant":"Amazon.com","confidence":0.95}},
+  {"id":"g-006","packageName":"com.grey.android","title":"Card Transaction","body":"Card payment of 120.00 GBP at Uber Technologies","expected":{"amount":12000,"currency":"GBP","type":"expense","merchant":"Uber Technologies","confidence":0.95}},
+  {"id":"g-007","packageName":"com.grey.android","title":"Conversion","body":"Converted 1,000.00 USD to 850.00 EUR","expected":{"amount":100000,"currency":"USD","type":"transfer","merchant":"Grey","confidence":0.85}},
+  {"id":"g-008","packageName":"com.grey.android","title":"Security Alert","body":"Login from a new device detected","expected":null},
+  {"id":"g-009","packageName":"com.grey.android","title":"Card Transaction","body":"Card payment of 8,500.00 NGN at Shoprite Supermarket","expected":{"amount":850000,"currency":"NGN","type":"expense","merchant":"Shoprite Supermarket","confidence":0.95}},
+  {"id":"g-010","packageName":"com.grey.android","title":"Deposit Successful","body":"75.00 GBP has been deposited to your wallet","expected":{"amount":7500,"currency":"GBP","type":"income","merchant":"Grey","confidence":0.9}}
+]

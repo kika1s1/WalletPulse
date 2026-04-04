@@ -1,0 +1,12 @@
+[
+  {"id":"d-001","packageName":"com.dukascopy.bank","title":"Transfer Received","body":"Incoming transfer: 5,000.00 CHF","expected":{"amount":500000,"currency":"CHF","type":"income","merchant":"Dukascopy","confidence":0.9}},
+  {"id":"d-002","packageName":"com.dukascopy.bank","title":"Transfer Received","body":"Incoming transfer: 250.00 EUR","expected":{"amount":25000,"currency":"EUR","type":"income","merchant":"Dukascopy","confidence":0.9}},
+  {"id":"d-003","packageName":"com.dukascopy.bank","title":"Transfer Sent","body":"Outgoing transfer: 1,200.00 CHF","expected":{"amount":120000,"currency":"CHF","type":"expense","merchant":"Dukascopy","confidence":0.9}},
+  {"id":"d-004","packageName":"com.dukascopy.bank","title":"Transfer Sent","body":"Outgoing transfer: 800.50 USD","expected":{"amount":80050,"currency":"USD","type":"expense","merchant":"Dukascopy","confidence":0.9}},
+  {"id":"d-005","packageName":"com.dukascopy.bank","title":"Card Payment","body":"Card charged: 150.00 EUR - Netflix Subscription","expected":{"amount":15000,"currency":"EUR","type":"expense","merchant":"Netflix Subscription","confidence":0.95}},
+  {"id":"d-006","packageName":"com.dukascopy.bank","title":"Card Payment","body":"Card charged: 2,340.00 CHF - Swiss Airlines","expected":{"amount":234000,"currency":"CHF","type":"expense","merchant":"Swiss Airlines","confidence":0.95}},
+  {"id":"d-007","packageName":"com.dukascopy.bank","title":"Card Payment","body":"Card charged: 42.30 USD - Spotify Premium","expected":{"amount":4230,"currency":"USD","type":"expense","merchant":"Spotify Premium","confidence":0.95}},
+  {"id":"d-008","packageName":"com.dukascopy.bank","title":"System Notification","body":"Your monthly statement is ready","expected":null},
+  {"id":"d-009","packageName":"com.dukascopy.bank","title":"Transfer Received","body":"Incoming transfer: 100.00 GBP","expected":{"amount":10000,"currency":"GBP","type":"income","merchant":"Dukascopy","confidence":0.9}},
+  {"id":"d-010","packageName":"com.dukascopy.bank","title":"Card Payment","body":"Card charged: 89.99 EUR - Amazon EU","expected":{"amount":8999,"currency":"EUR","type":"expense","merchant":"Amazon EU","confidence":0.95}}
+]
