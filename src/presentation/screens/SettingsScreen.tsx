@@ -309,6 +309,27 @@ export default function SettingsScreen() {
             onPress={() => navigation.navigate('BudgetList')}
             value="Manage"
           />
+          <SettingsRow
+            description="Track upcoming bills and due dates"
+            icon="🔔"
+            label="Bill Reminders"
+            onPress={() => navigation.navigate('BillReminders')}
+            value="View"
+          />
+          <SettingsRow
+            description="Set and track savings targets"
+            icon="🎯"
+            label="Savings Goals"
+            onPress={() => navigation.navigate('GoalsList')}
+            value="View"
+          />
+          <SettingsRow
+            description="Monitor recurring service costs"
+            icon="🔄"
+            label="Subscriptions"
+            onPress={() => navigation.navigate('SubscriptionsList')}
+            value="View"
+          />
         </View>
 
         <SectionHeader title="DATA" />
@@ -325,6 +346,13 @@ export default function SettingsScreen() {
             label="Quick Templates"
             onPress={() => navigation.navigate('TemplateManagement')}
             value="Manage"
+          />
+          <SettingsRow
+            description="Export transactions as CSV or JSON"
+            icon="📤"
+            label="Export Data"
+            onPress={() => navigation.navigate('Export')}
+            value="Export"
           />
         </View>
 
