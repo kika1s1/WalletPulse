@@ -2,6 +2,7 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "strict": true,
+    "experimentalDecorators": true,
     "baseUrl": "./src",
     "paths": {
       "@domain/*": ["domain/*"],
