@@ -4,6 +4,7 @@ import type {SettingsStackParamList} from './types';
 import SettingsScreen from '@presentation/screens/SettingsScreen';
 import CategoryManagementScreen from '@presentation/screens/CategoryManagementScreen';
 import NotificationLogScreen from '@presentation/screens/NotificationLogScreen';
+import CreateCategoryScreen from '@presentation/screens/CreateCategoryScreen';
 import BudgetsScreen from '@presentation/screens/BudgetsScreen';
 import CreateBudgetScreen from '@presentation/screens/CreateBudgetScreen';
 import BudgetDetailScreen from '@presentation/screens/BudgetDetailScreen';
@@ -15,6 +16,7 @@ export default function SettingsStack() {
     <Stack.Navigator screenOptions={{headerShown: false}}>
       <Stack.Screen name="SettingsMain" component={SettingsScreen} />
       <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
+      <Stack.Screen name="CreateCategory" component={CreateCategoryScreen} />
       <Stack.Screen name="NotificationLog" component={NotificationLogScreen} />
       <Stack.Screen name="BudgetList" component={BudgetsScreen} />
       <Stack.Screen name="CreateBudget" component={CreateBudgetScreen} />

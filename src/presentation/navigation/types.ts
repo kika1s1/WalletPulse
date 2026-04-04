@@ -27,6 +27,7 @@ export type AnalyticsStackParamList = {
 export type SettingsStackParamList = {
   SettingsMain: undefined;
   CategoryManagement: undefined;
+  CreateCategory: {editCategoryId?: string} | undefined;
   NotificationLog: undefined;
   BudgetList: undefined;
   CreateBudget: {editBudgetId?: string} | undefined;
