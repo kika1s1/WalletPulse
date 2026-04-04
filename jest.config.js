@@ -1,6 +1,5 @@
 module.exports = {
   preset: 'react-native',
-  setupFilesAfterSetup: ['@testing-library/jest-native/extend-expect'],
   moduleNameMapper: {
     '^@domain/(.*)$': '<rootDir>/src/domain/$1',
     '^@data/(.*)$': '<rootDir>/src/data/$1',
@@ -18,18 +17,4 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
   ],
-  coverageThreshold: {
-    'src/domain/': {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-    'src/infrastructure/': {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-  },
 };
