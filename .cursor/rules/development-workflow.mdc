@@ -1,0 +1,58 @@
+---
+description: Development workflow with TDD and Clean Architecture build order for WalletPulse
+alwaysApply: true
+---
+
+# Development Workflow
+
+## TDD Cycle (Red-Green-Refactor)
+
+Every new feature or module follows this cycle:
+
+1. **Red**: Write a failing test that describes the expected behavior
+2. **Green**: Write the minimum code to make the test pass
+3. **Refactor**: Clean up the code while keeping tests green
+
+Never write production code without a corresponding test. Tests are written FIRST.
+
+## Build Order Reference
+
+The project follows a phased build approach. Check `docs/DEVELOPMENT_GUIDE.md` for full details.
+
+**Current Phase**: Foundation (project setup, database, navigation, theme, design system).
+
+## Before Writing Code
+
+1. Write the test file first (TDD)
+2. Check `docs/DATABASE_SCHEMA.md` for table/column definitions
+3. Check `docs/ARCHITECTURE.md` for which layer the code belongs to
+4. Check existing entities in `src/domain/entities/` before creating new ones
+5. Check `src/shared/types/` for shared type definitions
+
+## Clean Architecture File Placement
+
+- [ ] Entity -> `src/domain/entities/` (named export, PascalCase.ts)
+- [ ] Use Case -> `src/domain/usecases/` (named export, verb-noun.ts)
+- [ ] Repository Interface -> `src/domain/repositories/` (named export, I{Name}Repository.ts)
+- [ ] Repository Impl -> `src/data/repositories/` (named export, {Name}Repository.ts)
+- [ ] DB Model -> `src/data/database/models/` (default export, PascalCase.ts)
+- [ ] Mapper -> `src/data/mappers/` (named export, {name}-mapper.ts)
+- [ ] Screen -> `src/presentation/screens/` (default export, PascalCaseScreen.tsx)
+- [ ] Component -> `src/presentation/components/` (named export, PascalCase.tsx)
+- [ ] Hook -> `src/presentation/hooks/` (named export, useCamelCase.ts)
+- [ ] Store -> `src/presentation/stores/` (named export, useCamelCaseStore.ts)
+- [ ] Service -> `src/infrastructure/{domain}/` (named export, kebab-case.ts)
+- [ ] Utility -> `src/shared/utils/` (named export, kebab-case.ts)
+- [ ] Type -> `src/shared/types/` (named export, kebab-case.ts)
+- [ ] Test -> `__tests__/` mirroring src structure
+
+## Amounts Are Always Cents
+
+All monetary values throughout the codebase are stored and operated on as **integer cents**.
+- Display: `amountCents / 100` with `Intl.NumberFormat`
+- Input: `Math.round(parseFloat(input) * 100)`
+- Conversion: `Math.round((amountCents / fromRate) * toRate)`
+
+## Text Conventions
+
+Never use em dash characters. Use commas, periods, semicolons, or restructure sentences.

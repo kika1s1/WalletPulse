@@ -1,0 +1,68 @@
+# OSX
+.DS_Store
+
+# Xcode (not needed for Android-only but good practice)
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+
+# Android
+*.iml
+.gradle
+local.properties
+*.jks
+*.keystore
+!debug.keystore
+android/app/build/
+android/build/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Metro
+.metro-health-check*
+
+# Environment
+.env
+.env.local
+.env.production
+
+# TypeScript
+*.tsbuildinfo
+
+# Jest
+coverage/
+
+# Bundle artifacts
+*.jsbundle
+*.bundle
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# React Native
+ios/Pods/

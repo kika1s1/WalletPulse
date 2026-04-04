@@ -1,0 +1,97 @@
+---
+description: Test-Driven Development workflow and testing conventions for WalletPulse
+globs: "**/*.{ts,tsx,test.ts,test.tsx}"
+alwaysApply: false
+---
+
+# Test-Driven Development
+
+## TDD Cycle
+
+1. **Red**: Write a test describing expected behavior. Run it. It must fail.
+2. **Green**: Write the simplest code that makes the test pass.
+3. **Refactor**: Improve code structure while keeping all tests green.
+
+## Test File Conventions
+
+```
+__tests__/
+├── domain/
+│   ├── entities/              # Entity validation tests
+│   ├── usecases/              # Use case logic tests
+│   └── value-objects/         # Value object tests
+├── data/
+│   ├── repositories/          # Repository implementation tests
+│   └── mappers/               # Mapper tests
+├── presentation/
+│   ├── screens/               # Screen rendering + interaction tests
+│   ├── components/            # Component rendering tests
+│   └── hooks/                 # Hook behavior tests
+├── infrastructure/
+│   ├── notification/parsers/  # Parser regex tests (fixture-driven)
+│   └── currency/              # FX conversion tests
+└── fixtures/                  # Shared test data
+    └── notifications/         # Real notification samples per app
+```
+
+## What to Test at Each Layer
+
+### Domain Layer (unit tests, pure logic)
+- Entity creation and validation
+- Use case business rules
+- Value object equality, conversion, formatting
+- No mocking needed (pure functions)
+
+### Data Layer (integration tests)
+- Repository CRUD operations against WatermelonDB test adapter
+- Mapper correctness (entity to model and back)
+- Query builders return correct results
+
+### Presentation Layer (component tests)
+- Components render correct states (loading, empty, error, success)
+- User interactions trigger expected callbacks
+- Hooks return correct data shapes
+
+### Infrastructure Layer (unit tests)
+- Notification parsers match expected patterns (fixture-driven)
+- FX conversion math accuracy
+- Deduplication hash correctness
+
+## Test Naming Convention
+
+```ts
+describe('PayoneerParser', () => {
+  it('should parse payment received notification into income transaction', () => {});
+  it('should return null for unrelated notification', () => {});
+  it('should handle amount with comma separators', () => {});
+});
+```
+
+Pattern: `should [expected behavior] when [condition]`
+
+## Test Example
+
+```ts
+import { convert } from '@domain/value-objects/money';
+
+describe('convert', () => {
+  it('should return same amount when currencies match', () => {
+    expect(convert(10000, 'USD', 'USD', { USD: 1 })).toBe(10000);
+  });
+
+  it('should convert USD to EUR using provided rates', () => {
+    const rates = { USD: 1, EUR: 0.92 };
+    expect(convert(10000, 'USD', 'EUR', rates)).toBe(9200);
+  });
+});
+```
+
+## Rules
+
+- Every pull request must include tests for new logic
+- Test coverage target: 80% for domain and infrastructure layers
+- Use `@testing-library/react-native` for component tests (not Enzyme)
+- Use real WatermelonDB test adapter for data layer tests
+- Fixture-driven tests for notification parsers (real notification samples)
+- No snapshot tests; prefer explicit assertions
+- Tests must be independent and run in any order

@@ -1,0 +1,80 @@
+---
+description: Clean Architecture layer boundaries and dependency rules for WalletPulse
+alwaysApply: true
+---
+
+# Clean Architecture
+
+## Layer Responsibilities
+
+### Domain Layer (`src/domain/`)
+The innermost layer. Contains business logic with zero external dependencies.
+
+- **Entities**: Core business objects (Transaction, Wallet, Category, Budget)
+- **Value Objects**: Immutable types (Money, Currency, DateRange, TransactionHash)
+- **Use Cases**: Single-responsibility business operations (CreateTransaction, ConvertCurrency)
+- **Repository Interfaces**: Ports defining data access contracts
+
+```ts
+// src/domain/entities/Transaction.ts
+export type Transaction = {
+  id: string;
+  walletId: string;
+  categoryId: string;
+  amount: number;       // cents
+  currency: string;     // ISO 4217
+  type: 'income' | 'expense' | 'transfer';
+  merchant: string;
+  description: string;
+  source: TransactionSource;
+  transactionDate: number;
+  createdAt: number;
+  updatedAt: number;
+};
+```
+
+### Data Layer (`src/data/`)
+Implements domain repository interfaces using concrete technologies.
+
+- **Repositories**: WatermelonDB-backed implementations of domain interfaces
+- **Models**: WatermelonDB Model classes (data layer only)
+- **Mappers**: Convert between domain entities and DB models
+- **Data Sources**: Local (SQLite) and remote (API) data access
+
+### Presentation Layer (`src/presentation/`)
+UI components, navigation, and presentation logic.
+
+- **Screens**: Full page components, one per route
+- **Components**: Reusable UI building blocks
+- **Stores**: Zustand stores for UI state (filters, modals, form state)
+- **Hooks**: Bridge domain data to UI through observables
+
+### Infrastructure Layer (`src/infrastructure/`)
+External service integrations and platform-specific code.
+
+- **Notification**: Android NotificationListenerService bridge + parsers
+- **Currency**: FX rate API client
+- **Export**: File generation (CSV, Excel, PDF)
+- **Native**: React Native native module bridges
+
+## Dependency Rules
+
+1. **Domain imports nothing** from other layers
+2. **Data imports only** domain types and interfaces
+3. **Presentation imports** domain types and data through hooks/stores
+4. **Infrastructure imports** domain types only
+5. **Shared** can be imported by any layer (theme, utils, constants, types)
+
+## Naming Conventions
+
+| Layer | Pattern | Example |
+|-------|---------|---------|
+| Entity | PascalCase noun | `Transaction.ts` |
+| Use Case | verb-noun | `create-transaction.ts` |
+| Repository Interface | I + PascalCase | `ITransactionRepository.ts` |
+| Repository Impl | PascalCase | `TransactionRepository.ts` |
+| Mapper | kebab + mapper | `transaction-mapper.ts` |
+| Screen | PascalCase + Screen | `DashboardScreen.tsx` |
+| Component | PascalCase | `TransactionCard.tsx` |
+| Hook | use + CamelCase | `useTransactions.ts` |
+| Store | use + CamelCase + Store | `useFilterStore.ts` |

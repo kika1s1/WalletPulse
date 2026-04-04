@@ -1,0 +1,106 @@
+---
+description: Enterprise UI/UX design patterns for building human-centered, polished interfaces
+globs: "src/presentation/**/*.tsx"
+alwaysApply: false
+---
+
+# Enterprise UI/UX Design Patterns
+
+## Design Principles
+
+1. **Clarity over cleverness**: Every element serves a purpose
+2. **Breathing room**: Generous padding and spacing between elements
+3. **Progressive disclosure**: Show essentials first, details on demand
+4. **Instant feedback**: Every action has immediate visual and haptic response
+5. **Graceful degradation**: Loading, empty, and error states are designed, not afterthoughts
+
+## State Management for Every Screen
+
+Every data-driven screen must handle four states:
+
+```tsx
+function TransactionsScreen() {
+  if (isLoading) return <TransactionsSkeleton />;
+  if (error) return <ErrorState message={error} onRetry={refetch} />;
+  if (transactions.length === 0) return <EmptyState type="transactions" onAction={addFirst} />;
+  return <TransactionsList data={transactions} />;
+}
+```
+
+## UI Patterns
+
+### Cards
+- Background: `colors.surface`
+- Border radius: 16px
+- Padding: 16px
+- Shadow: `shadows.md`
+- Subtle press animation (scale to 0.98 over 100ms)
+
+### Lists
+- Use `FlashList` for performance
+- Swipe-to-delete with red background and trash icon
+- Swipe-to-edit with blue background and edit icon
+- Pull-to-refresh with custom animated indicator
+- Section headers for date grouping
+
+### Bottom Sheets
+- Use for: quick actions, filters, currency picker, category picker
+- Backdrop overlay with 0.5 opacity
+- Drag handle at top center
+- Smooth spring animation on open/close
+
+### Modals
+- Use for: add/edit transaction, confirmations
+- Full screen or half screen depending on content
+- Smooth slide-up animation
+
+### Empty States
+- Custom illustration or icon per context
+- Friendly message explaining what the user can do
+- Primary action button ("Add your first transaction")
+- Never show a blank white screen
+
+### Error States
+- Red-tinted container
+- Error icon + clear message
+- "Try Again" button
+- Log error details for debugging
+
+### Skeleton Loading
+- Match the layout of the actual content
+- Animated shimmer effect (left to right gradient)
+- Show for minimum 300ms to avoid flash
+
+### Toasts and Feedback
+- Success: green toast at top, auto-dismiss 3s
+- Error: red toast at top, requires manual dismiss
+- Undo: "Transaction deleted" with undo button, 5s timeout
+
+## Animation Guidelines
+
+- Entry animations: fade + slide from bottom (200ms, ease-out)
+- Exit animations: fade out (150ms, ease-in)
+- Press feedback: scale(0.97) with spring physics
+- Page transitions: native stack (platform default)
+- List items: staggered fade-in (50ms delay between items)
+- Charts: animated draw-in on mount
+- Use `react-native-reanimated` for all animations (60fps guaranteed)
+
+## Typography Hierarchy
+
+- Screen title: `largeTitle` (34px), bold, `colors.text`
+- Section header: `title3` (20px), semibold, `colors.text`
+- Card title: `headline` (17px), semibold, `colors.text`
+- Body text: `body` (15px), regular, `colors.text`
+- Secondary text: `footnote` (13px), regular, `colors.textSecondary`
+- Amount display: `title1` (28px), bold, `colors.income` or `colors.expense`
+- Currency code: `caption` (11px), medium, `colors.textTertiary`
+
+## Color Usage
+
+- Income amounts: always `colors.income` (green)
+- Expense amounts: always `colors.expense` (red)
+- Transfer amounts: always `colors.primary` (purple)
+- Positive change: green with up arrow
+- Negative change: red with down arrow
+- Neutral: `colors.textSecondary`

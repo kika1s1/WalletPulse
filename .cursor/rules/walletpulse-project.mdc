@@ -1,0 +1,96 @@
+---
+description: WalletPulse project overview, conventions, and architecture context. Core reference for all AI interactions.
+alwaysApply: true
+---
+
+# WalletPulse Project Context
+
+## What is WalletPulse?
+
+An Android-only, offline-first, multi-currency expense tracker built with React Native. It captures push notifications from financial apps (Payoneer, Grey, Dukascopy Bank), parses transaction details through regex, and logs expenses to a local WatermelonDB database with real-time currency conversion. Designed to compete with top expense trackers through speed, functionality, and a polished enterprise-grade UI.
+
+## Development Philosophy
+
+- **Test-Driven Development (TDD)**: Write failing tests first, then implementation, then refactor
+- **Clean Architecture**: Domain, Data, Presentation, and Infrastructure layers with strict dependency rules
+- **Enterprise UI**: Human-centered design with micro-interactions, skeleton loading, haptic feedback, and accessibility
+- **Offline-First**: Every feature works without internet; sync when available
+- **No em dashes**: Never use the "--" (em dash) character in any text, comments, UI strings, or documentation
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React Native 0.76+ (bare workflow, no Expo) |
+| Language | TypeScript (strict mode) |
+| Database | WatermelonDB with SQLiteAdapter (JSI enabled) |
+| State | Zustand for UI state, WatermelonDB observables for data |
+| Navigation | React Navigation 7 (bottom tabs + native stack) |
+| Charts | react-native-gifted-charts |
+| Styling | React Native StyleSheet + design token system |
+| Notifications | Android NotificationListenerService (native module) |
+| FX Rates | ExchangeRate-API (free tier) with local caching |
+| Security | react-native-keychain, optional SQLCipher encryption |
+| Testing | Jest + @testing-library/react-native (TDD) |
+| Animations | react-native-reanimated 3 |
+
+## Clean Architecture Structure
+
+```
+src/
+├── domain/                    # Pure business logic (no framework imports)
+│   ├── entities/              # Core business objects
+│   ├── repositories/          # Repository interfaces (ports)
+│   ├── usecases/              # Application business rules
+│   └── value-objects/         # Immutable value types (Money, Currency)
+├── data/                      # Data layer (implements domain interfaces)
+│   ├── database/              # WatermelonDB schema, models, migrations
+│   ├── repositories/          # Repository implementations (adapters)
+│   ├── datasources/           # Local DB + remote API data sources
+│   └── mappers/               # Entity to/from DB model mappers
+├── presentation/              # UI layer
+│   ├── screens/               # Full screen components
+│   ├── components/            # Reusable UI components
+│   │   ├── common/            # Buttons, inputs, cards, modals
+│   │   ├── charts/            # Chart wrapper components
+│   │   ├── feedback/          # Skeleton, empty state, error state
+│   │   └── layout/            # Headers, footers, containers
+│   ├── navigation/            # React Navigation setup and types
+│   ├── stores/                # Zustand stores (presentation state)
+│   └── hooks/                 # UI-specific hooks
+├── infrastructure/            # External services and platform code
+│   ├── notification/          # Android notification listener + parsers
+│   ├── currency/              # FX rate API client
+│   ├── export/                # CSV, Excel, PDF generators
+│   ├── backup/                # Local and cloud backup
+│   └── native/                # Native module JS bridges
+├── shared/                    # Cross-cutting concerns
+│   ├── theme/                 # Design tokens (colors, typography, spacing)
+│   ├── types/                 # Shared TypeScript types
+│   ├── utils/                 # Pure utility functions
+│   └── constants/             # App-wide constants
+└── __tests__/                 # Mirrors src/ structure
+```
+
+## Dependency Rule
+
+```
+Presentation --> Domain <-- Data
+                   ^
+                   |
+             Infrastructure
+```
+
+Domain layer has ZERO imports from any other layer. Data and Infrastructure depend on Domain. Presentation depends on Domain and receives data through hooks/stores.
+
+## Key Conventions
+
+- All financial amounts stored as integers (cents) to avoid float rounding
+- Dates stored as Unix timestamps (milliseconds)
+- Currency codes follow ISO 4217 (USD, EUR, GBP, ETB)
+- Every database model has `created_at` and `updated_at` fields
+- Notification parsers are pure functions: `(notification) => ParsedTransaction | null`
+- Components use named exports, screens use default exports
+- File naming: `kebab-case.ts` for logic, `PascalCase.tsx` for components
+- Every new module starts with a test file (TDD red-green-refactor)
+- Never use em dash characters anywhere in the codebase

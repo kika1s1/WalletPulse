@@ -1,0 +1,70 @@
+---
+description: WatermelonDB database patterns within Clean Architecture data layer
+globs: "src/data/database/**/*.ts"
+alwaysApply: false
+---
+
+# WatermelonDB Patterns
+
+## Schema Definition
+
+```ts
+import { appSchema, tableSchema } from '@nozbe/watermelondb';
+
+export default appSchema({
+  version: 1,
+  tables: [
+    tableSchema({
+      name: 'transactions',
+      columns: [
+        { name: 'amount', type: 'number' },
+        { name: 'currency', type: 'string' },
+        { name: 'wallet_id', type: 'string', isIndexed: true },
+        { name: 'category_id', type: 'string', isIndexed: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+  ],
+});
+```
+
+## Model Definition
+
+```ts
+import { Model } from '@nozbe/watermelondb';
+import { field, date, relation, readonly } from '@nozbe/watermelondb/decorators';
+
+export default class TransactionModel extends Model {
+  static table = 'transactions';
+  static associations = {
+    wallets: { type: 'belongs_to' as const, key: 'wallet_id' },
+    categories: { type: 'belongs_to' as const, key: 'category_id' },
+  };
+
+  @field('amount') amount!: number;
+  @field('currency') currency!: string;
+  @relation('wallets', 'wallet_id') wallet!: any;
+  @readonly @date('created_at') createdAt!: Date;
+  @readonly @date('updated_at') updatedAt!: Date;
+}
+```
+
+## Clean Architecture Integration
+
+- DB Models live in `src/data/database/models/` (data layer)
+- Domain entities live in `src/domain/entities/` (domain layer, no DB dependency)
+- Mappers in `src/data/mappers/` convert between Model and Entity
+- Repositories in `src/data/repositories/` implement domain interfaces using DB queries
+
+## Rules
+
+- Always wrap writes in `database.write(async () => { ... })`
+- Use `database.batch(...)` for multiple operations in one transaction
+- Column names use `snake_case`, model properties use `camelCase`
+- Always add `isIndexed: true` to foreign key columns and frequently queried columns
+- Use `Q.where`, `Q.and`, `Q.or`, `Q.sortBy` for queries; never filter in JS
+- Increment schema version + add migration for every schema change
+- Use `@readonly @date` decorators for timestamp fields
+- Export database instance from `src/data/database/index.ts`
+- Write tests for all repository implementations

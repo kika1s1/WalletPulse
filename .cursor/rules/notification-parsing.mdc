@@ -1,0 +1,56 @@
+---
+description: Notification parsing patterns for financial transaction extraction
+globs: "src/infrastructure/notification/**/*.ts"
+alwaysApply: false
+---
+
+# Notification Parsing Patterns
+
+## Parser Architecture
+
+Each financial app has a dedicated parser module following this contract:
+
+```ts
+type ParsedTransaction = {
+  amount: number;
+  currency: string;
+  merchant: string;
+  type: 'income' | 'expense';
+  sourceApp: string;
+  rawNotification: string;
+  confidence: number;
+};
+
+type NotificationParser = {
+  appPackage: string;
+  parse: (title: string, body: string) => ParsedTransaction | null;
+};
+```
+
+## Parser Rules
+
+- Parsers are pure functions with no side effects and no database access
+- Return `null` if notification does not match (not an error)
+- Amount must be parsed to cents: `Math.round(parseFloat(match) * 100)`
+- Always include the raw notification text for debug logging
+- Use named capture groups in regex: `(?<amount>[\d,.]+)`
+- Write tests BEFORE writing the parser (TDD)
+- Test parsers with real notification samples stored in `__tests__/fixtures/`
+- Deduplication happens outside parsers using (amount + currency + timestamp + source) hash
+
+## Supported Apps
+
+| App | Package Name | Priority |
+|-----|-------------|----------|
+| Payoneer | com.payoneer.android | MVP |
+| Grey | com.grey.android | MVP |
+| Dukascopy | com.dukascopy.bank | MVP |
+
+## Adding New Parsers (TDD Workflow)
+
+1. Add test fixtures in `__tests__/fixtures/notifications/{app-name}.json`
+2. Write failing tests in `__tests__/infrastructure/notification/parsers/{app-name}.test.ts`
+3. Create `src/infrastructure/notification/parsers/{app-name}.ts`
+4. Implement the `NotificationParser` interface until tests pass
+5. Refactor for clarity and edge cases
+6. Register in `src/infrastructure/notification/parser-registry.ts`
