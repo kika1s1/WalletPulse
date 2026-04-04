@@ -26,6 +26,7 @@ export type TransactionCardProps = {
   merchant: string;
   transactionDate: number;
   source: string;
+  convertedLabel?: string;
   onPress?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -83,6 +84,7 @@ export function TransactionCard({
   merchant,
   transactionDate,
   source,
+  convertedLabel,
   onPress,
   onEdit,
   onDelete,
@@ -209,7 +211,20 @@ export function TransactionCard({
             ]}>
             {signedAmount}
           </Text>
-          {source !== 'manual' ? (
+          {convertedLabel ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.sourceBadge,
+                {
+                  color: colors.textTertiary,
+                  fontSize: typography.caption.fontSize,
+                  fontWeight: typography.caption.fontWeight,
+                },
+              ]}>
+              {convertedLabel}
+            </Text>
+          ) : source !== 'manual' ? (
             <Text
               numberOfLines={1}
               style={[
