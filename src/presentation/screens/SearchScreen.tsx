@@ -265,6 +265,13 @@ export default function SearchScreen() {
         onClear: () => setFilters({...filters, minAmount: undefined, maxAmount: undefined}),
       });
     }
+    if (filters.tags && filters.tags.length > 0) {
+      chips.push({
+        key: 'tags',
+        label: `Tags: ${filters.tags.join(', ')}`,
+        onClear: () => setFilters({...filters, tags: undefined}),
+      });
+    }
     return chips;
   }, [filters, setFilters, wallets]);
 

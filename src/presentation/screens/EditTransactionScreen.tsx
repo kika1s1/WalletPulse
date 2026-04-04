@@ -1,12 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
@@ -17,6 +15,8 @@ import {Button, Card, Input, AmountInput, Chip} from '@presentation/components/c
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
 import {ScreenContainer} from '@presentation/components/layout';
+import {TagInput} from '@presentation/components/TagInput';
+import {NotesEditor} from '@presentation/components/NotesEditor';
 import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import type {TransactionsStackParamList} from '@presentation/navigation/types';
 import type {RouteProp} from '@react-navigation/native';
@@ -87,8 +87,11 @@ export default function EditTransactionScreen() {
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categoryError, setCategoryError] = useState<string | undefined>(undefined);
-  const [tagModalOpen, setTagModalOpen] = useState(false);
-  const [tagDraft, setTagDraft] = useState('');
+
+  const knownTags = useMemo(
+    () => ['food', 'team', 'travel', 'bills', 'payroll', 'office', 'home', 'subs', 'client-a'],
+    [],
+  );
 
   useEffect(() => {
     if (!existing) {
@@ -151,19 +154,6 @@ export default function EditTransactionScreen() {
     type,
   ]);
 
-  const addTag = useCallback(() => {
-    const next = tagDraft.trim();
-    if (!next) {
-      return;
-    }
-    setTags((prev) => (prev.includes(next) ? prev : [...prev, next]));
-    setTagDraft('');
-    setTagModalOpen(false);
-  }, [tagDraft]);
-
-  const removeTag = useCallback((label: string) => {
-    setTags((prev) => prev.filter((t) => t !== label));
-  }, []);
 
   if (!existing) {
     return (
@@ -275,23 +265,16 @@ export default function EditTransactionScreen() {
             </Text>
           </Card>
 
-          <Input
-            label="Notes"
-            multiline
-            onChangeText={setNotes}
-            placeholder="Optional notes"
+          <NotesEditor
             value={notes}
+            onChangeText={setNotes}
           />
 
-          <View>
-            <Text style={[styles.cardLabel, {color: colors.textSecondary, marginBottom: spacing.sm}]}>Tags</Text>
-            <View style={styles.tagsRow}>
-              {tags.map((t) => (
-                <Chip key={t} label={t} onPress={() => removeTag(t)} selected size="sm" />
-              ))}
-              <Chip label="+" onPress={() => setTagModalOpen(true)} size="sm" />
-            </View>
-          </View>
+          <TagInput
+            tags={tags}
+            allKnownTags={knownTags}
+            onTagsChange={setTags}
+          />
 
           <Button fullWidth onPress={handleSave} size="lg" title="Update Transaction" />
         </ScrollView>
@@ -315,37 +298,6 @@ export default function EditTransactionScreen() {
         visible={categoryPickerOpen}
       />
 
-      <Modal animationType="fade" transparent visible={tagModalOpen} onRequestClose={() => setTagModalOpen(false)}>
-        <Pressable accessibilityRole="button" onPress={() => setTagModalOpen(false)} style={styles.modalBackdrop}>
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={[styles.modalCard, {backgroundColor: colors.card, borderColor: colors.borderLight}]}>
-            <Text style={[typography.title2, {color: colors.text}]}>New tag</Text>
-            <TextInput
-              autoFocus
-              onChangeText={setTagDraft}
-              onSubmitEditing={addTag}
-              placeholder="Tag name"
-              placeholderTextColor={colors.textTertiary}
-              returnKeyType="done"
-              style={[
-                styles.modalInput,
-                {
-                  borderColor: colors.border,
-                  color: colors.text,
-                  borderRadius: 12,
-                  marginTop: spacing.md,
-                },
-              ]}
-              value={tagDraft}
-            />
-            <View style={[styles.modalActions, {marginTop: spacing.base}]}>
-              <Button onPress={() => setTagModalOpen(false)} title="Cancel" variant="ghost" />
-              <Button onPress={addTag} title="Add" />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -396,35 +348,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 8,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  modalBackdrop: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    maxWidth: 400,
-    padding: 20,
-    width: '100%',
-  },
-  modalInput: {
-    borderWidth: 1,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'flex-end',
   },
 });

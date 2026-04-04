@@ -30,6 +30,10 @@ const SOURCE_OPTIONS: {value: TransactionSource; label: string}[] = [
   {value: 'dukascopy', label: 'Dukascopy'},
 ];
 
+const COMMON_TAGS = [
+  'food', 'team', 'travel', 'bills', 'payroll', 'office', 'home', 'subs', 'client-a',
+];
+
 const DATE_PRESETS: {label: string; daysBack: number}[] = [
   {label: 'Today', daysBack: 0},
   {label: 'Last 7 days', daysBack: 7},
@@ -167,6 +171,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
       if (draft.categoryId) {count++;}
       if (draft.walletId) {count++;}
       if (draft.dateRange) {count++;}
+      if (draft.tags && draft.tags.length > 0) {count++;}
       if (minAmountText) {count++;}
       if (maxAmountText) {count++;}
       return count;
@@ -313,6 +318,31 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                 </View>
               </View>
             )}
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>TAGS</Text>
+              <View style={styles.chipRow}>
+                {COMMON_TAGS.map((tag) => {
+                  const isSelected = draft.tags?.includes(tag) ?? false;
+                  return (
+                    <Chip
+                      key={tag}
+                      label={tag}
+                      selected={isSelected}
+                      onPress={() => {
+                        setDraft((prev) => {
+                          const current = prev.tags ?? [];
+                          if (current.includes(tag)) {
+                            return {...prev, tags: current.filter((t) => t !== tag)};
+                          }
+                          return {...prev, tags: [...current, tag]};
+                        });
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            </View>
 
             <View style={{height: 80}} />
           </ScrollView>
