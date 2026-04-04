@@ -28,6 +28,9 @@ export type SettingsStackParamList = {
   SettingsMain: undefined;
   CategoryManagement: undefined;
   NotificationLog: undefined;
+  BudgetList: undefined;
+  CreateBudget: {editBudgetId?: string} | undefined;
+  BudgetDetail: {budgetId: string};
 };
 
 export type TabParamList = {

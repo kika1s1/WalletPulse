@@ -300,6 +300,17 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <SectionHeader title="FINANCIAL PLANNING" />
+        <View style={{gap: spacing.sm}}>
+          <SettingsRow
+            description="Set spending limits per category"
+            icon="💰"
+            label="Budgets"
+            onPress={() => navigation.navigate('BudgetList')}
+            value="Manage"
+          />
+        </View>
+
         <SectionHeader title="DATA" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow

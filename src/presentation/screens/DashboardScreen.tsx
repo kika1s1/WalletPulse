@@ -15,6 +15,9 @@ import {MiniBarChart} from '@presentation/components/charts/MiniBarChart';
 import {InsightCard} from '@presentation/components/InsightCard';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useDashboard} from '@presentation/hooks/useDashboard';
+import {useBudgets} from '@presentation/hooks/useBudgets';
+import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
+import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
 import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import type {HomeStackParamList} from '@presentation/navigation/types';
 
@@ -47,6 +50,9 @@ export default function DashboardScreen() {
     error,
     refetch,
   } = useDashboard();
+
+  const {activeBudgets} = useBudgets();
+  const {items: budgetItems, totalBudget, totalSpent} = useBudgetProgress(activeBudgets);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -158,6 +164,23 @@ export default function DashboardScreen() {
           isLoading={isLoading}
         />
       </View>
+
+      {budgetItems.length > 0 && (
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.lg} />
+          <BudgetSummaryWidget
+            items={budgetItems}
+            totalBudget={totalBudget}
+            totalSpent={totalSpent}
+            currency={baseCurrency}
+            onPress={() =>
+              navigation.getParent()?.navigate('SettingsTab', {
+                screen: 'BudgetList',
+              })
+            }
+          />
+        </View>
+      )}
 
       {visibleInsights.length > 0 && (
         <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
