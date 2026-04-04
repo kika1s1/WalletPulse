@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
+import {Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import {useNavigation} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -294,7 +294,7 @@ type FilterKey = 'all' | 'expense' | 'income' | 'transfer';
 
 export default function TransactionsScreen() {
   const navigation = useNavigation<TransactionsNav>();
-  const {colors, spacing, typography} = useTheme();
+  const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -309,6 +309,10 @@ export default function TransactionsScreen() {
 
   const openAdd = useCallback(() => {
     navigation.navigate('AddTransaction');
+  }, [navigation]);
+
+  const openSearch = useCallback(() => {
+    navigation.navigate('Search');
   }, [navigation]);
 
   const openDetail = useCallback(
@@ -382,7 +386,17 @@ export default function TransactionsScreen() {
     <View style={[styles.root, {backgroundColor: colors.background}]}>
       <ScreenContainer scrollable={false}>
         <View style={[styles.headerBlock, {paddingHorizontal: spacing.base, paddingTop: spacing.sm}]}>
-          <Text style={[typography.title2, {color: colors.text}]}>Transactions</Text>
+          <View style={styles.headerRow}>
+            <Text style={[typography.title2, {color: colors.text}]}>Transactions</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Search transactions"
+              onPress={openSearch}
+              style={[styles.searchBtn, {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm}]}
+            >
+              <Text style={[styles.searchBtnIcon, {color: colors.textSecondary}]}>Search</Text>
+            </Pressable>
+          </View>
           <ScrollView
             horizontal
             contentContainerStyle={styles.filterRow}
@@ -437,6 +451,19 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: 8,
     paddingBottom: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  searchBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  searchBtnIcon: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   filterRow: {
     alignItems: 'center',
