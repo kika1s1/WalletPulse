@@ -32,6 +32,7 @@ export type SettingsStackParamList = {
   BudgetList: undefined;
   CreateBudget: {editBudgetId?: string} | undefined;
   BudgetDetail: {budgetId: string};
+  TemplateManagement: undefined;
 };
 
 export type TabParamList = {

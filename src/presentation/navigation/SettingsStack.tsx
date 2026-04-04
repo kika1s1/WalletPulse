@@ -8,6 +8,7 @@ import CreateCategoryScreen from '@presentation/screens/CreateCategoryScreen';
 import BudgetsScreen from '@presentation/screens/BudgetsScreen';
 import CreateBudgetScreen from '@presentation/screens/CreateBudgetScreen';
 import BudgetDetailScreen from '@presentation/screens/BudgetDetailScreen';
+import TemplateManagementScreen from '@presentation/screens/TemplateManagementScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -21,6 +22,7 @@ export default function SettingsStack() {
       <Stack.Screen name="BudgetList" component={BudgetsScreen} />
       <Stack.Screen name="CreateBudget" component={CreateBudgetScreen} />
       <Stack.Screen name="BudgetDetail" component={BudgetDetailScreen} />
+      <Stack.Screen name="TemplateManagement" component={TemplateManagementScreen} />
     </Stack.Navigator>
   );
 }

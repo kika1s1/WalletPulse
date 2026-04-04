@@ -8,7 +8,10 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
 import {ScreenContainer, SectionHeader} from '@presentation/components/layout';
 import {EmptyState} from '@presentation/components/feedback';
-import {FAB, Chip} from '@presentation/components/common';
+import {Chip} from '@presentation/components/common';
+import {QuickActionsFAB} from '@presentation/components/QuickActionsFAB';
+import {applyTemplate} from '@domain/usecases/quick-action-templates';
+import type {TransactionTemplate} from '@domain/usecases/quick-action-templates';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {toDateString, isToday} from '@shared/utils/date-helpers';
 import type {Transaction} from '@domain/entities/Transaction';
@@ -315,6 +318,14 @@ export default function TransactionsScreen() {
     navigation.navigate('Search');
   }, [navigation]);
 
+  const handleTemplate = useCallback(
+    (tpl: TransactionTemplate) => {
+      const applied = applyTemplate(tpl);
+      navigation.navigate('AddTransaction', {type: applied.type});
+    },
+    [navigation],
+  );
+
   const openDetail = useCallback(
     (id: string) => {
       navigation.navigate('HomeTab', {
@@ -439,7 +450,10 @@ export default function TransactionsScreen() {
         />
       </ScreenContainer>
 
-      <FAB onPress={openAdd} />
+      <QuickActionsFAB
+        onSelectTemplate={handleTemplate}
+        onAddManual={openAdd}
+      />
     </View>
   );
 }

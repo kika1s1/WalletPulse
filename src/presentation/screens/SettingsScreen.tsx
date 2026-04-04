@@ -319,6 +319,13 @@ export default function SettingsScreen() {
             onPress={() => navigation.navigate('CategoryManagement')}
             value="Manage"
           />
+          <SettingsRow
+            description="Pre-fill common transactions with one tap"
+            icon="⚡"
+            label="Quick Templates"
+            onPress={() => navigation.navigate('TemplateManagement')}
+            value="Manage"
+          />
         </View>
 
         <SectionHeader title="ABOUT" />
