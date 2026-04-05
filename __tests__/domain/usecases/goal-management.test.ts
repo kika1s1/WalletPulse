@@ -18,7 +18,7 @@ function makeGoal(overrides: Partial<Goal> = {}): Goal {
     currentAmount: 50000,
     currency: 'USD',
     deadline: now + 90 * DAY,
-    icon: '🏦',
+    icon: 'bank',
     color: '#4CAF50',
     category: 'emergency',
     isCompleted: false,

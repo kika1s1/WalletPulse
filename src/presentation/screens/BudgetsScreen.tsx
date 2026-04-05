@@ -18,6 +18,7 @@ import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress, type BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
 import {BudgetCard} from '@presentation/components/BudgetCard';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'BudgetList'>;
 
@@ -192,7 +193,7 @@ export default function BudgetsScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <AppIcon name="alert-circle-outline" size={40} color={colors.danger} />
           <Text style={[styles.errorTitle, {color: colors.text}]}>
             Failed to load budgets
           </Text>
@@ -205,7 +206,7 @@ export default function BudgetsScreen() {
         </View>
       ) : items.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>💰</Text>
+          <AppIcon name="cash-multiple" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, {color: colors.text}]}>
             No budgets yet
           </Text>

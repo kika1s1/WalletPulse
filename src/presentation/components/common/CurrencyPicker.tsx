@@ -12,6 +12,7 @@ import type {CurrencyOption} from '@data/seed/currencies';
 import {getCurrencyOptions} from '@data/seed/currencies';
 import {POPULAR_CURRENCIES} from '@shared/constants/currencies';
 import {useTheme} from '@shared/theme';
+import {AppIcon} from './AppIcon';
 
 export type CurrencyPickerProps = {
   visible: boolean;
@@ -153,7 +154,7 @@ export function CurrencyPicker({
               },
             ]}
             testID={testID ? `${testID}-row-${option.code}` : undefined}>
-            <Text style={styles.flag}>{option.flag ?? '🏳️'}</Text>
+            <Text style={styles.flag}>{option.flag ?? ''}</Text>
             <View style={styles.rowCenter}>
               <Text
                 numberOfLines={1}
@@ -207,7 +208,7 @@ export function CurrencyPicker({
       snapPoints={['70%', '90%']}>
       <BottomSheetView style={styles.sheetBody} testID={testID}>
         <View style={[styles.searchShell, {backgroundColor: colors.surfaceElevated, borderRadius: radius.md, marginHorizontal: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border}]}>
-          <Text style={[styles.searchIcon, {color: colors.textTertiary}]}>🔍</Text>
+          <AppIcon name="magnify" size={18} color={colors.textTertiary} />
           <BottomSheetTextInput
             placeholder="Search name or code"
             placeholderTextColor={colors.textTertiary}

@@ -15,6 +15,7 @@ import {
   getGoalStatusLabel,
 } from '@domain/usecases/goal-management';
 import type {Goal} from '@domain/entities/Goal';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 const DAY = 86400000;
 const now = Date.now();
@@ -27,7 +28,7 @@ const MOCK_GOALS: Goal[] = [
     currentAmount: 275000,
     currency: 'USD',
     deadline: now + 120 * DAY,
-    icon: '🏦',
+    icon: 'bank',
     color: '#4CAF50',
     category: 'emergency',
     isCompleted: false,
@@ -41,7 +42,7 @@ const MOCK_GOALS: Goal[] = [
     currentAmount: 150000,
     currency: 'USD',
     deadline: now + 200 * DAY,
-    icon: '✈️',
+    icon: 'airplane',
     color: '#2196F3',
     category: 'vacation',
     isCompleted: false,
@@ -55,7 +56,7 @@ const MOCK_GOALS: Goal[] = [
     currentAmount: 200000,
     currency: 'USD',
     deadline: now + 30 * DAY,
-    icon: '💻',
+    icon: 'laptop',
     color: '#9C27B0',
     category: 'purchase',
     isCompleted: true,
@@ -70,7 +71,7 @@ const MOCK_GOALS: Goal[] = [
     currentAmount: 320000,
     currency: 'USD',
     deadline: now + 365 * DAY,
-    icon: '📈',
+    icon: 'investment',
     color: '#FF9800',
     category: 'investment',
     isCompleted: false,
@@ -123,7 +124,7 @@ export default function GoalsListScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconWrap, {backgroundColor: goal.color + '18', borderRadius: radius.md}]}>
-            <Text style={styles.goalIcon}>{goal.icon}</Text>
+            <AppIcon name={resolveIconName(goal.icon)} size={22} color={goal.color} />
           </View>
           <View style={{flex: 1}}>
             <Text style={[styles.goalName, {color: colors.text}]}>{goal.name}</Text>

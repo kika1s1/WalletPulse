@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {useTheme} from '@shared/theme';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Props = {
   title: string;
@@ -14,7 +15,7 @@ export function EmptyState({title, message, actionLabel, onAction}: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.icon]}>📭</Text>
+      <AppIcon name="inbox-outline" size={48} color={colors.textTertiary} />
       <Text style={[styles.title, {color: colors.text}]}>{title}</Text>
       <Text style={[styles.message, {color: colors.textSecondary}]}>{message}</Text>
       {actionLabel && onAction && (

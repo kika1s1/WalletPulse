@@ -10,6 +10,7 @@ import {fontWeight} from '@shared/theme/typography';
 import {formatRelativeDate} from '@shared/utils/date-helpers';
 import {formatAmount} from '@shared/utils/format-currency';
 import {SwipeableRow, type SwipeAction} from './common/SwipeableRow';
+import {AppIcon, resolveIconName} from './common/AppIcon';
 
 const PRESS_SPRING = {damping: 22, stiffness: 360};
 const PRESS_SCALE = 0.988;
@@ -163,12 +164,7 @@ export function TransactionCard({
         ]}
         testID={testID ? `${testID}-pressable` : undefined}>
         <View style={[styles.categoryIcon, {backgroundColor: iconBackground}]}>
-          <Text
-            accessibilityLabel={categoryName}
-            numberOfLines={1}
-            style={styles.categoryIconText}>
-            {categoryIcon}
-          </Text>
+          <AppIcon name={resolveIconName(categoryIcon)} size={20} color={categoryColor} />
         </View>
 
         <View style={styles.middle}>

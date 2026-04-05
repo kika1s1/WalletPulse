@@ -396,7 +396,7 @@ export default function BudgetDetailScreen() {
           <TransactionCard
             amount={item.amount}
             categoryColor={catColor}
-            categoryIcon="💰"
+            categoryIcon="cash-multiple"
             categoryName={catName}
             currency={item.currency}
             description={item.description}

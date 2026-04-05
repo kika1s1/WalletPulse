@@ -66,3 +66,7 @@ coverage/
 
 # React Native
 ios/Pods/
+
+# Build artifacts
+*.apk
+android/app/.cxx/

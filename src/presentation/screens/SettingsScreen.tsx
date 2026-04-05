@@ -15,6 +15,8 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
+import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>;
 
@@ -52,7 +54,7 @@ function SettingsRow({
           opacity: disabled ? 0.5 : 1,
         },
       ]}>
-      <Text style={styles.rowIcon}>{icon}</Text>
+      <AppIcon name={icon} size={20} color={colors.primary} />
       <View style={styles.rowCenter}>
         <Text style={[styles.rowLabel, {color: colors.text}]}>{label}</Text>
         {description ? (
@@ -223,19 +225,19 @@ export default function SettingsScreen() {
         <SectionHeader title="APPEARANCE" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow
-            icon="🎨"
+            icon="palette-outline"
             label="Theme"
             onPress={themeCycle}
             value={THEME_LABELS[settings.themeMode]}
           />
           <SettingsRow
-            icon="📅"
+            icon="calendar-outline"
             label="Date Format"
             onPress={dateCycle}
             value={DATE_LABELS[settings.dateFormat]}
           />
           <SettingsRow
-            icon="📆"
+            icon="calendar-month-outline"
             label="First Day of Week"
             onPress={weekCycle}
             value={settings.firstDayOfWeek === 'monday' ? 'Monday' : 'Sunday'}
@@ -246,7 +248,7 @@ export default function SettingsScreen() {
         <View style={{gap: spacing.sm}}>
           <SettingsRow
             description="Automatically detect transactions from push notifications"
-            icon="🔔"
+            icon="bell-outline"
             label="Auto-detect Transactions"
             trailing={
               <Switch
@@ -264,7 +266,7 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             description={notifStatus}
-            icon="📊"
+            icon="chart-bar"
             label="Notification Log"
             onPress={() => navigation.navigate('NotificationLog')}
           />
@@ -281,7 +283,7 @@ export default function SettingsScreen() {
                   padding: spacing.md,
                 },
               ]}>
-              <Text style={styles.permBannerIcon}>⚠️</Text>
+              <AppIcon name="alert-circle-outline" size={20} color={colors.warning} />
               <View style={{flex: 1}}>
                 <Text
                   style={[styles.permBannerTitle, {color: colors.text}]}>
@@ -304,28 +306,28 @@ export default function SettingsScreen() {
         <View style={{gap: spacing.sm}}>
           <SettingsRow
             description="Set spending limits per category"
-            icon="💰"
+            icon="cash-multiple"
             label="Budgets"
             onPress={() => navigation.navigate('BudgetList')}
             value="Manage"
           />
           <SettingsRow
             description="Track upcoming bills and due dates"
-            icon="🔔"
+            icon="bell-ring-outline"
             label="Bill Reminders"
             onPress={() => navigation.navigate('BillReminders')}
             value="View"
           />
           <SettingsRow
             description="Set and track savings targets"
-            icon="🎯"
+            icon="target"
             label="Savings Goals"
             onPress={() => navigation.navigate('GoalsList')}
             value="View"
           />
           <SettingsRow
             description="Monitor recurring service costs"
-            icon="🔄"
+            icon="sync-circle"
             label="Subscriptions"
             onPress={() => navigation.navigate('SubscriptionsList')}
             value="View"
@@ -335,21 +337,21 @@ export default function SettingsScreen() {
         <SectionHeader title="DATA" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow
-            icon="🏷️"
+            icon="tag-outline"
             label="Categories"
             onPress={() => navigation.navigate('CategoryManagement')}
             value="Manage"
           />
           <SettingsRow
             description="Pre-fill common transactions with one tap"
-            icon="⚡"
+            icon="lightning-bolt"
             label="Quick Templates"
             onPress={() => navigation.navigate('TemplateManagement')}
             value="Manage"
           />
           <SettingsRow
             description="Export transactions as CSV or JSON"
-            icon="📤"
+            icon="export-variant"
             label="Export Data"
             onPress={() => navigation.navigate('Export')}
             value="Export"
@@ -357,17 +359,28 @@ export default function SettingsScreen() {
         </View>
 
         <SectionHeader title="ABOUT" />
-        <View style={{gap: spacing.sm}}>
-          <SettingsRow
-            icon="📱"
-            label="App Version"
-            value="1.0.0"
-          />
-          <SettingsRow
-            icon="🏗️"
-            label="Architecture"
-            value="Clean + TDD"
-          />
+        <View
+          style={[
+            styles.aboutCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.borderLight,
+              borderRadius: radius.lg,
+              padding: spacing.base,
+            },
+          ]}>
+          <WalletPulseLogoMark size={56} />
+          <View style={styles.aboutInfo}>
+            <Text style={[styles.aboutName, {color: colors.text}]}>
+              WalletPulse
+            </Text>
+            <Text style={[styles.aboutVersion, {color: colors.textSecondary}]}>
+              Version 1.0.0
+            </Text>
+            <Text style={[styles.aboutDesc, {color: colors.textTertiary}]}>
+              Smart, offline-first expense tracker
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -457,5 +470,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     marginTop: 4,
+  },
+  aboutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 16,
+  },
+  aboutInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  aboutName: {
+    fontSize: 18,
+    fontWeight: fontWeight.bold,
+  },
+  aboutVersion: {
+    fontSize: 13,
+    fontWeight: fontWeight.medium,
+  },
+  aboutDesc: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

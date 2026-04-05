@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {useTheme} from '@shared/theme';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Props = {
   message: string;
@@ -13,7 +14,7 @@ export function ErrorState({message, onRetry}: Props) {
   return (
     <View style={styles.container}>
       <View style={[styles.iconContainer, {backgroundColor: colors.dangerLight, borderRadius: radius.lg}]}>
-        <Text style={styles.icon}>⚠️</Text>
+        <AppIcon name="alert-circle-outline" size={32} color={colors.danger} />
       </View>
       <Text style={[styles.title, {color: colors.text}]}>Something went wrong</Text>
       <Text style={[styles.message, {color: colors.textSecondary}]}>{message}</Text>

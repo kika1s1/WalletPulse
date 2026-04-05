@@ -1,6 +1,7 @@
 import React from 'react';
-import {Text} from 'react-native';
+import {StyleSheet, View, Platform} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {TabParamList} from './types';
 import {useTheme} from '@shared/theme';
 import HomeStack from './HomeStack';
@@ -8,25 +9,34 @@ import TransactionsStack from './TransactionsStack';
 import WalletsStack from './WalletsStack';
 import AnalyticsStack from './AnalyticsStack';
 import SettingsStack from './SettingsStack';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 type TabBarIconProps = {focused: boolean; color: string; size: number};
 
-function createTabTextIcon(label: string) {
-  return function TabBarTextIcon({color}: TabBarIconProps) {
-    return <Text style={{color}}>{label}</Text>;
+function createTabIcon(name: string, focusedName?: string) {
+  return function TabBarIcon({focused, color, size}: TabBarIconProps) {
+    return (
+      <MaterialCommunityIcons
+        name={focused ? (focusedName ?? name) : name}
+        size={size}
+        color={color}
+      />
+    );
   };
 }
 
-const homeTabBarIcon = createTabTextIcon('home');
-const transactionsTabBarIcon = createTabTextIcon('list');
-const walletsTabBarIcon = createTabTextIcon('wallet');
-const analyticsTabBarIcon = createTabTextIcon('chart');
-const settingsTabBarIcon = createTabTextIcon('settings');
+const homeIcon = createTabIcon('home-outline', 'home');
+const transactionsIcon = createTabIcon('swap-horizontal', 'swap-horizontal-bold');
+const walletsIcon = createTabIcon('wallet-outline', 'wallet');
+const analyticsIcon = createTabIcon('chart-line', 'chart-line-variant');
+const settingsIcon = createTabIcon('cog-outline', 'cog');
 
 export default function TabNavigator() {
-  const {colors} = useTheme();
+  const {colors, shadows} = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
@@ -37,6 +47,16 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: 56 + bottomPadding,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
+          ...shadows.sm,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 2,
         },
       }}>
       <Tab.Screen
@@ -44,7 +64,7 @@ export default function TabNavigator() {
         component={HomeStack}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: homeTabBarIcon,
+          tabBarIcon: homeIcon,
         }}
       />
       <Tab.Screen
@@ -52,7 +72,7 @@ export default function TabNavigator() {
         component={TransactionsStack}
         options={{
           tabBarLabel: 'Transactions',
-          tabBarIcon: transactionsTabBarIcon,
+          tabBarIcon: transactionsIcon,
         }}
       />
       <Tab.Screen
@@ -60,7 +80,7 @@ export default function TabNavigator() {
         component={WalletsStack}
         options={{
           tabBarLabel: 'Wallets',
-          tabBarIcon: walletsTabBarIcon,
+          tabBarIcon: walletsIcon,
         }}
       />
       <Tab.Screen
@@ -68,7 +88,7 @@ export default function TabNavigator() {
         component={AnalyticsStack}
         options={{
           tabBarLabel: 'Analytics',
-          tabBarIcon: analyticsTabBarIcon,
+          tabBarIcon: analyticsIcon,
         }}
       />
       <Tab.Screen
@@ -76,7 +96,7 @@ export default function TabNavigator() {
         component={SettingsStack}
         options={{
           tabBarLabel: 'Settings',
-          tabBarIcon: settingsTabBarIcon,
+          tabBarIcon: settingsIcon,
         }}
       />
     </Tab.Navigator>

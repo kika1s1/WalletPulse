@@ -18,22 +18,10 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeArchiveCategory} from '@domain/usecases/archive-category';
 import type {Category} from '@domain/entities/Category';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CategoryManagement'>;
 type Tab = 'expense' | 'income';
-
-const EMOJI_MAP: Record<string, string> = {
-  'fork-knife': '🍴', 'shopping-cart': '🛒', car: '🚗', bag: '🛍️',
-  film: '🎬', 'heart-pulse': '💊', home: '🏠', lightbulb: '💡',
-  briefcase: '💼', airplane: '✈️', 'graduation-cap': '🎓', sparkles: '✨',
-  gift: '🎁', 'shield-check': '🛡️', receipt: '🧾', banknotes: '💵',
-  laptop: '💻', 'trending-up': '📈', 'arrows-right-left': '🔄',
-  refresh: '🔄', ellipsis: '···', coffee: '☕', star: '⭐',
-};
-
-function resolveEmoji(icon: string): string {
-  return EMOJI_MAP[icon] ?? icon;
-}
 
 function hexWithAlpha(hex: string, alpha: string): string {
   if (hex.length === 7 && hex.startsWith('#')) {
@@ -70,7 +58,7 @@ function CategoryRow({
           styles.catIcon,
           {backgroundColor: hexWithAlpha(cat.color, '22')},
         ]}>
-        <Text style={styles.catIconText}>{resolveEmoji(cat.icon)}</Text>
+        <AppIcon name={resolveIconName(cat.icon)} size={20} color={cat.color} />
       </View>
 
       <View style={styles.catCenter}>
@@ -272,7 +260,7 @@ export default function CategoryManagementScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <AppIcon name="alert-circle-outline" size={40} color={colors.danger} />
           <Text style={[styles.errorTitle, {color: colors.text}]}>
             Failed to load
           </Text>
@@ -285,7 +273,7 @@ export default function CategoryManagementScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>🏷️</Text>
+          <AppIcon name="tag-outline" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, {color: colors.text}]}>
             No {tab} categories
           </Text>

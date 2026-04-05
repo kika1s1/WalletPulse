@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
@@ -14,12 +14,14 @@ import {QuickActions, type QuickAction} from '@presentation/components/QuickActi
 import {MiniBarChart} from '@presentation/components/charts/MiniBarChart';
 import {InsightCard} from '@presentation/components/InsightCard';
 import {TransactionCard} from '@presentation/components/TransactionCard';
+import {WalletPulseLogo} from '@presentation/components/WalletPulseLogo';
 import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
 import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
 import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import type {HomeStackParamList} from '@presentation/navigation/types';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -71,7 +73,7 @@ export default function DashboardScreen() {
     (): QuickAction[] => [
       {
         label: 'Expense',
-        icon: '💸',
+        icon: 'arrow-down-circle-outline',
         color: colors.expense,
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
@@ -81,7 +83,7 @@ export default function DashboardScreen() {
       },
       {
         label: 'Income',
-        icon: '💰',
+        icon: 'arrow-up-circle-outline',
         color: colors.income,
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
@@ -91,7 +93,7 @@ export default function DashboardScreen() {
       },
       {
         label: 'Transfer',
-        icon: '🔄',
+        icon: 'swap-horizontal',
         color: colors.transfer,
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
@@ -101,7 +103,7 @@ export default function DashboardScreen() {
       },
       {
         label: 'Wallets',
-        icon: '👛',
+        icon: 'wallet-outline',
         color: colors.primary,
         onPress: () =>
           navigation.getParent()?.navigate('WalletsTab', {
@@ -138,6 +140,26 @@ export default function DashboardScreen() {
   return (
     <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+        <Spacer size={spacing.sm} />
+        <View style={styles.brandHeader}>
+          <WalletPulseLogo size={32} variant="full" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search transactions"
+            onPress={() =>
+              navigation.getParent()?.navigate('TransactionsTab', {
+                screen: 'Search',
+              })
+            }
+            hitSlop={10}
+          >
+            <MaterialCommunityIcons
+              name="magnify"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        </View>
         <Spacer size={spacing.base} />
         <BalanceHeader
           totalBalance={totalBalance}
@@ -259,6 +281,12 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   padded: {
     alignSelf: 'stretch',
+  },
+  brandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
   },
   insightGap: {
     marginTop: 8,

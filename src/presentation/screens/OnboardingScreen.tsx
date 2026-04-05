@@ -27,7 +27,9 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Input} from '@presentation/components/common';
 import {Chip} from '@presentation/components/common/Chip';
+import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {
   getOnboardingSteps,
@@ -42,10 +44,10 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 const STEP_ICONS: Record<string, string> = {
-  wallet: 'W',
-  currency: '$',
-  creditcard: 'C',
-  bell: 'N',
+  wallet: 'wallet-outline',
+  currency: 'swap-horizontal-circle-outline',
+  creditcard: 'credit-card-outline',
+  bell: 'bell-outline',
 };
 
 function StepIndicator({total, current, colors}: {total: number; current: number; colors: any}) {
@@ -79,14 +81,7 @@ function WelcomeStep({colors, typography}: any) {
   return (
     <View style={styles.stepContent}>
       <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.iconCircle}>
-        <View
-          style={[
-            styles.iconBubble,
-            {backgroundColor: colors.primaryLight + '33'},
-          ]}
-        >
-          <Text style={[styles.heroIcon, {color: colors.primary}]}>W</Text>
-        </View>
+        <WalletPulseLogoMark size={88} />
       </Animated.View>
       <Animated.Text
         entering={FadeInUp.delay(300).duration(400)}
@@ -102,10 +97,10 @@ function WelcomeStep({colors, typography}: any) {
       </Animated.Text>
       <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.featureList}>
         {[
-          {icon: 'A', label: 'Auto-detect from notifications'},
-          {icon: 'M', label: 'Multi-currency support'},
-          {icon: 'O', label: 'Works completely offline'},
-          {icon: 'B', label: 'Budget planning and insights'},
+          {icon: 'bell-outline', label: 'Auto-detect from notifications'},
+          {icon: 'swap-horizontal-circle-outline', label: 'Multi-currency support'},
+          {icon: 'wifi-off', label: 'Works completely offline'},
+          {icon: 'chart-bar', label: 'Budget planning and insights'},
         ].map((f, idx) => (
           <Animated.View
             key={f.label}
@@ -113,7 +108,7 @@ function WelcomeStep({colors, typography}: any) {
             style={styles.featureRow}
           >
             <View style={[styles.featureDot, {backgroundColor: colors.success + '33'}]}>
-              <Text style={[styles.featureDotText, {color: colors.success}]}>{f.icon}</Text>
+              <AppIcon name={f.icon} size={14} color={colors.success} />
             </View>
             <Text style={[styles.featureLabel, {color: colors.text}]}>{f.label}</Text>
           </Animated.View>
@@ -292,7 +287,7 @@ function NotificationStep({
         entering={FadeIn.delay(500).duration(300)}
         style={[styles.privacyNote, {backgroundColor: colors.successLight, borderRadius: radius.md}]}
       >
-        <Text style={[styles.privacyIcon]}>S</Text>
+        <Text style={[styles.privacyIcon]}>🔒</Text>
         <Text style={[styles.privacyText, {color: colors.text}]}>
           All data stays on your device. Notifications are processed locally and never sent to any server.
         </Text>

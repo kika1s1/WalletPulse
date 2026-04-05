@@ -53,8 +53,8 @@ export default function CurrencyConverterScreen() {
   const {isLoading: ratesLoading, error: ratesError, lastFetched, isStale, refresh} = useFxRates();
   const {convert} = useConvertCurrency();
 
-  const [fromCurrency, setFromCurrency] = useState(baseCurrency);
-  const [toCurrency, setToCurrency] = useState(
+  const [fromCurrency, setFromCurrency] = useState<string>(baseCurrency);
+  const [toCurrency, setToCurrency] = useState<string>(
     POPULAR_CURRENCIES.find((c) => c !== baseCurrency) ?? 'EUR',
   );
   const [amountCents, setAmountCents] = useState(0);

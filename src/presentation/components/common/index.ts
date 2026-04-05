@@ -1,4 +1,6 @@
 export {AmountInput} from './AmountInput';
+export {AppIcon, resolveIconName, ICON_MAP} from './AppIcon';
+export type {AppIconProps, IconName} from './AppIcon';
 export {Badge} from './Badge';
 export {Button} from './Button';
 export {Card} from './Card';

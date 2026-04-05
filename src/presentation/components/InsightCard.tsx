@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 export type InsightType =
   | 'spending_change'
@@ -27,13 +28,13 @@ export type InsightCardProps = {
   onDismiss?: () => void;
 };
 
-const TYPE_EMOJI: Record<InsightType, string> = {
-  spending_change: '📊',
-  low_balance: '⚠️',
-  bills_due: '📅',
-  subscription_cost: '🔄',
-  goal_progress: '🎯',
-  unusual_transaction: '🚨',
+const TYPE_ICON: Record<InsightType, string> = {
+  spending_change: 'chart-bar',
+  low_balance: 'alert-circle-outline',
+  bills_due: 'calendar-clock',
+  subscription_cost: 'sync-circle',
+  goal_progress: 'target',
+  unusual_transaction: 'alert-outline',
 };
 
 function hexWithAlpha(hex: string, alphaHex: string): string {
@@ -83,9 +84,7 @@ export function InsightCard({
         style={[styles.accentBar, {backgroundColor: accentColor}]}
       />
       <View style={styles.inner}>
-        <Text accessible={false} style={styles.emoji}>
-          {TYPE_EMOJI[type]}
-        </Text>
+        <AppIcon name={TYPE_ICON[type]} size={22} color={accentColor as string} />
         <View style={styles.textBlock}>
           <Text
             numberOfLines={2}

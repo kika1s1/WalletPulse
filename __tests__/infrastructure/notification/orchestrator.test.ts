@@ -9,7 +9,7 @@ function mockTxRepo(): jest.Mocked<ITransactionRepository> {
 }
 
 function mockWalletRepo(): jest.Mocked<IWalletRepository> {
-  return {findById: jest.fn().mockResolvedValue({id: 'w-1', name: 'Main', balance: 100000, currency: 'USD', isActive: true, icon: '💰', color: '#6C5CE7', sortOrder: 0, createdAt: Date.now(), updatedAt: Date.now()}), findAll: jest.fn(), save: jest.fn(), update: jest.fn(), updateBalance: jest.fn().mockResolvedValue(undefined), delete: jest.fn()} as any;
+  return {findById: jest.fn().mockResolvedValue({id: 'w-1', name: 'Main', balance: 100000, currency: 'USD', isActive: true, icon: 'cash-multiple', color: '#6C5CE7', sortOrder: 0, createdAt: Date.now(), updatedAt: Date.now()}), findAll: jest.fn(), save: jest.fn(), update: jest.fn(), updateBalance: jest.fn().mockResolvedValue(undefined), delete: jest.fn()} as any;
 }
 
 function mockLogRepo(): jest.Mocked<INotificationLogRepository> {

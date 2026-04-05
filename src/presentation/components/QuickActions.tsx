@@ -1,6 +1,7 @@
 import React, {useCallback} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useTheme} from '@shared/theme';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 export type QuickAction = {
   label: string;
@@ -64,9 +65,7 @@ function QuickActionItem({action, textSecondaryColor}: ItemProps) {
         hitSlop={8}
       >
         <View style={[styles.circle, {backgroundColor: backgroundTint(action.color)}]}>
-          <Text style={styles.icon} maxFontSizeMultiplier={1.3} importantForAccessibility="no">
-            {action.icon}
-          </Text>
+          <AppIcon name={action.icon} size={22} color={action.color} />
         </View>
         <Text
           style={[styles.label, {color: textSecondaryColor}]}

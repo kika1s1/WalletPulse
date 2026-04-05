@@ -21,7 +21,7 @@ function makeSub(overrides: Partial<Subscription> = {}): Subscription {
     nextDueDate: now + 10 * DAY,
     categoryId: 'entertainment',
     isActive: true,
-    icon: '🎬',
+    icon: 'netflix',
     color: '#E50914',
     createdAt: now - 60 * DAY,
     updatedAt: now,

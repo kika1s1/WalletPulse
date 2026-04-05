@@ -1,4 +1,6 @@
 import {create} from 'zustand';
+import {persist, createJSONStorage} from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SettingsState = {
   themeMode: 'light' | 'dark' | 'system';
@@ -13,15 +15,23 @@ type SettingsState = {
   setOnboardingCompleted: (completed: boolean) => void;
 };
 
-export const useSettingsStore = create<SettingsState>((set) => ({
-  themeMode: 'system',
-  dateFormat: 'US',
-  firstDayOfWeek: 'monday',
-  notificationEnabled: true,
-  onboardingCompleted: false,
-  setThemeMode: (mode) => set({themeMode: mode}),
-  setDateFormat: (format) => set({dateFormat: format}),
-  setFirstDayOfWeek: (day) => set({firstDayOfWeek: day}),
-  setNotificationEnabled: (enabled) => set({notificationEnabled: enabled}),
-  setOnboardingCompleted: (completed) => set({onboardingCompleted: completed}),
-}));
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      themeMode: 'system',
+      dateFormat: 'US',
+      firstDayOfWeek: 'monday',
+      notificationEnabled: true,
+      onboardingCompleted: false,
+      setThemeMode: (mode) => set({themeMode: mode}),
+      setDateFormat: (format) => set({dateFormat: format}),
+      setFirstDayOfWeek: (day) => set({firstDayOfWeek: day}),
+      setNotificationEnabled: (enabled) => set({notificationEnabled: enabled}),
+      setOnboardingCompleted: (completed) => set({onboardingCompleted: completed}),
+    }),
+    {
+      name: 'walletpulse-settings',
+      storage: createJSONStorage(() => AsyncStorage),
+    },
+  ),
+);

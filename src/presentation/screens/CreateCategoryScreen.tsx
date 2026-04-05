@@ -20,26 +20,42 @@ import {makeCreateCategory} from '@domain/usecases/create-category';
 import {makeUpdateCategory} from '@domain/usecases/update-category';
 import {generateId} from '@shared/utils/hash';
 import type {CategoryKind, Category} from '@domain/entities/Category';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateCategory'>;
 type Route = RouteProp<SettingsStackParamList, 'CreateCategory'>;
 
-const ICON_OPTIONS: {icon: string; emoji: string}[] = [
-  {icon: 'fork-knife', emoji: '🍴'}, {icon: 'shopping-cart', emoji: '🛒'},
-  {icon: 'car', emoji: '🚗'}, {icon: 'bag', emoji: '🛍️'},
-  {icon: 'film', emoji: '🎬'}, {icon: 'heart-pulse', emoji: '💊'},
-  {icon: 'home', emoji: '🏠'}, {icon: 'lightbulb', emoji: '💡'},
-  {icon: 'briefcase', emoji: '💼'}, {icon: 'airplane', emoji: '✈️'},
-  {icon: 'graduation-cap', emoji: '🎓'}, {icon: 'sparkles', emoji: '✨'},
-  {icon: 'gift', emoji: '🎁'}, {icon: 'shield-check', emoji: '🛡️'},
-  {icon: 'receipt', emoji: '🧾'}, {icon: 'banknotes', emoji: '💵'},
-  {icon: 'laptop', emoji: '💻'}, {icon: 'trending-up', emoji: '📈'},
-  {icon: 'refresh', emoji: '🔄'}, {icon: 'coffee', emoji: '☕'},
-  {icon: 'star', emoji: '⭐'}, {icon: 'music', emoji: '🎵'},
-  {icon: 'camera', emoji: '📷'}, {icon: 'book', emoji: '📚'},
-  {icon: 'tool', emoji: '🔧'}, {icon: 'globe', emoji: '🌍'},
-  {icon: 'game', emoji: '🎮'}, {icon: 'pet', emoji: '🐾'},
-  {icon: 'flower', emoji: '🌸'}, {icon: 'sport', emoji: '⚽'},
+const ICON_OPTIONS: {key: string; mdi: string}[] = [
+  {key: 'fork-knife', mdi: 'silverware-fork-knife'},
+  {key: 'shopping-cart', mdi: 'cart-outline'},
+  {key: 'car', mdi: 'car-outline'},
+  {key: 'bag', mdi: 'shopping-outline'},
+  {key: 'film', mdi: 'movie-open-outline'},
+  {key: 'heart-pulse', mdi: 'medical-bag'},
+  {key: 'home', mdi: 'home-outline'},
+  {key: 'lightbulb', mdi: 'lightbulb-outline'},
+  {key: 'briefcase', mdi: 'briefcase-outline'},
+  {key: 'airplane', mdi: 'airplane'},
+  {key: 'graduation-cap', mdi: 'school-outline'},
+  {key: 'sparkles', mdi: 'auto-fix'},
+  {key: 'gift', mdi: 'gift-outline'},
+  {key: 'shield-check', mdi: 'shield-check-outline'},
+  {key: 'receipt', mdi: 'receipt'},
+  {key: 'banknotes', mdi: 'cash'},
+  {key: 'laptop', mdi: 'laptop'},
+  {key: 'trending-up', mdi: 'trending-up'},
+  {key: 'refresh', mdi: 'swap-horizontal'},
+  {key: 'coffee', mdi: 'coffee-outline'},
+  {key: 'star', mdi: 'star-outline'},
+  {key: 'music', mdi: 'music-note'},
+  {key: 'camera', mdi: 'camera-outline'},
+  {key: 'book', mdi: 'book-open-outline'},
+  {key: 'tool', mdi: 'wrench-outline'},
+  {key: 'globe', mdi: 'earth'},
+  {key: 'game', mdi: 'gamepad-variant-outline'},
+  {key: 'pet', mdi: 'paw'},
+  {key: 'flower', mdi: 'flower-outline'},
+  {key: 'sport', mdi: 'soccer'},
 ];
 
 const COLOR_PALETTE = [
@@ -141,8 +157,8 @@ export default function CreateCategoryScreen() {
     }
   }, [canSave, color, existing, icon, isEditing, isSaving, name, navigation, type]);
 
-  const selectedEmoji =
-    ICON_OPTIONS.find((o) => o.icon === icon)?.emoji ?? '⭐';
+  const selectedMdi =
+    ICON_OPTIONS.find((o) => o.key === icon)?.mdi ?? 'star-outline';
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -189,7 +205,7 @@ export default function CreateCategoryScreen() {
             shadows.sm,
           ]}>
           <View style={[styles.previewIcon, {backgroundColor: `${color}22`}]}>
-            <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
+            <AppIcon name={selectedMdi} size={28} color={color} />
           </View>
           <Text
             numberOfLines={1}
@@ -274,14 +290,14 @@ export default function CreateCategoryScreen() {
           </Text>
           <View style={styles.iconGrid}>
             {ICON_OPTIONS.map((o) => {
-              const active = icon === o.icon;
+              const active = icon === o.key;
               return (
                 <Pressable
-                  accessibilityLabel={o.icon}
+                  accessibilityLabel={o.key}
                   accessibilityRole="radio"
                   accessibilityState={{selected: active}}
-                  key={o.icon}
-                  onPress={() => setIcon(o.icon)}
+                  key={o.key}
+                  onPress={() => setIcon(o.key)}
                   style={[
                     styles.iconCell,
                     {
@@ -292,7 +308,7 @@ export default function CreateCategoryScreen() {
                       borderRadius: radius.md,
                     },
                   ]}>
-                  <Text style={styles.iconEmoji}>{o.emoji}</Text>
+                  <AppIcon name={o.mdi} size={22} color={active ? color : colors.textSecondary} />
                 </Pressable>
               );
             })}

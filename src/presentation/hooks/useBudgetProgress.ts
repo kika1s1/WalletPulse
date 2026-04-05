@@ -62,7 +62,7 @@ export function useBudgetProgress(
           const progress = await calculate(budget.id);
 
           let categoryName = 'Overall';
-          let categoryIcon = '📊';
+          let categoryIcon = 'chart-bar';
           let categoryColor = '#6C5CE7';
 
           if (!isOverallBudget(budget) && budget.categoryId) {

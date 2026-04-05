@@ -14,6 +14,7 @@ import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {useAnalytics} from '@presentation/hooks/useAnalytics';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 import type {AnalyticsStackParamList} from '@presentation/navigation/types';
 
 type Nav = NativeStackNavigationProp<AnalyticsStackParamList>;
@@ -245,7 +246,7 @@ export default function AnalyticsScreen() {
                     borderRadius: radius.lg,
                   },
                 ]}>
-                <Text style={[styles.converterLinkIcon]}>💱</Text>
+                <AppIcon name="swap-horizontal-circle-outline" size={28} color={colors.primary} />
                 <View style={styles.converterLinkText}>
                   <Text style={[styles.converterLinkTitle, {color: colors.text}]}>
                     Currency Converter

@@ -14,11 +14,12 @@ import {fontWeight} from '@shared/theme/typography';
 import {useNotificationLogs} from '@presentation/hooks/useNotificationLogs';
 import type {NotificationLog} from '@domain/entities/NotificationLog';
 import {wasCreatedAsTransaction} from '@domain/entities/NotificationLog';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
-const SOURCE_EMOJI: Record<string, string> = {
-  'com.payoneer.android': '💳',
-  'com.grey.android': '🏦',
-  'com.dukascopy.bank': '🇨🇭',
+const SOURCE_ICON: Record<string, string> = {
+  'com.payoneer.android': 'credit-card-outline',
+  'com.grey.android': 'bank-outline',
+  'com.dukascopy.bank': 'bank-transfer',
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -87,7 +88,7 @@ function LogItem({
   spacing: ReturnType<typeof useTheme>['spacing'];
 }) {
   const [expanded, setExpanded] = useState(false);
-  const emoji = SOURCE_EMOJI[item.packageName] ?? '📱';
+  const iconName = SOURCE_ICON[item.packageName] ?? 'cellphone';
   const label = SOURCE_LABEL[item.packageName] ?? item.packageName;
   const created = wasCreatedAsTransaction(item);
 
@@ -107,7 +108,7 @@ function LogItem({
       ]}>
       <View style={styles.logTop}>
         <View style={styles.logLeft}>
-          <Text style={styles.logEmoji}>{emoji}</Text>
+          <AppIcon name={iconName} size={24} color={colors.primary} />
           <View style={styles.logMeta}>
             <Text
               numberOfLines={1}
@@ -303,7 +304,7 @@ export default function NotificationLogScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <AppIcon name="alert-circle-outline" size={40} color={colors.danger} />
           <Text style={[styles.errorTitle, {color: colors.text}]}>
             Something went wrong
           </Text>
@@ -325,7 +326,7 @@ export default function NotificationLogScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>📭</Text>
+          <AppIcon name="inbox-outline" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, {color: colors.text}]}>
             No notifications yet
           </Text>

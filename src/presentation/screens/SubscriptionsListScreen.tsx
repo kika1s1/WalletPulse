@@ -16,6 +16,7 @@ import {
   getCostBreakdownByCategory,
 } from '@domain/usecases/subscription-management';
 import type {Subscription} from '@domain/entities/Subscription';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 const DAY = 86400000;
 const now = Date.now();
@@ -30,7 +31,7 @@ const MOCK_SUBSCRIPTIONS: Subscription[] = [
     nextDueDate: now + 8 * DAY,
     categoryId: 'entertainment',
     isActive: true,
-    icon: '🎬',
+    icon: 'netflix',
     color: '#E50914',
     createdAt: now - 365 * DAY,
     updatedAt: now,
@@ -44,7 +45,7 @@ const MOCK_SUBSCRIPTIONS: Subscription[] = [
     nextDueDate: now + 15 * DAY,
     categoryId: 'entertainment',
     isActive: true,
-    icon: '🎵',
+    icon: 'spotify',
     color: '#1DB954',
     createdAt: now - 200 * DAY,
     updatedAt: now,
@@ -58,7 +59,7 @@ const MOCK_SUBSCRIPTIONS: Subscription[] = [
     nextDueDate: now + 20 * DAY,
     categoryId: 'productivity',
     isActive: true,
-    icon: '🐙',
+    icon: 'github',
     color: '#24292F',
     createdAt: now - 180 * DAY,
     updatedAt: now,
@@ -72,7 +73,7 @@ const MOCK_SUBSCRIPTIONS: Subscription[] = [
     nextDueDate: now + 5 * DAY,
     categoryId: 'cloud',
     isActive: true,
-    icon: '☁️',
+    icon: 'cloud',
     color: '#007AFF',
     createdAt: now - 300 * DAY,
     updatedAt: now,
@@ -87,7 +88,7 @@ const MOCK_SUBSCRIPTIONS: Subscription[] = [
     categoryId: 'productivity',
     isActive: false,
     cancelledAt: now - 30 * DAY,
-    icon: '🎨',
+    icon: 'adobe',
     color: '#FF0000',
     createdAt: now - 400 * DAY,
     updatedAt: now - 30 * DAY,
@@ -137,7 +138,7 @@ export default function SubscriptionsListScreen() {
       >
         <View style={styles.subRow}>
           <View style={[styles.subIconWrap, {backgroundColor: sub.color + '18', borderRadius: radius.md}]}>
-            <Text style={styles.subIcon}>{sub.icon}</Text>
+            <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
           </View>
           <View style={{flex: 1}}>
             <Text style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
