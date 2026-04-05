@@ -1,8 +1,9 @@
 import {useMemo} from 'react';
 import {useTransactions} from './useTransactions';
+import {useCategories} from './useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {startOfDay, endOfDay, daysAgo} from '@shared/utils/date-helpers';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import type {Category} from '@domain/entities/Category';
 import type {Transaction} from '@domain/entities/Transaction';
 
 export type CategoryBreakdown = {
@@ -50,6 +51,7 @@ function getMonthRange(): {startMs: number; endMs: number} {
 
 function buildCategoryBreakdown(
   transactions: Transaction[],
+  categoryList: Category[],
 ): CategoryBreakdown[] {
   const expenses = transactions.filter((t) => t.type === 'expense');
   const totalExpenses = expenses.reduce((s, t) => s + t.amount, 0);
@@ -68,7 +70,9 @@ function buildCategoryBreakdown(
 
   const result: CategoryBreakdown[] = [];
   for (const [catId, data] of map.entries()) {
-    const cat = DEFAULT_CATEGORIES.find((c) => c.name === catId);
+    const cat = categoryList.find(
+      (c) => c.id === catId || c.name === catId,
+    );
     result.push({
       categoryId: catId,
       categoryName: cat?.name ?? catId,
@@ -148,6 +152,7 @@ function buildTopMerchants(
 
 export function useAnalytics(): AnalyticsData {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
+  const {categories} = useCategories();
 
   const {
     transactions,
@@ -185,8 +190,8 @@ export function useAnalytics(): AnalyticsData {
   );
 
   const categoryBreakdown = useMemo(
-    () => buildCategoryBreakdown(monthTransactions),
-    [monthTransactions],
+    () => buildCategoryBreakdown(monthTransactions, categories),
+    [monthTransactions, categories],
   );
 
   const dailyTrend = useMemo(

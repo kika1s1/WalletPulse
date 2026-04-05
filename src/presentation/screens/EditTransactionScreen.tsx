@@ -1,12 +1,15 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -17,11 +20,12 @@ import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
 import {ScreenContainer} from '@presentation/components/layout';
 import {TagInput} from '@presentation/components/TagInput';
 import {NotesEditor} from '@presentation/components/NotesEditor';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import type {TransactionsStackParamList} from '@presentation/navigation/types';
 import type {RouteProp} from '@react-navigation/native';
-import type {CreateTransactionInput} from '@domain/entities/Transaction';
-import {getMockTransactionById} from './TransactionsScreen';
+import type {Category} from '@domain/entities/Category';
+import {useTransactionById} from '@presentation/hooks/useTransactions';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
+import {useCategories} from '@presentation/hooks/useCategories';
 import {buildCreateTransactionInputFromForm} from './AddTransactionScreen';
 
 type Nav = NativeStackNavigationProp<TransactionsStackParamList, 'EditTransaction'>;
@@ -36,11 +40,16 @@ function categoryIdFromName(name: string): string {
   return slug || 'category';
 }
 
-function resolveCategory(categoryId: string): {name: string; color: string} | null {
+function resolveCategory(
+  categoryId: string,
+  categories: Category[],
+): {name: string; color: string} | null {
   if (!categoryId) {
     return null;
   }
-  const found = DEFAULT_CATEGORIES.find((c) => categoryIdFromName(c.name) === categoryId);
+  const found =
+    categories.find((c) => c.id === categoryId) ??
+    categories.find((c) => categoryIdFromName(c.name) === categoryId);
   return found ? {name: found.name, color: found.color} : null;
 }
 
@@ -53,26 +62,17 @@ function formatDisplayDate(ts: number): string {
   }).format(new Date(ts));
 }
 
-function mergeUpdateInput(base: CreateTransactionInput, existingId: string, walletId: string, createdAt: number): CreateTransactionInput {
-  return {
-    ...base,
-    id: existingId,
-    walletId,
-    createdAt,
-    updatedAt: Date.now(),
-  };
-}
-
 export default function EditTransactionScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const {colors, spacing, typography} = useTheme();
   const insets = useSafeAreaInsets();
 
-  const existing = useMemo(
-    () => getMockTransactionById(route.params.transactionId),
-    [route.params.transactionId],
+  const {transaction: existing, isLoading, error} = useTransactionById(
+    route.params.transactionId,
   );
+  const {updateTransaction, isSubmitting} = useTransactionActions();
+  const {categories} = useCategories();
 
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [amount, setAmount] = useState(0);
@@ -84,6 +84,7 @@ export default function EditTransactionScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [transactionDate, setTransactionDate] = useState(Date.now());
 
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categoryError, setCategoryError] = useState<string | undefined>(undefined);
@@ -108,10 +109,13 @@ export default function EditTransactionScreen() {
     setTransactionDate(existing.transactionDate);
   }, [existing]);
 
-  const categoryMeta = useMemo(() => resolveCategory(categoryId), [categoryId]);
+  const categoryMeta = useMemo(
+    () => resolveCategory(categoryId, categories),
+    [categories, categoryId],
+  );
   const categoryPickerFilter = type === 'transfer' ? undefined : type;
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!existing) {
       return;
     }
@@ -126,20 +130,40 @@ export default function EditTransactionScreen() {
     }
     setCategoryError(undefined);
 
-    const draft = buildCreateTransactionInputFromForm({
-      type,
-      amount,
-      currency,
-      categoryId,
-      description,
-      merchant,
-      notes,
-      tags,
-      transactionDate,
-    });
-    const payload = mergeUpdateInput(draft, existing.id, existing.walletId, existing.createdAt);
-    console.log('UpdateTransactionInput (mock)', payload);
-    navigation.goBack();
+    const draft = buildCreateTransactionInputFromForm(
+      {
+        type,
+        amount,
+        currency,
+        categoryId,
+        description,
+        merchant,
+        notes,
+        tags,
+        transactionDate,
+      },
+      existing.walletId,
+    );
+    try {
+      await updateTransaction({
+        id: existing.id,
+        walletId: draft.walletId,
+        categoryId: draft.categoryId,
+        amount: draft.amount,
+        currency: draft.currency,
+        type: draft.type,
+        description: draft.description,
+        merchant: draft.merchant,
+        notes: draft.notes,
+        tags: draft.tags,
+        transactionDate: draft.transactionDate,
+        updatedAt: Date.now(),
+      });
+      navigation.goBack();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      Alert.alert('Could not update transaction', message);
+    }
   }, [
     amount,
     categoryId,
@@ -152,8 +176,39 @@ export default function EditTransactionScreen() {
     tags,
     transactionDate,
     type,
+    updateTransaction,
   ]);
 
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View
+          style={{
+            flex: 1,
+            paddingHorizontal: spacing.base,
+            paddingTop: spacing.xl,
+            alignItems: 'center',
+          }}>
+          <ActivityIndicator accessibilityLabel="Loading transaction" color={colors.primary} size="large" />
+          <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.md}]}>Loading…</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScreenContainer>
+        <View style={{flex: 1, paddingHorizontal: spacing.base, paddingTop: spacing.xl}}>
+          <Text style={[typography.title3, {color: colors.text}]}>Something went wrong</Text>
+          <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>{error}</Text>
+          <View style={{marginTop: spacing.lg}}>
+            <Button onPress={() => navigation.goBack()} title="Go back" />
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   if (!existing) {
     return (
@@ -161,7 +216,7 @@ export default function EditTransactionScreen() {
         <View style={{flex: 1, paddingHorizontal: spacing.base, paddingTop: spacing.xl}}>
           <Text style={[typography.title3, {color: colors.text}]}>Transaction not found</Text>
           <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>
-            This id is not in the mock data set yet.
+            This transaction may have been deleted or is no longer available.
           </Text>
           <View style={{marginTop: spacing.lg}}>
             <Button onPress={() => navigation.goBack()} title="Go back" />
@@ -255,15 +310,30 @@ export default function EditTransactionScreen() {
             value={merchant}
           />
 
-          <Card padding="md">
+          <Card onPress={() => setShowDatePicker(true)} padding="md">
             <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Date</Text>
-            <Text style={[typography.body, {color: colors.text, fontWeight: '500', marginTop: 4}]}>
-              {formatDisplayDate(transactionDate)}
-            </Text>
-            <Text style={[typography.caption, {color: colors.textTertiary, marginTop: 6}]}>
-              Date picker arrives in a later release. Showing stored transaction date.
-            </Text>
+            <View style={styles.dateRow}>
+              <Text style={[typography.body, {color: colors.text, fontWeight: '500', flex: 1}]}>
+                {formatDisplayDate(transactionDate)}
+              </Text>
+              <Text style={[typography.caption, {color: colors.primary}]}>Change</Text>
+            </View>
           </Card>
+          {showDatePicker && (
+            <DateTimePicker
+              maximumDate={new Date()}
+              mode="date"
+              onChange={(_e, selected) => {
+                if (Platform.OS === 'android') {
+                  setShowDatePicker(false);
+                }
+                if (selected) {
+                  setTransactionDate(selected.getTime());
+                }
+              }}
+              value={new Date(transactionDate)}
+            />
+          )}
 
           <NotesEditor
             value={notes}
@@ -276,7 +346,13 @@ export default function EditTransactionScreen() {
             onTagsChange={setTags}
           />
 
-          <Button fullWidth onPress={handleSave} size="lg" title="Update Transaction" />
+          <Button
+            fullWidth
+            loading={isSubmitting}
+            onPress={handleSave}
+            size="lg"
+            title="Update Transaction"
+          />
         </ScrollView>
       </ScreenContainer>
 
@@ -343,6 +419,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 14,
     width: 14,
+  },
+  dateRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginTop: 4,
   },
   inlineError: {
     fontSize: 12,

@@ -1,6 +1,9 @@
-import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, View, StyleSheet} from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
+import React, {useMemo} from 'react';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import type {RootStackParamList} from './types';
 import OnboardingScreen from '@presentation/screens/OnboardingScreen';
@@ -10,48 +13,35 @@ import {useTheme} from '@shared/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function useHydrated() {
-  const [hydrated, setHydrated] = useState(useSettingsStore.persist.hasHydrated());
-
-  useEffect(() => {
-    if (hydrated) return;
-    const unsub = useSettingsStore.persist.onFinishHydration(() => setHydrated(true));
-    return unsub;
-  }, [hydrated]);
-
-  return hydrated;
-}
-
 export default function AppNavigator() {
-  const hydrated = useHydrated();
   const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
-  const {colors} = useTheme();
+  const {colors, isDark} = useTheme();
 
-  if (!hydrated) {
-    return (
-      <View style={[styles.splash, {backgroundColor: colors.background}]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const navTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.text,
+        border: colors.border,
+        notification: colors.danger,
+      },
+    };
+  }, [colors, isDark]);
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={onboardingCompleted ? 'MainTabs' : 'Onboarding'}
-        screenOptions={{headerShown: false}}
-      >
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="MainTabs" component={TabNavigator} options={{headerShown: false}} />
+    <NavigationContainer theme={navTheme}>
+      <Stack.Navigator screenOptions={{headerShown: false}}>
+        {onboardingCompleted ? (
+          <Stack.Screen name="MainTabs" component={TabNavigator} />
+        ) : (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

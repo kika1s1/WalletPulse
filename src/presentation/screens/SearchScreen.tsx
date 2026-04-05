@@ -37,7 +37,6 @@ import {
   getRecentSearches,
   clearRecentSearches,
 } from '@domain/usecases/saved-filters';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
 
@@ -52,14 +51,6 @@ function categoryIdFromName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'category';
-}
-
-function getCategoryDisplay(categoryId: string): {name: string; icon: string; color: string} {
-  const found = DEFAULT_CATEGORIES.find((c) => categoryIdFromName(c.name) === categoryId);
-  if (found) {
-    return {name: found.name, icon: found.icon, color: found.color};
-  }
-  return {name: 'Other', icon: '...', color: '#B2BEC3'};
 }
 
 function highlightMatch(text: string, query: string): React.ReactNode {
@@ -168,6 +159,22 @@ export default function SearchScreen() {
   const {categories} = useCategories();
   const {wallets} = useWallets();
 
+  const getCategoryDisplay = useCallback(
+    (categoryId: string): {name: string; icon: string; color: string} => {
+      const found = categories.find(
+        (c) =>
+          c.id === categoryId ||
+          c.name === categoryId ||
+          categoryIdFromName(c.name) === categoryId,
+      );
+      if (found) {
+        return {name: found.name, icon: found.icon, color: found.color};
+      }
+      return {name: 'Other', icon: '...', color: '#B2BEC3'};
+    },
+    [categories],
+  );
+
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const [showSort, setShowSort] = useState(false);
 
@@ -273,7 +280,7 @@ export default function SearchScreen() {
       });
     }
     return chips;
-  }, [filters, setFilters, wallets]);
+  }, [filters, setFilters, getCategoryDisplay, wallets]);
 
   const renderItem = useCallback(
     ({item}: {item: Transaction}) => {
@@ -302,7 +309,7 @@ export default function SearchScreen() {
         </View>
       );
     },
-    [query, openDetail, openEdit, spacing.base, spacing.sm],
+    [query, openDetail, openEdit, getCategoryDisplay, spacing.base, spacing.sm],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);

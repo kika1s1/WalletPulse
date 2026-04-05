@@ -11,6 +11,7 @@ import {
   getDefaultTemplates,
   type TransactionTemplate,
 } from '@domain/usecases/quick-action-templates';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 function hexToAlpha(hex: string, alpha: string): string {
   const m = /^#([0-9A-Fa-f]{6})$/.exec(hex.trim());
@@ -62,7 +63,7 @@ export default function TemplateManagementScreen() {
                 {backgroundColor: hexToAlpha(item.color, '22')},
               ]}
             >
-              <Text style={[styles.iconText, {color: item.color}]}>{item.icon}</Text>
+              <AppIcon name={resolveIconName(item.icon)} size={20} color={item.color} />
             </View>
 
             <View style={styles.cardContent}>

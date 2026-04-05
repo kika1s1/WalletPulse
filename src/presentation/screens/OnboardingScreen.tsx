@@ -37,6 +37,11 @@ import {
   type OnboardingState,
 } from '@domain/usecases/onboarding-validation';
 import {POPULAR_CURRENCIES} from '@shared/constants/currencies';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import database from '@data/database';
+import {makeCreateWallet} from '@domain/usecases/create-wallet';
+import {generateId} from '@shared/utils/hash';
+import {seedDefaultCategories} from '@data/seed/categories';
 import type {RootStackParamList} from '@presentation/navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
@@ -287,7 +292,7 @@ function NotificationStep({
         entering={FadeIn.delay(500).duration(300)}
         style={[styles.privacyNote, {backgroundColor: colors.successLight, borderRadius: radius.md}]}
       >
-        <Text style={[styles.privacyIcon]}>🔒</Text>
+        <AppIcon name="lock-outline" size={16} color={colors.success} />
         <Text style={[styles.privacyText, {color: colors.text}]}>
           All data stays on your device. Notifications are processed locally and never sent to any server.
         </Text>
@@ -338,17 +343,40 @@ export default function OnboardingScreen() {
     }
   }, [currentStep]);
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback(async () => {
     const err = validateOnboardingStep(steps[currentStep].id, state);
     if (err) {
       setStepError(err);
       return;
     }
 
+    try {
+      const ds = getLocalDataSource();
+
+      await seedDefaultCategories(database);
+
+      const create = makeCreateWallet({walletRepo: ds.wallets});
+      const now = Date.now();
+      await create({
+        id: generateId(),
+        name: walletName.trim() || 'Main Account',
+        currency: currency.toUpperCase(),
+        balance: 0,
+        isActive: true,
+        icon: 'wallet',
+        color: '#6C5CE7',
+        sortOrder: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } catch (_e) {
+      // Non-blocking: wallet or categories may already exist
+    }
+
     setBaseCurrency(currency);
     setOnboardingCompleted(true);
     navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
-  }, [currentStep, steps, state, currency, setBaseCurrency, setOnboardingCompleted, navigation]);
+  }, [currentStep, steps, state, walletName, currency, setBaseCurrency, setOnboardingCompleted, navigation]);
 
   const handleSkip = useCallback(() => {
     setOnboardingCompleted(true);

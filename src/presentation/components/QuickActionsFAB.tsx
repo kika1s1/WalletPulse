@@ -16,6 +16,7 @@ import {
   getDefaultTemplates,
   type TransactionTemplate,
 } from '@domain/usecases/quick-action-templates';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 type Props = {
   onSelectTemplate: (template: TransactionTemplate) => void;
@@ -137,7 +138,7 @@ export function QuickActionsFAB({onSelectTemplate, onAddManual, onManageTemplate
                     {backgroundColor: hexToAlpha(tpl.color, '22')},
                   ]}
                 >
-                  <Text style={[styles.menuIconText, {color: tpl.color}]}>{tpl.icon}</Text>
+                  <AppIcon name={resolveIconName(tpl.icon)} size={20} color={tpl.color} />
                 </View>
                 <View style={styles.menuItemContent}>
                   <Text

@@ -9,6 +9,7 @@ import type {SearchFilters} from '@presentation/hooks/useSearch';
 import type {Category} from '@domain/entities/Category';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {TransactionType, TransactionSource} from '@domain/entities/Transaction';
+import {resolveIconName} from './common/AppIcon';
 
 type Props = {
   filters: SearchFilters;
@@ -292,7 +293,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                   {categories.slice(0, 15).map((cat) => (
                     <Chip
                       key={cat.id}
-                      label={`${cat.icon} ${cat.name}`}
+                      label={cat.name}
                       selected={draft.categoryId === cat.id}
                       onPress={() => toggleCategory(cat.id)}
                       color={cat.color}
@@ -309,7 +310,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                   {wallets.map((w) => (
                     <Chip
                       key={w.id}
-                      label={`${w.icon} ${w.name}`}
+                      label={w.name}
                       selected={draft.walletId === w.id}
                       onPress={() => toggleWallet(w.id)}
                       color={w.color}

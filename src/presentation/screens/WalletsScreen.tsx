@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
@@ -47,13 +47,23 @@ export default function WalletsScreen() {
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.base} />
 
-        <Text
-          style={[
-            styles.screenTitle,
-            {color: colors.text},
-          ]}>
-          Wallets
-        </Text>
+        <View style={styles.titleRow}>
+          <Text
+            style={[
+              styles.screenTitle,
+              {color: colors.text},
+            ]}>
+            Wallets
+          </Text>
+          <Pressable
+            accessibilityLabel="Add wallet"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => navigation.navigate('CreateWallet')}
+            style={[styles.addBtn, {backgroundColor: colors.primary, borderRadius: radius.sm}]}>
+            <Text style={styles.addBtnText}>+ Add</Text>
+          </Pressable>
+        </View>
 
         {isLoading ? (
           <View style={styles.summaryLoading}>
@@ -97,7 +107,7 @@ export default function WalletsScreen() {
             title="No wallets yet"
             message="Create your first wallet to start tracking expenses across your accounts."
             actionLabel="Add Wallet"
-            onAction={() => {}}
+            onAction={() => navigation.navigate('CreateWallet')}
           />
         ) : (
           <>
@@ -154,10 +164,24 @@ const styles = StyleSheet.create({
   padded: {
     alignSelf: 'stretch',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   screenTitle: {
     fontSize: 28,
     fontWeight: fontWeight.bold,
     letterSpacing: -0.3,
+  },
+  addBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  addBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: fontWeight.semibold,
   },
   summaryBlock: {
     marginTop: 8,

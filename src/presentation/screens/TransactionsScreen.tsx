@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import {useNavigation} from '@react-navigation/native';
@@ -8,6 +8,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
 import {ScreenContainer, SectionHeader} from '@presentation/components/layout';
 import {EmptyState} from '@presentation/components/feedback';
+import {ErrorState} from '@presentation/components/feedback/ErrorState';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {Chip} from '@presentation/components/common';
 import {QuickActionsFAB} from '@presentation/components/QuickActionsFAB';
 import {applyTemplate} from '@domain/usecases/quick-action-templates';
@@ -16,31 +18,18 @@ import {TransactionCard} from '@presentation/components/TransactionCard';
 import {toDateString, isToday} from '@shared/utils/date-helpers';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import {useTransactions} from '@presentation/hooks/useTransactions';
+import {useCategories} from '@presentation/hooks/useCategories';
+import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
 
 const MS_PER_DAY = 86400000;
+
+const UNKNOWN_CATEGORY = {name: 'Other', icon: '•', color: '#B2BEC3'} as const;
 
 type TransactionsNav = CompositeNavigationProp<
   NativeStackNavigationProp<TransactionsStackParamList, 'TransactionsList'>,
   BottomTabNavigationProp<TabParamList>
 >;
-
-function categoryIdFromName(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || 'category';
-}
-
-function getCategoryDisplay(categoryId: string): {name: string; icon: string; color: string} {
-  const found = DEFAULT_CATEGORIES.find((c) => categoryIdFromName(c.name) === categoryId);
-  if (found) {
-    return {name: found.name, icon: found.icon, color: found.color};
-  }
-  return {name: 'Other', icon: '•', color: '#B2BEC3'};
-}
 
 function isYesterday(ts: number, refMs: number): boolean {
   return toDateString(ts) === toDateString(refMs - MS_PER_DAY);
@@ -77,238 +66,26 @@ function groupTransactionsByDate(transactions: Transaction[], refMs: number = Da
   });
 }
 
-const nowSeed = Date.now();
-
-export const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'mock-1',
-    walletId: 'wallet-default',
-    categoryId: 'food-and-dining',
-    amount: 1299,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Lunch meeting',
-    merchant: 'Urban Kitchen',
-    source: 'manual',
-    sourceHash: '',
-    tags: ['team', 'food'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: 'Client lunch',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 45 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-2',
-    walletId: 'wallet-default',
-    categoryId: 'transportation',
-    amount: 1850,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Ride to airport',
-    merchant: 'Metro Cars',
-    source: 'grey',
-    sourceHash: 'g1',
-    tags: ['travel'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 0.95,
-    notes: '',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 3 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-3',
-    walletId: 'wallet-default',
-    categoryId: 'salary',
-    amount: 450000,
-    currency: 'USD',
-    type: 'income',
-    description: 'Salary deposit',
-    merchant: 'Acme Payroll',
-    source: 'payoneer',
-    sourceHash: 'p1',
-    tags: ['payroll'],
-    receiptUri: '',
-    isRecurring: true,
-    recurrenceRule: 'MONTHLY',
-    confidence: 1,
-    notes: 'March cycle',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 5 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-4',
-    walletId: 'wallet-default',
-    categoryId: 'groceries',
-    amount: 6725,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Weekly groceries',
-    merchant: 'Fresh Market',
-    source: 'manual',
-    sourceHash: '',
-    tags: ['home'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: '',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - MS_PER_DAY + 2 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-5',
-    walletId: 'wallet-default',
-    categoryId: 'entertainment',
-    amount: 1499,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Streaming renewal',
-    merchant: 'StreamBox',
-    source: 'manual',
-    sourceHash: '',
-    tags: ['subs'],
-    receiptUri: '',
-    isRecurring: true,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: '',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - MS_PER_DAY + 8 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-6',
-    walletId: 'wallet-default',
-    categoryId: 'freelance-income',
-    amount: 120000,
-    currency: 'USD',
-    type: 'income',
-    description: 'Invoice #1042 paid',
-    merchant: 'Northwind Studio',
-    source: 'dukascopy',
-    sourceHash: 'd1',
-    tags: ['client-a'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: 'Logo refresh phase 1',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - MS_PER_DAY + 14 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-7',
-    walletId: 'wallet-default',
-    categoryId: 'transfer',
-    amount: 25000,
-    currency: 'USD',
-    type: 'transfer',
-    description: 'Wallet top up',
-    merchant: 'Internal',
-    source: 'manual',
-    sourceHash: '',
-    tags: [],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: 'From savings',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 3 * MS_PER_DAY + 10 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-8',
-    walletId: 'wallet-default',
-    categoryId: 'utilities',
-    amount: 8900,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Electric bill',
-    merchant: 'City Power',
-    source: 'manual',
-    sourceHash: '',
-    tags: ['bills'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: '',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 3 * MS_PER_DAY + 16 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-  {
-    id: 'mock-9',
-    walletId: 'wallet-default',
-    categoryId: 'shopping',
-    amount: 4599,
-    currency: 'USD',
-    type: 'expense',
-    description: 'Office chair pad',
-    merchant: 'DeskPro',
-    source: 'manual',
-    sourceHash: '',
-    tags: ['office'],
-    receiptUri: '',
-    isRecurring: false,
-    recurrenceRule: '',
-    confidence: 1,
-    notes: '',
-    isTemplate: false,
-    templateName: '',
-    transactionDate: nowSeed - 3 * MS_PER_DAY + 18 * 60 * 60 * 1000,
-    createdAt: nowSeed,
-    updatedAt: nowSeed,
-  },
-];
-
-export function getMockTransactionById(id: string): Transaction | undefined {
-  return MOCK_TRANSACTIONS.find((t) => t.id === id);
-}
-
-type FilterKey = 'all' | 'expense' | 'income' | 'transfer';
-
 export default function TransactionsScreen() {
   const navigation = useNavigation<TransactionsNav>();
   const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<FilterKey>('all');
 
-  const filtered = useMemo(() => {
-    if (filter === 'all') {
-      return MOCK_TRANSACTIONS;
+  const typeFilter = useFilterStore((s) => s.typeFilter);
+  const setTypeFilter = useFilterStore((s) => s.setTypeFilter);
+
+  const {transactions, isLoading, error, refetch} = useTransactions();
+  const {categories} = useCategories();
+
+  const categoryById = useMemo(() => {
+    const map = new Map<string, {name: string; icon: string; color: string}>();
+    for (const c of categories) {
+      map.set(c.id, {name: c.name, icon: c.icon, color: c.color});
     }
-    return MOCK_TRANSACTIONS.filter((t) => t.type === filter);
-  }, [filter]);
+    return map;
+  }, [categories]);
 
-  const sections = useMemo(() => groupTransactionsByDate(filtered), [filtered]);
+  const sections = useMemo(() => groupTransactionsByDate(transactions), [transactions]);
 
   const openAdd = useCallback(() => {
     navigation.navigate('AddTransaction');
@@ -354,7 +131,7 @@ export default function TransactionsScreen() {
 
   const renderItem = useCallback(
     ({item}: {item: Transaction}) => {
-      const cat = getCategoryDisplay(item.categoryId);
+      const cat = categoryById.get(item.categoryId) ?? UNKNOWN_CATEGORY;
       return (
         <View style={{paddingHorizontal: spacing.base, paddingBottom: spacing.sm}}>
           <TransactionCard
@@ -376,7 +153,7 @@ export default function TransactionsScreen() {
         </View>
       );
     },
-    [openDetail, openEdit, spacing.base, spacing.sm],
+    [categoryById, openDetail, openEdit, spacing.base, spacing.sm],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
@@ -392,6 +169,13 @@ export default function TransactionsScreen() {
     ),
     [openAdd],
   );
+
+  const setTabFilter = useCallback((next: TransactionTypeFilter) => {
+    setTypeFilter(next);
+  }, [setTypeFilter]);
+
+  const showInitialLoading = isLoading && transactions.length === 0;
+  const showFatalError = Boolean(error) && !isLoading && transactions.length === 0;
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -414,40 +198,58 @@ export default function TransactionsScreen() {
             showsHorizontalScrollIndicator={false}>
             <Chip
               label="All"
-              onPress={() => setFilter('all')}
-              selected={filter === 'all'}
+              onPress={() => setTabFilter('all')}
+              selected={typeFilter === 'all'}
             />
             <Chip
               label="Expenses"
-              onPress={() => setFilter('expense')}
-              selected={filter === 'expense'}
+              onPress={() => setTabFilter('expense')}
+              selected={typeFilter === 'expense'}
             />
             <Chip
               label="Income"
-              onPress={() => setFilter('income')}
-              selected={filter === 'income'}
+              onPress={() => setTabFilter('income')}
+              selected={typeFilter === 'income'}
             />
             <Chip
               label="Transfers"
-              onPress={() => setFilter('transfer')}
-              selected={filter === 'transfer'}
+              onPress={() => setTabFilter('transfer')}
+              selected={typeFilter === 'transfer'}
             />
           </ScrollView>
         </View>
 
-        <SectionList
-          sections={sections}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          stickySectionHeadersEnabled
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingBottom: insets.bottom + 88,
-          }}
-          ListEmptyComponent={listEmpty}
-          showsVerticalScrollIndicator={false}
-        />
+        {showFatalError ? (
+          <View style={styles.errorWrap}>
+            <ErrorState message={error ?? 'Unknown error'} onRetry={refetch} />
+          </View>
+        ) : showInitialLoading ? (
+          <View
+            style={[
+              styles.skeletonBlock,
+              {paddingHorizontal: spacing.base, paddingTop: spacing.sm},
+            ]}>
+            <Skeleton width="100%" height={72} borderRadius={radius.md} />
+            <View style={{height: spacing.sm}} />
+            <Skeleton width="100%" height={72} borderRadius={radius.md} />
+            <View style={{height: spacing.sm}} />
+            <Skeleton width="100%" height={72} borderRadius={radius.md} />
+          </View>
+        ) : (
+          <SectionList
+            sections={sections}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingBottom: insets.bottom + 88,
+            }}
+            ListEmptyComponent={listEmpty}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </ScreenContainer>
 
       <QuickActionsFAB
@@ -487,5 +289,13 @@ const styles = StyleSheet.create({
   },
   sectionHeaderHost: {
     paddingTop: 4,
+  },
+  errorWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  skeletonBlock: {
+    flex: 1,
   },
 });

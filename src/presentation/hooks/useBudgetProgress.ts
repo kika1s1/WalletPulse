@@ -40,7 +40,7 @@ export function useBudgetProgress(
   useEffect(() => {
     let cancelled = false;
     if (budgets.length === 0) {
-      setItems([]);
+      setItems((prev) => (prev.length === 0 ? prev : []));
       setIsLoading(false);
       return;
     }

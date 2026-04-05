@@ -11,8 +11,11 @@ import BudgetDetailScreen from '@presentation/screens/BudgetDetailScreen.tsx';
 import TemplateManagementScreen from '@presentation/screens/TemplateManagementScreen';
 import ExportScreen from '@presentation/screens/ExportScreen';
 import BillRemindersScreen from '@presentation/screens/BillRemindersScreen.tsx';
+import CreateBillReminderScreen from '@presentation/screens/CreateBillReminderScreen';
 import GoalsListScreen from '@presentation/screens/GoalsListScreen.tsx';
+import CreateGoalScreen from '@presentation/screens/CreateGoalScreen';
 import SubscriptionsListScreen from '@presentation/screens/SubscriptionsListScreen.tsx';
+import CreateSubscriptionScreen from '@presentation/screens/CreateSubscriptionScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -29,8 +32,11 @@ export default function SettingsStack() {
       <Stack.Screen name="TemplateManagement" component={TemplateManagementScreen} />
       <Stack.Screen name="Export" component={ExportScreen} />
       <Stack.Screen name="BillReminders" component={BillRemindersScreen} />
+      <Stack.Screen name="CreateBillReminder" component={CreateBillReminderScreen} />
       <Stack.Screen name="GoalsList" component={GoalsListScreen} />
+      <Stack.Screen name="CreateGoal" component={CreateGoalScreen} />
       <Stack.Screen name="SubscriptionsList" component={SubscriptionsListScreen} />
+      <Stack.Screen name="CreateSubscription" component={CreateSubscriptionScreen} />
     </Stack.Navigator>
   );
 }

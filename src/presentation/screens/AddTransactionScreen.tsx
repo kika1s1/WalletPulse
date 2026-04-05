@@ -1,12 +1,14 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
@@ -16,13 +18,16 @@ import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
 import {ScreenContainer} from '@presentation/components/layout';
 import {TagInput} from '@presentation/components/TagInput';
 import {NotesEditor} from '@presentation/components/NotesEditor';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 import {DEFAULT_BASE_CURRENCY} from '@shared/constants/currencies';
 import {generateId} from '@shared/utils/hash';
 import type {TransactionsStackParamList} from '@presentation/navigation/types';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {CreateTransactionInput} from '@domain/entities/Transaction';
+import type {Category} from '@domain/entities/Category';
 import type {RouteProp} from '@react-navigation/native';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
+import {useWallets} from '@presentation/hooks/useWallets';
+import {useCategories} from '@presentation/hooks/useCategories';
 
 type Nav = NativeStackNavigationProp<TransactionsStackParamList, 'AddTransaction'>;
 type Route = RouteProp<TransactionsStackParamList, 'AddTransaction'>;
@@ -36,11 +41,16 @@ function categoryIdFromName(name: string): string {
   return slug || 'category';
 }
 
-function resolveCategory(categoryId: string): {name: string; color: string} | null {
+function resolveCategory(
+  categoryId: string,
+  categories: Category[],
+): {name: string; color: string} | null {
   if (!categoryId) {
     return null;
   }
-  const found = DEFAULT_CATEGORIES.find((c) => categoryIdFromName(c.name) === categoryId);
+  const found =
+    categories.find((c) => c.id === categoryId) ??
+    categories.find((c) => categoryIdFromName(c.name) === categoryId);
   return found ? {name: found.name, color: found.color} : null;
 }
 
@@ -52,8 +62,6 @@ function formatDisplayDate(ts: number): string {
     year: 'numeric',
   }).format(new Date(ts));
 }
-
-const DEFAULT_WALLET_ID = 'default-wallet';
 
 export type AddTransactionFormState = {
   type: 'expense' | 'income' | 'transfer';
@@ -69,11 +77,12 @@ export type AddTransactionFormState = {
 
 export function buildCreateTransactionInputFromForm(
   state: AddTransactionFormState,
+  walletId: string,
 ): CreateTransactionInput {
   const now = Date.now();
   return {
     id: generateId(),
-    walletId: DEFAULT_WALLET_ID,
+    walletId,
     categoryId: state.categoryId.trim(),
     amount: state.amount,
     currency: state.currency.toUpperCase(),
@@ -94,6 +103,14 @@ export default function AddTransactionScreen() {
   const route = useRoute<Route>();
   const {colors, spacing, typography} = useTheme();
   const insets = useSafeAreaInsets();
+  const {createTransaction, isSubmitting} = useTransactionActions();
+  const {wallets} = useWallets();
+  const {categories} = useCategories();
+
+  const firstActiveWalletId = useMemo(() => {
+    const w = wallets.find((x) => x.isActive);
+    return w?.id ?? null;
+  }, [wallets]);
 
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [amount, setAmount] = useState(0);
@@ -103,7 +120,8 @@ export default function AddTransactionScreen() {
   const [merchant, setMerchant] = useState('');
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [transactionDate] = useState(() => Date.now());
+  const [transactionDate, setTransactionDate] = useState(() => Date.now());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -121,11 +139,14 @@ export default function AddTransactionScreen() {
     }
   }, [route.params?.type]);
 
-  const categoryMeta = useMemo(() => resolveCategory(categoryId), [categoryId]);
+  const categoryMeta = useMemo(
+    () => resolveCategory(categoryId, categories),
+    [categories, categoryId],
+  );
 
   const categoryPickerFilter = type === 'transfer' ? undefined : type;
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (amount <= 0) {
       Alert.alert('Invalid amount', 'Enter an amount greater than zero.');
       return;
@@ -135,26 +156,43 @@ export default function AddTransactionScreen() {
       Alert.alert('Category required', 'Select a category before saving.');
       return;
     }
+    if (!firstActiveWalletId) {
+      Alert.alert(
+        'No active wallet',
+        'Create an active wallet before adding a transaction.',
+      );
+      return;
+    }
     setCategoryError(undefined);
 
-    const input = buildCreateTransactionInputFromForm({
-      type,
-      amount,
-      currency,
-      categoryId,
-      description,
-      merchant,
-      notes,
-      tags,
-      transactionDate,
-    });
-    console.log('CreateTransactionInput', input);
-    navigation.goBack();
+    const input = buildCreateTransactionInputFromForm(
+      {
+        type,
+        amount,
+        currency,
+        categoryId,
+        description,
+        merchant,
+        notes,
+        tags,
+        transactionDate,
+      },
+      firstActiveWalletId,
+    );
+    try {
+      await createTransaction(input);
+      navigation.goBack();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      Alert.alert('Could not save transaction', message);
+    }
   }, [
     amount,
     categoryId,
+    createTransaction,
     currency,
     description,
+    firstActiveWalletId,
     merchant,
     navigation,
     notes,
@@ -250,15 +288,30 @@ export default function AddTransactionScreen() {
             value={merchant}
           />
 
-          <Card padding="md">
+          <Card onPress={() => setShowDatePicker(true)} padding="md">
             <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Date</Text>
-            <Text style={[typography.body, {color: colors.text, fontWeight: '500', marginTop: 4}]}>
-              {formatDisplayDate(transactionDate)}
-            </Text>
-            <Text style={[typography.caption, {color: colors.textTertiary, marginTop: 6}]}>
-              Date picker arrives in a later release. Using today for now.
-            </Text>
+            <View style={styles.dateRow}>
+              <Text style={[typography.body, {color: colors.text, fontWeight: '500', flex: 1}]}>
+                {formatDisplayDate(transactionDate)}
+              </Text>
+              <Text style={[typography.caption, {color: colors.primary}]}>Change</Text>
+            </View>
           </Card>
+          {showDatePicker && (
+            <DateTimePicker
+              maximumDate={new Date()}
+              mode="date"
+              onChange={(_e, selected) => {
+                if (Platform.OS === 'android') {
+                  setShowDatePicker(false);
+                }
+                if (selected) {
+                  setTransactionDate(selected.getTime());
+                }
+              }}
+              value={new Date(transactionDate)}
+            />
+          )}
 
           <NotesEditor
             value={notes}
@@ -271,7 +324,13 @@ export default function AddTransactionScreen() {
             onTagsChange={setTags}
           />
 
-          <Button fullWidth onPress={handleSave} size="lg" title="Save Transaction" />
+          <Button
+            fullWidth
+            loading={isSubmitting}
+            onPress={handleSave}
+            size="lg"
+            title="Save Transaction"
+          />
         </ScrollView>
       </ScreenContainer>
 
@@ -338,6 +397,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 14,
     width: 14,
+  },
+  dateRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginTop: 4,
   },
   inlineError: {
     fontSize: 12,

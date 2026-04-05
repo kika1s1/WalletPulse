@@ -16,6 +16,7 @@ export type TransactionsStackParamList = {
 
 export type WalletsStackParamList = {
   WalletsList: undefined;
+  CreateWallet: undefined;
   WalletDetail: {walletId: string};
 };
 
@@ -35,6 +36,7 @@ export type SettingsStackParamList = {
   TemplateManagement: undefined;
   Export: undefined;
   BillReminders: undefined;
+  CreateBillReminder: {editBillId?: string} | undefined;
   GoalsList: undefined;
   CreateGoal: {editGoalId?: string} | undefined;
   GoalDetail: {goalId: string};

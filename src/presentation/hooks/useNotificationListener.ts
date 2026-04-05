@@ -5,6 +5,7 @@ import {
   startNotificationHandler,
   stopNotificationHandler,
 } from '@infrastructure/notification/notification-handler';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
 export type UseNotificationListenerReturn = {
   isEnabled: boolean;
@@ -73,8 +74,29 @@ export function useNotificationListener(): UseNotificationListenerReturn {
     setIsActive(false);
   }, []);
 
+  const notificationEnabled = useSettingsStore((s) => s.notificationEnabled);
+
   useEffect(() => {
-    checkPermission();
+    let cancelled = false;
+
+    async function init() {
+      await checkPermission();
+      if (cancelled) return;
+
+      const enabled = await isListenerEnabled();
+      if (enabled && notificationEnabled && !stopRef.current) {
+        stopRef.current = startNotificationHandler({
+          onTransactionCreated: () => {
+            if (mountedRef.current) {
+              setRecentCount((c) => c + 1);
+            }
+          },
+        });
+        if (mountedRef.current) setIsActive(true);
+      }
+    }
+
+    init();
 
     const handleAppState = (state: AppStateStatus) => {
       if (state === 'active') {
@@ -84,13 +106,14 @@ export function useNotificationListener(): UseNotificationListenerReturn {
 
     const sub = AppState.addEventListener('change', handleAppState);
     return () => {
+      cancelled = true;
       mountedRef.current = false;
       sub.remove();
       if (stopRef.current) {
         stopRef.current();
       }
     };
-  }, [checkPermission]);
+  }, [checkPermission, notificationEnabled]);
 
   return {
     isEnabled,

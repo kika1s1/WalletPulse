@@ -22,7 +22,7 @@ import {
   buildExportFilename,
   type ExportFormat,
 } from '@domain/usecases/export-transactions';
-import {MOCK_TRANSACTIONS} from './TransactionsScreen';
+import {useTransactions} from '@presentation/hooks/useTransactions';
 import {formatAmount} from '@shared/utils/format-currency';
 
 const MS_PER_DAY = 86400000;
@@ -68,6 +68,8 @@ export default function ExportScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [lastExportInfo, setLastExportInfo] = useState<string | null>(null);
 
+  const {transactions, isLoading, error} = useTransactions({syncWithFilterStore: false});
+
   const dateRange = useMemo(
     () => DATE_PRESETS[selectedPreset].getRange(),
     [selectedPreset],
@@ -75,12 +77,12 @@ export default function ExportScreen() {
 
   const filteredTransactions = useMemo(
     () =>
-      MOCK_TRANSACTIONS.filter(
+      transactions.filter(
         (t) =>
           t.transactionDate >= dateRange.startMs &&
           t.transactionDate <= dateRange.endMs,
       ),
-    [dateRange],
+    [transactions, dateRange],
   );
 
   const stats = useMemo(() => {
@@ -94,6 +96,9 @@ export default function ExportScreen() {
   }, [filteredTransactions]);
 
   const handleExport = useCallback(async () => {
+    if (isLoading) {
+      return;
+    }
     if (filteredTransactions.length === 0) {
       Alert.alert('No data', 'No transactions found in the selected date range.');
       return;
@@ -122,7 +127,7 @@ export default function ExportScreen() {
     } finally {
       setIsExporting(false);
     }
-  }, [filteredTransactions, format]);
+  }, [filteredTransactions, format, isLoading]);
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -242,33 +247,46 @@ export default function ExportScreen() {
             ]}
           >
             <Text style={[styles.previewTitle, {color: colors.text}]}>Export Preview</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, {color: colors.primary}]}>{stats.count}</Text>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Transactions</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, {color: colors.danger}]}>
-                  {formatAmount(stats.totalExpense, 'USD')}
+            {isLoading ? (
+              <View style={styles.previewLoading}>
+                <ActivityIndicator accessibilityLabel="Loading transactions" color={colors.primary} size="large" />
+                <Text style={[typography.caption, {color: colors.textTertiary, marginTop: spacing.sm}]}>
+                  Loading transactions…
                 </Text>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Expenses</Text>
               </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, {color: colors.success}]}>
-                  {formatAmount(stats.totalIncome, 'USD')}
-                </Text>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Income</Text>
-              </View>
-            </View>
+            ) : error ? (
+              <Text style={[typography.body, {color: colors.danger}]}>{error}</Text>
+            ) : (
+              <>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statValue, {color: colors.primary}]}>{stats.count}</Text>
+                    <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Transactions</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statValue, {color: colors.danger}]}>
+                      {formatAmount(stats.totalExpense, 'USD')}
+                    </Text>
+                    <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Expenses</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statValue, {color: colors.success}]}>
+                      {formatAmount(stats.totalIncome, 'USD')}
+                    </Text>
+                    <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Income</Text>
+                  </View>
+                </View>
 
-            <View style={[styles.fieldsList, {borderTopColor: colors.border}]}>
-              <Text style={[styles.fieldsTitle, {color: colors.textSecondary}]}>
-                Included fields:
-              </Text>
-              <Text style={[styles.fieldsText, {color: colors.textTertiary}]}>
-                Date, Amount, Currency, Type, Category, Description, Merchant, Source, Tags, Notes, Recurring
-              </Text>
-            </View>
+                <View style={[styles.fieldsList, {borderTopColor: colors.border}]}>
+                  <Text style={[styles.fieldsTitle, {color: colors.textSecondary}]}>
+                    Included fields:
+                  </Text>
+                  <Text style={[styles.fieldsText, {color: colors.textTertiary}]}>
+                    Date, Amount, Currency, Type, Category, Description, Merchant, Source, Tags, Notes, Recurring
+                  </Text>
+                </View>
+              </>
+            )}
           </Animated.View>
 
           {/* Last export info */}
@@ -285,7 +303,7 @@ export default function ExportScreen() {
           <Animated.View entering={FadeInDown.delay(400).duration(300)}>
             <Pressable
               accessibilityRole="button"
-              disabled={isExporting}
+              disabled={isExporting || isLoading || Boolean(error)}
               onPress={handleExport}
               style={({pressed}) => [
                 styles.exportBtn,
@@ -375,6 +393,12 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 16,
+  },
+  previewLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 4,
   },
   previewTitle: {
     fontSize: 16,

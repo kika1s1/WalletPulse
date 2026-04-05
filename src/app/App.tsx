@@ -1,11 +1,12 @@
 import React, {useCallback, useState} from 'react';
-import {StatusBar, useColorScheme, View, StyleSheet} from 'react-native';
+import {StatusBar, View, StyleSheet} from 'react-native';
 import {Providers} from './Providers';
 import AppNavigator from '@presentation/navigation/AppNavigator';
 import {SplashScreen} from '@presentation/components/SplashScreen';
+import {useTheme} from '@shared/theme';
 
-export default function App() {
-  const isDark = useColorScheme() === 'dark';
+function AppContent() {
+  const {isDark} = useTheme();
   const [splashDone, setSplashDone] = useState(false);
 
   const handleSplashFinish = useCallback(() => {
@@ -13,16 +14,22 @@ export default function App() {
   }, []);
 
   return (
+    <View style={styles.root}>
+      <StatusBar
+        barStyle={splashDone ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
+        backgroundColor={splashDone ? 'transparent' : '#6C5CE7'}
+        translucent={splashDone}
+      />
+      <AppNavigator />
+      {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
+    </View>
+  );
+}
+
+export default function App() {
+  return (
     <Providers>
-      <View style={styles.root}>
-        <StatusBar
-          barStyle={splashDone ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
-          backgroundColor={splashDone ? 'transparent' : '#6C5CE7'}
-          translucent={splashDone}
-        />
-        <AppNavigator />
-        {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
-      </View>
+      <AppContent />
     </Providers>
   );
 }

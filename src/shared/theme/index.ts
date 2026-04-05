@@ -17,9 +17,18 @@ export type Theme = {
 
 const ThemeContext = createContext<Theme | null>(null);
 
-export function ThemeProvider({children}: {children: React.ReactNode}) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+export function ThemeProvider({
+  children,
+  themeMode = 'system',
+}: {
+  children: React.ReactNode;
+  themeMode?: ThemeMode;
+}) {
+  const systemScheme = useColorScheme();
+  const isDark =
+    themeMode === 'system' ? systemScheme === 'dark' : themeMode === 'dark';
 
   const theme = useMemo<Theme>(
     () => ({

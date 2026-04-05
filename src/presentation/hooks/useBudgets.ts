@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import database from '@data/database';
 import BudgetModel from '@data/database/models/BudgetModel';
 import {Q} from '@nozbe/watermelondb';
@@ -61,7 +61,10 @@ export function useBudgets(): UseBudgetsReturn {
     return () => subscription.unsubscribe();
   }, [refetchKey]);
 
-  const activeBudgets = budgets.filter((b) => b.isActive);
+  const activeBudgets = useMemo(
+    () => budgets.filter((b) => b.isActive),
+    [budgets],
+  );
 
   return {budgets, activeBudgets, isLoading, error, refetch};
 }

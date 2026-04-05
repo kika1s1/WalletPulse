@@ -6,11 +6,10 @@ import BottomSheet, {
   BottomSheetScrollView,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import {
-  DEFAULT_CATEGORIES,
-  type DefaultCategory,
-} from '@shared/constants/categories';
+import {hasType, type Category} from '@domain/entities/Category';
+import {useCategories} from '@presentation/hooks/useCategories';
 import {useTheme} from '@shared/theme';
+import {AppIcon, resolveIconName} from './AppIcon';
 
 export type CategoryPickerProps = {
   visible: boolean;
@@ -30,13 +29,8 @@ function categoryIdFromName(name: string): string {
   return slug || 'category';
 }
 
-function filterByTab(cats: DefaultCategory[], tab: 'expense' | 'income'): DefaultCategory[] {
-  return cats.filter((c) => {
-    if (tab === 'expense') {
-      return c.type === 'expense' || c.type === 'both';
-    }
-    return c.type === 'income' || c.type === 'both';
-  });
+function filterByTab(cats: Category[], tab: 'expense' | 'income'): Category[] {
+  return cats.filter((c) => hasType(c, tab));
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -50,6 +44,7 @@ export function CategoryPicker({
   testID,
 }: CategoryPickerProps) {
   const {colors, radius, spacing, typography} = useTheme();
+  const {categories: dbCategories} = useCategories();
   const [tab, setTab] = useState<'expense' | 'income'>('expense');
 
   const lockedTab: 'expense' | 'income' | null =
@@ -66,8 +61,8 @@ export function CategoryPicker({
   }, [type]);
 
   const categories = useMemo(
-    () => filterByTab(DEFAULT_CATEGORIES, activeTab),
-    [activeTab],
+    () => filterByTab(dbCategories, activeTab),
+    [activeTab, dbCategories],
   );
 
   const showTabs = type === undefined || type === 'both';
@@ -176,19 +171,21 @@ export function CategoryPicker({
           showsVerticalScrollIndicator={false}>
           <View style={[styles.grid, {columnGap: gap, rowGap: gap}]}>
             {categories.map((cat) => {
-              const id = categoryIdFromName(cat.name);
-              const selected = id === selectedId;
+              const slugId = categoryIdFromName(cat.name);
+              const selected =
+                selectedId !== undefined &&
+                (selectedId === cat.id || selectedId === slugId);
               return (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{selected}}
-                  key={id}
+                  key={cat.id}
                   onPress={() => {
-                    onSelect(id);
+                    onSelect(cat.id);
                     onClose();
                   }}
                   style={[styles.cell, {width: cellWidth}]}
-                  testID={testID ? `${testID}-cat-${id}` : undefined}>
+                  testID={testID ? `${testID}-cat-${cat.id}` : undefined}>
                   <View
                     style={[
                       styles.circle,
@@ -199,9 +196,7 @@ export function CategoryPicker({
                         borderWidth: selected ? 3 : 0,
                       },
                     ]}>
-                    <Text numberOfLines={1} style={styles.circleLabel}>
-                      {cat.icon}
-                    </Text>
+                    <AppIcon name={resolveIconName(cat.icon)} size={24} color="#FFFFFF" />
                   </View>
                   <Text
                     numberOfLines={2}

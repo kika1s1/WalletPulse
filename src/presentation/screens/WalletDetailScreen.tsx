@@ -15,25 +15,32 @@ import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useTransactions} from '@presentation/hooks/useTransactions';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import {useCategories} from '@presentation/hooks/useCategories';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
 type WalletDetailRoute = RouteProp<WalletsStackParamList, 'WalletDetail'>;
-
-function categoryLookup(categoryId: string) {
-  const cat = DEFAULT_CATEGORIES.find((c) => c.name === categoryId);
-  return {
-    name: cat?.name ?? 'Other',
-    icon: cat?.icon ?? '?',
-    color: cat?.color ?? '#B2BEC3',
-  };
-}
 
 export default function WalletDetailScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const route = useRoute<WalletDetailRoute>();
   const {walletId} = route.params;
   const [refreshing, setRefreshing] = useState(false);
+  const {categories} = useCategories();
+
+  const resolveCategory = useCallback(
+    (categoryId: string) => {
+      const cat = categories.find(
+        (c) => c.id === categoryId || c.name === categoryId,
+      );
+      return {
+        name: cat?.name ?? 'Other',
+        icon: cat?.icon ?? '?',
+        color: cat?.color ?? '#B2BEC3',
+      };
+    },
+    [categories],
+  );
 
   const {wallets, isLoading: walletLoading, refetch: walletRefetch} = useWallets();
   const wallet = useMemo(
@@ -108,7 +115,7 @@ export default function WalletDetailScreen() {
                   styles.walletIcon,
                   {backgroundColor: `${wallet.color}1A`},
                 ]}>
-                <Text style={styles.walletIconText}>{wallet.icon}</Text>
+                <AppIcon name={resolveIconName(wallet.icon)} size={22} color={wallet.color} />
               </View>
               <View style={styles.headerTextBlock}>
                 <Text
@@ -185,7 +192,7 @@ export default function WalletDetailScreen() {
           />
         ) : (
           transactions.slice(0, 20).map((tx) => {
-            const cat = categoryLookup(tx.categoryId);
+            const cat = resolveCategory(tx.categoryId);
             return (
               <View key={tx.id} style={styles.txGap}>
                 <TransactionCard

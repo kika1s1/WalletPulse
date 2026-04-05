@@ -1,4 +1,4 @@
-import {NativeModules, NativeEventEmitter, Platform} from 'react-native';
+import {NativeModules, DeviceEventEmitter, Platform} from 'react-native';
 
 const {NotificationBridge} = NativeModules;
 const EVENT_NAME = 'onNotificationReceived';
@@ -12,22 +12,13 @@ export type NativeNotificationEvent = {
 
 export type NotificationListener = (event: NativeNotificationEvent) => void;
 
-let emitter: NativeEventEmitter | null = null;
-
-function getEmitter(): NativeEventEmitter {
-  if (!emitter) {
-    emitter = new NativeEventEmitter(NotificationBridge);
-  }
-  return emitter;
-}
-
 export function subscribeToNotifications(
   listener: NotificationListener,
 ): () => void {
   if (Platform.OS !== 'android') {
     return () => {};
   }
-  const subscription = getEmitter().addListener(EVENT_NAME, listener);
+  const subscription = DeviceEventEmitter.addListener(EVENT_NAME, listener);
   return () => subscription.remove();
 }
 

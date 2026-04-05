@@ -1,8 +1,10 @@
 import React, {useMemo, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
@@ -17,97 +19,29 @@ import {
 } from '@domain/usecases/subscription-management';
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
+import {useSubscriptions} from '@presentation/hooks/useSubscriptions';
+import {useAppStore} from '@presentation/stores/useAppStore';
 
 const DAY = 86400000;
-const now = Date.now();
-
-const MOCK_SUBSCRIPTIONS: Subscription[] = [
-  {
-    id: 'sub-1',
-    name: 'Netflix',
-    amount: 1599,
-    currency: 'USD',
-    billingCycle: 'monthly',
-    nextDueDate: now + 8 * DAY,
-    categoryId: 'entertainment',
-    isActive: true,
-    icon: 'netflix',
-    color: '#E50914',
-    createdAt: now - 365 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'sub-2',
-    name: 'Spotify',
-    amount: 999,
-    currency: 'USD',
-    billingCycle: 'monthly',
-    nextDueDate: now + 15 * DAY,
-    categoryId: 'entertainment',
-    isActive: true,
-    icon: 'spotify',
-    color: '#1DB954',
-    createdAt: now - 200 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'sub-3',
-    name: 'GitHub Pro',
-    amount: 400,
-    currency: 'USD',
-    billingCycle: 'monthly',
-    nextDueDate: now + 20 * DAY,
-    categoryId: 'productivity',
-    isActive: true,
-    icon: 'github',
-    color: '#24292F',
-    createdAt: now - 180 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'sub-4',
-    name: 'iCloud 200GB',
-    amount: 299,
-    currency: 'USD',
-    billingCycle: 'monthly',
-    nextDueDate: now + 5 * DAY,
-    categoryId: 'cloud',
-    isActive: true,
-    icon: 'cloud',
-    color: '#007AFF',
-    createdAt: now - 300 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'sub-5',
-    name: 'Adobe CC',
-    amount: 5499,
-    currency: 'USD',
-    billingCycle: 'monthly',
-    nextDueDate: now + 12 * DAY,
-    categoryId: 'productivity',
-    isActive: false,
-    cancelledAt: now - 30 * DAY,
-    icon: 'adobe',
-    color: '#FF0000',
-    createdAt: now - 400 * DAY,
-    updatedAt: now - 30 * DAY,
-  },
-];
 
 type Tab = 'active' | 'cancelled';
 
+type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SubscriptionsList'>;
+
 export default function SubscriptionsListScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
+  const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('active');
+  const {subscriptions, isLoading, error} = useSubscriptions();
+  const now = Date.now();
 
-  const groups = useMemo(() => groupSubscriptionsByStatus(MOCK_SUBSCRIPTIONS), []);
-  const monthlyCost = useMemo(() => calculateTotalMonthlyCost(MOCK_SUBSCRIPTIONS), []);
-  const yearlyCost = useMemo(() => calculateTotalYearlyCost(MOCK_SUBSCRIPTIONS), []);
-  const upcoming = useMemo(() => getUpcomingRenewals(MOCK_SUBSCRIPTIONS, now, 7), []);
-  const breakdown = useMemo(() => getCostBreakdownByCategory(MOCK_SUBSCRIPTIONS), []);
+  const groups = useMemo(() => groupSubscriptionsByStatus(subscriptions), [subscriptions]);
+  const monthlyCost = useMemo(() => calculateTotalMonthlyCost(subscriptions), [subscriptions]);
+  const yearlyCost = useMemo(() => calculateTotalYearlyCost(subscriptions), [subscriptions]);
+  const upcoming = useMemo(() => getUpcomingRenewals(subscriptions, now, 7), [subscriptions, now]);
+  const breakdown = useMemo(() => getCostBreakdownByCategory(subscriptions), [subscriptions]);
 
   const displayed = useMemo(() => {
     const list = tab === 'active' ? groups.active : groups.cancelled;
@@ -173,110 +107,134 @@ export default function SubscriptionsListScreen() {
             <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
           </Pressable>
           <Text style={[typography.title3, {color: colors.text}]}>Subscriptions</Text>
-          <View style={{width: 48}} />
+          <Pressable
+            accessibilityLabel="Add subscription"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => navigation.navigate('CreateSubscription')}>
+            <Text style={[styles.addBtn, {color: colors.primary}]}>+ Add</Text>
+          </Pressable>
         </View>
 
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Cost overview */}
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={[styles.costCard, {backgroundColor: colors.primary, borderRadius: radius.lg}, shadows.md]}
+        {isLoading && subscriptions.length === 0 ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : error && subscriptions.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={{color: colors.danger}}>{error}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
+            ]}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.costRow}>
-              <View style={{flex: 1}}>
-                <Text style={styles.costLabel}>Monthly</Text>
-                <Text style={styles.costValue}>{formatAmount(Math.round(monthlyCost), 'USD')}</Text>
+            {subscriptions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <AppIcon name="credit-card-refresh-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyTitle, {color: colors.text}]}>No subscriptions yet</Text>
+                <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
+                  Track recurring payments like Netflix, Spotify, and more.
+                </Text>
               </View>
-              <View style={[styles.costDivider, {backgroundColor: '#FFFFFF30'}]} />
-              <View style={{flex: 1, alignItems: 'flex-end'}}>
-                <Text style={styles.costLabel}>Yearly</Text>
-                <Text style={styles.costValue}>{formatAmount(yearlyCost, 'USD')}</Text>
-              </View>
-            </View>
-            <View style={styles.costStats}>
-              <Text style={styles.costStat}>
-                {groups.active.length} active
-              </Text>
-              <Text style={styles.costStat}>
-                {upcoming.length} renewing this week
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* Category breakdown */}
-          {breakdown.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(250)}
-              style={[
-                styles.breakdownCard,
-                {backgroundColor: colors.surfaceElevated, borderRadius: radius.lg, borderColor: colors.border},
-                shadows.sm,
-              ]}
-            >
-              <Text style={[styles.breakdownTitle, {color: colors.text}]}>Cost by Category</Text>
-              {breakdown.map((b) => (
-                <View key={b.categoryId} style={styles.breakdownRow}>
-                  <Text style={[styles.breakdownCategory, {color: colors.textSecondary}]}>
-                    {b.categoryId}
-                  </Text>
-                  <Text style={[styles.breakdownValue, {color: colors.text}]}>
-                    {formatAmount(b.monthlyTotal, 'USD')}/mo
-                  </Text>
-                  <Text style={[styles.breakdownCount, {color: colors.textTertiary}]}>
-                    ({b.count})
-                  </Text>
-                </View>
-              ))}
-            </Animated.View>
-          )}
-
-          {/* Tabs */}
-          <View style={[styles.tabRow, {backgroundColor: colors.surface, borderRadius: radius.md}]}>
-            {(['active', 'cancelled'] as Tab[]).map((t) => {
-              const count = t === 'active' ? groups.active.length : groups.cancelled.length;
-              return (
-                <Pressable
-                  key={t}
-                  accessibilityRole="tab"
-                  accessibilityState={{selected: tab === t}}
-                  onPress={() => setTab(t)}
-                  style={[
-                    styles.tabItem,
-                    tab === t && {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm},
-                  ]}
+            ) : (
+              <>
+                <Animated.View
+                  entering={FadeIn.duration(300)}
+                  style={[styles.costCard, {backgroundColor: colors.primary, borderRadius: radius.lg}, shadows.md]}
                 >
-                  <Text
+                  <View style={styles.costRow}>
+                    <View style={{flex: 1}}>
+                      <Text style={styles.costLabel}>Monthly</Text>
+                      <Text style={styles.costValue}>{formatAmount(Math.round(monthlyCost), baseCurrency)}</Text>
+                    </View>
+                    <View style={[styles.costDivider, {backgroundColor: '#FFFFFF30'}]} />
+                    <View style={{flex: 1, alignItems: 'flex-end'}}>
+                      <Text style={styles.costLabel}>Yearly</Text>
+                      <Text style={styles.costValue}>{formatAmount(yearlyCost, baseCurrency)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.costStats}>
+                    <Text style={styles.costStat}>
+                      {groups.active.length} active
+                    </Text>
+                    <Text style={styles.costStat}>
+                      {upcoming.length} renewing this week
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                {breakdown.length > 0 && (
+                  <Animated.View
+                    entering={FadeInDown.delay(100).duration(250)}
                     style={[
-                      styles.tabLabel,
-                      {color: tab === t ? colors.primary : colors.textSecondary},
+                      styles.breakdownCard,
+                      {backgroundColor: colors.surfaceElevated, borderRadius: radius.lg, borderColor: colors.border},
+                      shadows.sm,
                     ]}
                   >
-                    {t.charAt(0).toUpperCase() + t.slice(1)} ({count})
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <Text style={[styles.breakdownTitle, {color: colors.text}]}>Cost by Category</Text>
+                    {breakdown.map((b) => (
+                      <View key={b.categoryId} style={styles.breakdownRow}>
+                        <Text style={[styles.breakdownCategory, {color: colors.textSecondary}]}>
+                          {b.categoryId}
+                        </Text>
+                        <Text style={[styles.breakdownValue, {color: colors.text}]}>
+                          {formatAmount(b.monthlyTotal, baseCurrency)}/mo
+                        </Text>
+                        <Text style={[styles.breakdownCount, {color: colors.textTertiary}]}>
+                          ({b.count})
+                        </Text>
+                      </View>
+                    ))}
+                  </Animated.View>
+                )}
 
-          {/* List */}
-          {displayed.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, {color: colors.textTertiary}]}>
-                {tab === 'cancelled' ? 'No cancelled subscriptions.' : 'No active subscriptions yet.'}
-              </Text>
-            </View>
-          ) : (
-            <View style={{gap: 10}}>
-              {displayed.map((sub, idx) => renderSubCard(sub, idx))}
-            </View>
-          )}
-        </ScrollView>
+                <View style={[styles.tabRow, {backgroundColor: colors.surface, borderRadius: radius.md}]}>
+                  {(['active', 'cancelled'] as Tab[]).map((t) => {
+                    const count = t === 'active' ? groups.active.length : groups.cancelled.length;
+                    return (
+                      <Pressable
+                        key={t}
+                        accessibilityRole="tab"
+                        accessibilityState={{selected: tab === t}}
+                        onPress={() => setTab(t)}
+                        style={[
+                          styles.tabItem,
+                          tab === t && {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm},
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tabLabel,
+                            {color: tab === t ? colors.primary : colors.textSecondary},
+                          ]}
+                        >
+                          {t.charAt(0).toUpperCase() + t.slice(1)} ({count})
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {displayed.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
+                      {tab === 'cancelled' ? 'No cancelled subscriptions.' : 'No active subscriptions yet.'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{gap: 10}}>
+                    {displayed.map((sub, idx) => renderSubCard(sub, idx))}
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        )}
       </ScreenContainer>
     </View>
   );
@@ -295,6 +253,10 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     minWidth: 48,
   },
+  centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
+  emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
+  emptyDesc: {fontSize: 13, textAlign: 'center'},
   scrollContent: {gap: 16, paddingTop: 12},
   costCard: {padding: 20, gap: 14},
   costRow: {flexDirection: 'row', alignItems: 'center'},
@@ -320,13 +282,11 @@ const styles = StyleSheet.create({
   subCard: {padding: 14, borderWidth: StyleSheet.hairlineWidth},
   subRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
   subIconWrap: {width: 40, height: 40, alignItems: 'center', justifyContent: 'center'},
-  subIcon: {fontSize: 20},
   subName: {fontSize: 15, fontWeight: fontWeight.semibold},
   subCycle: {fontSize: 12, marginTop: 1},
   subAmount: {fontSize: 15, fontWeight: '700'},
   subDue: {fontSize: 11, marginTop: 2},
   cancelledBadge: {paddingHorizontal: 6, paddingVertical: 2, marginTop: 2},
   cancelledText: {fontSize: 10, fontWeight: fontWeight.semibold},
-  emptyState: {alignItems: 'center', paddingVertical: 40},
-  emptyText: {fontSize: 13},
+  addBtn: {fontSize: 15, fontWeight: fontWeight.semibold},
 });

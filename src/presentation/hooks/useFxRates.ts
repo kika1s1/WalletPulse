@@ -19,15 +19,10 @@ export type UseFxRatesReturn = {
   refresh: () => Promise<void>;
 };
 
-const FX_API_KEY_FALLBACK = '';
+import Config from 'react-native-config';
 
 function getApiKey(): string {
-  try {
-    const Config = require('react-native-config').default;
-    return Config?.FX_API_KEY ?? FX_API_KEY_FALLBACK;
-  } catch {
-    return FX_API_KEY_FALLBACK;
-  }
+  return Config?.FX_API_KEY ?? '';
 }
 
 export function useFxRates(): UseFxRatesReturn {

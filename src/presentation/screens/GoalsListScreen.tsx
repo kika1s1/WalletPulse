@@ -1,8 +1,10 @@
 import React, {useMemo} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
@@ -16,85 +18,29 @@ import {
 } from '@domain/usecases/goal-management';
 import type {Goal} from '@domain/entities/Goal';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
+import {useGoals} from '@presentation/hooks/useGoals';
+import {useAppStore} from '@presentation/stores/useAppStore';
 
-const DAY = 86400000;
-const now = Date.now();
-
-const MOCK_GOALS: Goal[] = [
-  {
-    id: 'g1',
-    name: 'Emergency Fund',
-    targetAmount: 500000,
-    currentAmount: 275000,
-    currency: 'USD',
-    deadline: now + 120 * DAY,
-    icon: 'bank',
-    color: '#4CAF50',
-    category: 'emergency',
-    isCompleted: false,
-    createdAt: now - 60 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'g2',
-    name: 'Vacation to Japan',
-    targetAmount: 350000,
-    currentAmount: 150000,
-    currency: 'USD',
-    deadline: now + 200 * DAY,
-    icon: 'airplane',
-    color: '#2196F3',
-    category: 'vacation',
-    isCompleted: false,
-    createdAt: now - 45 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'g3',
-    name: 'New Laptop',
-    targetAmount: 200000,
-    currentAmount: 200000,
-    currency: 'USD',
-    deadline: now + 30 * DAY,
-    icon: 'laptop',
-    color: '#9C27B0',
-    category: 'purchase',
-    isCompleted: true,
-    completedAt: now - 5 * DAY,
-    createdAt: now - 90 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'g4',
-    name: 'Investment Portfolio',
-    targetAmount: 1000000,
-    currentAmount: 320000,
-    currency: 'USD',
-    deadline: now + 365 * DAY,
-    icon: 'investment',
-    color: '#FF9800',
-    category: 'investment',
-    isCompleted: false,
-    createdAt: now - 120 * DAY,
-    updatedAt: now,
-  },
-];
+type Nav = NativeStackNavigationProp<SettingsStackParamList, 'GoalsList'>;
 
 export default function GoalsListScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
+  const baseCurrency = useAppStore((s) => s.baseCurrency);
+  const {goals, isLoading, error} = useGoals();
+  const now = Date.now();
 
-  const sorted = useMemo(() => sortGoalsByPriority(MOCK_GOALS, now), []);
-  const totalProgress = useMemo(() => calculateTotalProgress(MOCK_GOALS), []);
+  const sorted = useMemo(() => sortGoalsByPriority(goals, now), [goals, now]);
+  const totalProgress = useMemo(() => calculateTotalProgress(goals), [goals]);
 
   const totalSaved = useMemo(
-    () => MOCK_GOALS.reduce((s, g) => s + g.currentAmount, 0),
-    [],
+    () => goals.reduce((s, g) => s + g.currentAmount, 0),
+    [goals],
   );
   const totalTarget = useMemo(
-    () => MOCK_GOALS.reduce((s, g) => s + g.targetAmount, 0),
-    [],
+    () => goals.reduce((s, g) => s + g.targetAmount, 0),
+    [goals],
   );
 
   function renderGoalCard(goal: Goal, index: number) {
@@ -137,7 +83,6 @@ export default function GoalsListScreen() {
           </View>
         </View>
 
-        {/* Progress bar */}
         <View style={styles.progressSection}>
           <View style={[styles.progressTrack, {backgroundColor: colors.border, borderRadius: radius.xs}]}>
             <View
@@ -162,7 +107,6 @@ export default function GoalsListScreen() {
           </View>
         </View>
 
-        {/* Deadline */}
         {!goal.isCompleted && (
           <Text style={[styles.deadlineText, {color: colors.textSecondary}]}>
             {formatDeadline(goal.deadline, now)}
@@ -180,54 +124,80 @@ export default function GoalsListScreen() {
             <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
           </Pressable>
           <Text style={[typography.title3, {color: colors.text}]}>Savings Goals</Text>
-          <View style={{width: 48}} />
+          <Pressable
+            accessibilityLabel="Add goal"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => navigation.navigate('CreateGoal')}>
+            <Text style={[styles.addBtn, {color: colors.primary}]}>+ Add</Text>
+          </Pressable>
         </View>
 
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Overview card */}
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={[
-              styles.overviewCard,
-              {backgroundColor: colors.primary, borderRadius: radius.lg},
-              shadows.md,
-            ]}
-          >
-            <Text style={styles.overviewLabel}>Total Saved</Text>
-            <Text style={styles.overviewAmount}>{formatAmount(totalSaved, 'USD')}</Text>
-            <View style={[styles.overviewProgressTrack, {backgroundColor: '#FFFFFF30', borderRadius: 3}]}>
-              <View
-                style={[
-                  styles.overviewProgressFill,
-                  {
-                    width: `${Math.round(totalProgress * 100)}%`,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 3,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.overviewRow}>
-              <Text style={styles.overviewSub}>
-                {Math.round(totalProgress * 100)}% of {formatAmount(totalTarget, 'USD')} target
-              </Text>
-              <Text style={styles.overviewSub}>
-                {MOCK_GOALS.length} goal{MOCK_GOALS.length !== 1 ? 's' : ''}
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* Goals list */}
-          <View style={{gap: 12}}>
-            {sorted.map((goal, idx) => renderGoalCard(goal, idx))}
+        {isLoading && goals.length === 0 ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        </ScrollView>
+        ) : error && goals.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={{color: colors.danger}}>{error}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {goals.length === 0 ? (
+              <View style={styles.emptyState}>
+                <AppIcon name="flag-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyTitle, {color: colors.text}]}>No goals yet</Text>
+                <Text style={[styles.emptyText, {color: colors.textTertiary}]}>
+                  Set savings goals to track your progress.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Animated.View
+                  entering={FadeIn.duration(300)}
+                  style={[
+                    styles.overviewCard,
+                    {backgroundColor: colors.primary, borderRadius: radius.lg},
+                    shadows.md,
+                  ]}
+                >
+                  <Text style={styles.overviewLabel}>Total Saved</Text>
+                  <Text style={styles.overviewAmount}>{formatAmount(totalSaved, baseCurrency)}</Text>
+                  <View style={[styles.overviewProgressTrack, {backgroundColor: '#FFFFFF30', borderRadius: 3}]}>
+                    <View
+                      style={[
+                        styles.overviewProgressFill,
+                        {
+                          width: `${Math.round(totalProgress * 100)}%`,
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: 3,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.overviewRow}>
+                    <Text style={styles.overviewSub}>
+                      {Math.round(totalProgress * 100)}% of {formatAmount(totalTarget, baseCurrency)} target
+                    </Text>
+                    <Text style={styles.overviewSub}>
+                      {goals.length} goal{goals.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                <View style={{gap: 12}}>
+                  {sorted.map((goal, idx) => renderGoalCard(goal, idx))}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        )}
       </ScreenContainer>
     </View>
   );
@@ -246,6 +216,10 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     minWidth: 48,
   },
+  centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
+  emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
+  emptyText: {fontSize: 13, textAlign: 'center'},
   scrollContent: {gap: 16, paddingTop: 12},
   overviewCard: {padding: 20, gap: 10},
   overviewLabel: {color: '#FFFFFFCC', fontSize: 13, fontWeight: fontWeight.medium},
@@ -274,7 +248,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  goalIcon: {fontSize: 20},
   goalName: {fontSize: 15, fontWeight: fontWeight.semibold},
   goalCategory: {fontSize: 12, textTransform: 'capitalize', marginTop: 1},
   statusBadge: {paddingHorizontal: 8, paddingVertical: 3},
@@ -291,4 +264,5 @@ const styles = StyleSheet.create({
   progressPct: {fontSize: 12, fontWeight: '700'},
   progressTarget: {fontSize: 12},
   deadlineText: {fontSize: 12},
+  addBtn: {fontSize: 15, fontWeight: fontWeight.semibold},
 });

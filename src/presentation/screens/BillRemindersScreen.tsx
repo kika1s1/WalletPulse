@@ -1,111 +1,48 @@
 import React, {useMemo, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmount} from '@shared/utils/format-currency';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 import {
   getUpcomingBills,
   getOverdueBills,
   calculateMonthlyBillTotal,
 } from '@domain/usecases/bill-reminder-management';
 import type {BillReminder} from '@domain/entities/BillReminder';
+import {useBillReminders} from '@presentation/hooks/useBillReminders';
+import {useAppStore} from '@presentation/stores/useAppStore';
 
 const DAY = 86400000;
-const now = Date.now();
-
-const MOCK_BILLS: BillReminder[] = [
-  {
-    id: 'bill-1',
-    name: 'Electricity',
-    amount: 15000,
-    currency: 'USD',
-    dueDate: now + 3 * DAY,
-    recurrence: 'monthly',
-    categoryId: 'utilities',
-    isPaid: false,
-    remindDaysBefore: 3,
-    createdAt: now - 60 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'bill-2',
-    name: 'Internet',
-    amount: 7999,
-    currency: 'USD',
-    dueDate: now + 10 * DAY,
-    recurrence: 'monthly',
-    categoryId: 'utilities',
-    isPaid: false,
-    remindDaysBefore: 2,
-    createdAt: now - 45 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'bill-3',
-    name: 'Rent',
-    amount: 120000,
-    currency: 'USD',
-    dueDate: now - 2 * DAY,
-    recurrence: 'monthly',
-    categoryId: 'housing',
-    isPaid: false,
-    remindDaysBefore: 5,
-    createdAt: now - 90 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'bill-4',
-    name: 'Insurance',
-    amount: 35000,
-    currency: 'USD',
-    dueDate: now + 15 * DAY,
-    recurrence: 'quarterly',
-    categoryId: 'insurance',
-    isPaid: false,
-    remindDaysBefore: 7,
-    createdAt: now - 30 * DAY,
-    updatedAt: now,
-  },
-  {
-    id: 'bill-5',
-    name: 'Gym Membership',
-    amount: 4999,
-    currency: 'USD',
-    dueDate: now - 5 * DAY,
-    recurrence: 'monthly',
-    categoryId: 'health',
-    isPaid: true,
-    paidTransactionId: 'txn-99',
-    remindDaysBefore: 1,
-    createdAt: now - 60 * DAY,
-    updatedAt: now,
-  },
-];
 
 type Tab = 'upcoming' | 'overdue' | 'all';
 
+type Nav = NativeStackNavigationProp<SettingsStackParamList, 'BillReminders'>;
+
 export default function BillRemindersScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
+  const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('upcoming');
+  const {bills, isLoading, error} = useBillReminders();
+  const now = Date.now();
 
-  const upcoming = useMemo(() => getUpcomingBills(MOCK_BILLS, now, 30), []);
-  const overdue = useMemo(() => getOverdueBills(MOCK_BILLS, now), []);
-  const monthlyTotal = useMemo(
-    () => calculateMonthlyBillTotal(MOCK_BILLS),
-    [],
-  );
+  const upcoming = useMemo(() => getUpcomingBills(bills, now, 30), [bills, now]);
+  const overdue = useMemo(() => getOverdueBills(bills, now), [bills, now]);
+  const monthlyTotal = useMemo(() => calculateMonthlyBillTotal(bills), [bills]);
 
   const displayed = useMemo(() => {
     if (tab === 'upcoming') return upcoming;
     if (tab === 'overdue') return overdue;
-    return MOCK_BILLS;
-  }, [tab, upcoming, overdue]);
+    return bills;
+  }, [tab, upcoming, overdue, bills]);
 
   function formatDueDate(ms: number): string {
     const diff = ms - now;
@@ -175,7 +112,7 @@ export default function BillRemindersScreen() {
   const tabs: {key: Tab; label: string; count: number}[] = [
     {key: 'upcoming', label: 'Upcoming', count: upcoming.length},
     {key: 'overdue', label: 'Overdue', count: overdue.length},
-    {key: 'all', label: 'All', count: MOCK_BILLS.length},
+    {key: 'all', label: 'All', count: bills.length},
   ];
 
   return (
@@ -186,104 +123,129 @@ export default function BillRemindersScreen() {
             <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
           </Pressable>
           <Text style={[typography.title3, {color: colors.text}]}>Bill Reminders</Text>
-          <View style={{width: 48}} />
+          <Pressable
+            accessibilityLabel="Add bill reminder"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => navigation.navigate('CreateBillReminder')}>
+            <Text style={[styles.addBtn, {color: colors.primary}]}>+ Add</Text>
+          </Pressable>
         </View>
 
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Summary card */}
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={[
-              styles.summaryCard,
-              {backgroundColor: colors.primary, borderRadius: radius.lg},
-              shadows.md,
+        {isLoading && bills.length === 0 ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : error && bills.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={{color: colors.danger}}>{error}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
             ]}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.summaryLabel}>Estimated Monthly Bills</Text>
-            <Text style={styles.summaryAmount}>
-              {formatAmount(monthlyTotal, 'USD')}
-            </Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryItemValue}>{upcoming.length}</Text>
-                <Text style={styles.summaryItemLabel}>Upcoming</Text>
-              </View>
-              <View style={[styles.summaryDivider, {backgroundColor: '#FFFFFF30'}]} />
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryItemValue, {color: overdue.length > 0 ? '#FFB74D' : '#FFFFFF'}]}>
-                  {overdue.length}
+            {bills.length === 0 ? (
+              <View style={styles.emptyState}>
+                <AppIcon name="bell-ring-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyTitle, {color: colors.text}]}>No bills yet</Text>
+                <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
+                  Add your recurring bills to track due dates and never miss a payment.
                 </Text>
-                <Text style={styles.summaryItemLabel}>Overdue</Text>
               </View>
-              <View style={[styles.summaryDivider, {backgroundColor: '#FFFFFF30'}]} />
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryItemValue}>
-                  {MOCK_BILLS.filter((b) => b.isPaid).length}
-                </Text>
-                <Text style={styles.summaryItemLabel}>Paid</Text>
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Tabs */}
-          <View style={[styles.tabRow, {backgroundColor: colors.surface, borderRadius: radius.md}]}>
-            {tabs.map((t) => (
-              <Pressable
-                key={t.key}
-                accessibilityRole="tab"
-                accessibilityState={{selected: tab === t.key}}
-                onPress={() => setTab(t.key)}
-                style={[
-                  styles.tabItem,
-                  tab === t.key && {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm},
-                ]}
-              >
-                <Text
+            ) : (
+              <>
+                <Animated.View
+                  entering={FadeIn.duration(300)}
                   style={[
-                    styles.tabLabel,
-                    {color: tab === t.key ? colors.primary : colors.textSecondary},
+                    styles.summaryCard,
+                    {backgroundColor: colors.primary, borderRadius: radius.lg},
+                    shadows.md,
                   ]}
                 >
-                  {t.label}
-                </Text>
-                {t.count > 0 && (
-                  <View
-                    style={[
-                      styles.tabBadge,
-                      {backgroundColor: t.key === 'overdue' && t.count > 0 ? colors.danger : colors.primary},
-                    ]}
-                  >
-                    <Text style={styles.tabBadgeText}>{t.count}</Text>
+                  <Text style={styles.summaryLabel}>Estimated Monthly Bills</Text>
+                  <Text style={styles.summaryAmount}>
+                    {formatAmount(monthlyTotal, baseCurrency)}
+                  </Text>
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryItemValue}>{upcoming.length}</Text>
+                      <Text style={styles.summaryItemLabel}>Upcoming</Text>
+                    </View>
+                    <View style={[styles.summaryDivider, {backgroundColor: '#FFFFFF30'}]} />
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryItemValue, {color: overdue.length > 0 ? '#FFB74D' : '#FFFFFF'}]}>
+                        {overdue.length}
+                      </Text>
+                      <Text style={styles.summaryItemLabel}>Overdue</Text>
+                    </View>
+                    <View style={[styles.summaryDivider, {backgroundColor: '#FFFFFF30'}]} />
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryItemValue}>
+                        {bills.filter((b) => b.isPaid).length}
+                      </Text>
+                      <Text style={styles.summaryItemLabel}>Paid</Text>
+                    </View>
+                  </View>
+                </Animated.View>
+
+                <View style={[styles.tabRow, {backgroundColor: colors.surface, borderRadius: radius.md}]}>
+                  {tabs.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      accessibilityRole="tab"
+                      accessibilityState={{selected: tab === t.key}}
+                      onPress={() => setTab(t.key)}
+                      style={[
+                        styles.tabItem,
+                        tab === t.key && {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm},
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tabLabel,
+                          {color: tab === t.key ? colors.primary : colors.textSecondary},
+                        ]}
+                      >
+                        {t.label}
+                      </Text>
+                      {t.count > 0 && (
+                        <View
+                          style={[
+                            styles.tabBadge,
+                            {backgroundColor: t.key === 'overdue' && t.count > 0 ? colors.danger : colors.primary},
+                          ]}
+                        >
+                          <Text style={styles.tabBadgeText}>{t.count}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+
+                {displayed.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
+                      {tab === 'overdue' ? 'All caught up!' : 'No bills yet'}
+                    </Text>
+                    <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
+                      {tab === 'overdue'
+                        ? 'You have no overdue bills.'
+                        : 'Add your recurring bills to track due dates.'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{gap: 10}}>
+                    {displayed.map((bill, idx) => renderBillCard(bill, idx))}
                   </View>
                 )}
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Bills list */}
-          {displayed.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyIcon, {color: colors.textTertiary}]}>
-                {tab === 'overdue' ? 'All caught up!' : 'No bills yet'}
-              </Text>
-              <Text style={[styles.emptyText, {color: colors.textTertiary}]}>
-                {tab === 'overdue'
-                  ? 'You have no overdue bills.'
-                  : 'Add your recurring bills to track due dates.'}
-              </Text>
-            </View>
-          ) : (
-            <View style={{gap: 10}}>
-              {displayed.map((bill, idx) => renderBillCard(bill, idx))}
-            </View>
-          )}
-        </ScrollView>
+              </>
+            )}
+          </ScrollView>
+        )}
       </ScreenContainer>
     </View>
   );
@@ -302,6 +264,10 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     minWidth: 48,
   },
+  centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
+  emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
+  emptyDesc: {fontSize: 13, textAlign: 'center'},
   scrollContent: {gap: 16, paddingTop: 12},
   summaryCard: {padding: 20, gap: 12},
   summaryLabel: {color: '#FFFFFFCC', fontSize: 13, fontWeight: fontWeight.medium},
@@ -344,7 +310,5 @@ const styles = StyleSheet.create({
   dueBadge: {paddingHorizontal: 8, paddingVertical: 3},
   dueBadgeText: {fontSize: 11, fontWeight: fontWeight.semibold},
   remindText: {fontSize: 11},
-  emptyState: {alignItems: 'center', paddingVertical: 40, gap: 8},
-  emptyIcon: {fontSize: 18, fontWeight: fontWeight.semibold},
-  emptyText: {fontSize: 13},
+  addBtn: {fontSize: 15, fontWeight: fontWeight.semibold},
 });

@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo} from 'react';
-import {Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -9,10 +9,13 @@ import {useTheme} from '@shared/theme';
 import {Button, Card} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmount} from '@shared/utils/format-currency';
-import type {TabParamList, HomeStackParamList, TransactionsStackParamList} from '@presentation/navigation/types';
+import type {TabParamList, HomeStackParamList} from '@presentation/navigation/types';
 import type {RouteProp} from '@react-navigation/native';
-import {getMockTransactionById} from './TransactionsScreen';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import type {Category} from '@domain/entities/Category';
+import {useTransactionById} from '@presentation/hooks/useTransactions';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
+import {useCategories} from '@presentation/hooks/useCategories';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 type DetailNav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, 'TransactionDetail'>,
@@ -21,17 +24,11 @@ type DetailNav = CompositeNavigationProp<
 
 type DetailRoute = RouteProp<HomeStackParamList, 'TransactionDetail'>;
 
-function categoryIdFromName(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug || 'category';
-}
-
-function getCategoryDisplay(categoryId: string): {name: string; icon: string; color: string} {
-  const found = DEFAULT_CATEGORIES.find((c) => categoryIdFromName(c.name) === categoryId);
+function categoryDisplayFromCategories(
+  categoryId: string,
+  categories: Category[],
+): {name: string; icon: string; color: string} {
+  const found = categories.find((c) => c.id === categoryId);
   if (found) {
     return {name: found.name, icon: found.icon, color: found.color};
   }
@@ -91,13 +88,18 @@ export default function TransactionDetailScreen() {
   const route = useRoute<DetailRoute>();
   const {colors, spacing, typography} = useTheme();
   const insets = useSafeAreaInsets();
+  const transactionId = route.params.transactionId;
 
-  const transaction = useMemo(
-    () => getMockTransactionById(route.params.transactionId),
-    [route.params.transactionId],
-  );
+  const {transaction, isLoading, error} = useTransactionById(transactionId);
+  const {categories} = useCategories();
+  const {deleteTransaction} = useTransactionActions();
 
-  const category = transaction ? getCategoryDisplay(transaction.categoryId) : null;
+  const category = useMemo(() => {
+    if (!transaction) {
+      return null;
+    }
+    return categoryDisplayFromCategories(transaction.categoryId, categories);
+  }, [transaction, categories]);
 
   const amountDisplay = useMemo(() => {
     if (!transaction) {
@@ -124,18 +126,49 @@ export default function TransactionDetailScreen() {
     if (!transaction) {
       return;
     }
-    Alert.alert('Delete transaction', 'This will remove the transaction when the database is wired up.', [
+    Alert.alert('Delete transaction', 'This cannot be undone.', [
       {text: 'Cancel', style: 'cancel'},
       {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          console.log('Delete transaction (mock)', transaction.id);
-          navigation.goBack();
+          void (async () => {
+            try {
+              await deleteTransaction(transaction.id);
+              navigation.goBack();
+            } catch {
+              Alert.alert('Delete failed', 'Could not remove this transaction. Try again.');
+            }
+          })();
         },
       },
     ]);
-  }, [navigation, transaction]);
+  }, [navigation, transaction, deleteTransaction]);
+
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View style={[styles.missing, {paddingHorizontal: spacing.base, paddingTop: spacing.xl, alignItems: 'center'}]}>
+          <ActivityIndicator accessibilityLabel="Loading transaction" color={colors.primary} size="large" />
+          <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.md}]}>Loading…</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScreenContainer>
+        <View style={[styles.missing, {paddingHorizontal: spacing.base, paddingTop: spacing.xl}]}>
+          <Text style={[typography.title3, {color: colors.text}]}>Something went wrong</Text>
+          <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>{error}</Text>
+          <View style={{marginTop: spacing.lg}}>
+            <Button onPress={() => navigation.goBack()} title="Go back" />
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   if (!transaction || !amountDisplay || !category) {
     return (
@@ -143,7 +176,7 @@ export default function TransactionDetailScreen() {
         <View style={[styles.missing, {paddingHorizontal: spacing.base, paddingTop: spacing.xl}]}>
           <Text style={[typography.title3, {color: colors.text}]}>Transaction not found</Text>
           <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>
-            This id is not in the mock data set yet.
+            This transaction may have been deleted or is no longer available.
           </Text>
           <View style={{marginTop: spacing.lg}}>
             <Button onPress={() => navigation.goBack()} title="Go back" />
@@ -190,7 +223,7 @@ export default function TransactionDetailScreen() {
 
           <View style={styles.categoryBlock}>
             <View style={[styles.categoryCircle, {backgroundColor: category.color}]}>
-              <Text style={styles.categoryIcon}>{category.icon}</Text>
+              <AppIcon name={resolveIconName(category.icon)} size={28} color="#FFFFFF" />
             </View>
             <Text style={[typography.title3, {color: colors.text, marginTop: spacing.sm}]}>{category.name}</Text>
           </View>

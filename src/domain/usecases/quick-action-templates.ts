@@ -48,7 +48,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-coffee',
       name: 'Coffee',
-      icon: 'C',
+      icon: 'coffee',
       color: '#FF6B6B',
       type: 'expense',
       categoryId: 'food-and-dining',
@@ -62,7 +62,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-lunch',
       name: 'Lunch',
-      icon: 'L',
+      icon: 'fork-knife',
       color: '#E17055',
       type: 'expense',
       categoryId: 'food-and-dining',
@@ -76,7 +76,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-transport',
       name: 'Ride',
-      icon: 'R',
+      icon: 'car',
       color: '#4ECDC4',
       type: 'expense',
       categoryId: 'transportation',
@@ -89,7 +89,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-groceries',
       name: 'Groceries',
-      icon: 'G',
+      icon: 'cart',
       color: '#45B7D1',
       type: 'expense',
       categoryId: 'groceries',
@@ -100,7 +100,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-salary',
       name: 'Salary',
-      icon: 'S',
+      icon: 'cash',
       color: '#00B894',
       type: 'income',
       categoryId: 'salary',
@@ -112,7 +112,7 @@ export function getDefaultTemplates(): TransactionTemplate[] {
     {
       id: 'tpl-freelance',
       name: 'Freelance',
-      icon: 'F',
+      icon: 'briefcase',
       color: '#0984E3',
       type: 'income',
       categoryId: 'freelance-income',

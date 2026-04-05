@@ -8,6 +8,7 @@ import Animated, {
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmount} from '@shared/utils/format-currency';
+import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 export type WalletCardProps = {
   id: string;
@@ -95,7 +96,7 @@ export function WalletCard({
           ]}
           testID={testID}>
           <View style={[styles.iconCircle, {backgroundColor: tintBg}]}>
-            <Text style={styles.iconText}>{icon}</Text>
+            <AppIcon name={resolveIconName(icon)} size={16} color={color} />
           </View>
           <Text
             numberOfLines={1}
@@ -145,7 +146,7 @@ export function WalletCard({
         testID={testID}>
         <View style={styles.topRow}>
           <View style={[styles.iconCircleLg, {backgroundColor: tintBg}]}>
-            <Text style={styles.iconTextLg}>{icon}</Text>
+            <AppIcon name={resolveIconName(icon)} size={22} color={color} />
           </View>
           <View style={styles.nameBlock}>
             <Text

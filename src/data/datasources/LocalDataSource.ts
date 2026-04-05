@@ -4,6 +4,8 @@ import {WalletRepository} from '@data/repositories/WalletRepository';
 import {CategoryRepository} from '@data/repositories/CategoryRepository';
 import {BudgetRepository} from '@data/repositories/BudgetRepository';
 import {GoalRepository} from '@data/repositories/GoalRepository';
+import {SubscriptionRepository} from '@data/repositories/SubscriptionRepository';
+import {BillReminderRepository} from '@data/repositories/BillReminderRepository';
 import {FxRateRepository} from '@data/repositories/FxRateRepository';
 import {NotificationLogRepository} from '@data/repositories/NotificationLogRepository';
 import {SettingsRepository} from '@data/repositories/SettingsRepository';
@@ -13,6 +15,8 @@ import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import type {ICategoryRepository} from '@domain/repositories/ICategoryRepository';
 import type {IBudgetRepository} from '@domain/repositories/IBudgetRepository';
 import type {IGoalRepository} from '@domain/repositories/IGoalRepository';
+import type {ISubscriptionRepository} from '@domain/repositories/ISubscriptionRepository';
+import type {IBillReminderRepository} from '@domain/repositories/IBillReminderRepository';
 import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
 import type {ISettingsRepository} from '@domain/repositories/ISettingsRepository';
@@ -23,6 +27,8 @@ export type LocalDataSource = {
   categories: ICategoryRepository;
   budgets: IBudgetRepository;
   goals: IGoalRepository;
+  subscriptions: ISubscriptionRepository;
+  billReminders: IBillReminderRepository;
   fxRates: IFxRateRepository;
   notificationLogs: INotificationLogRepository;
   settings: ISettingsRepository;
@@ -38,6 +44,8 @@ export function getLocalDataSource(): LocalDataSource {
       categories: new CategoryRepository(database),
       budgets: new BudgetRepository(database),
       goals: new GoalRepository(database),
+      subscriptions: new SubscriptionRepository(database),
+      billReminders: new BillReminderRepository(database),
       fxRates: new FxRateRepository(database),
       notificationLogs: new NotificationLogRepository(database),
       settings: new SettingsRepository(database),

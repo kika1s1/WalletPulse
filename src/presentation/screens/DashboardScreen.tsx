@@ -19,25 +19,31 @@ import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
 import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
-import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import {useCategories} from '@presentation/hooks/useCategories';
 import type {HomeStackParamList} from '@presentation/navigation/types';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
-function categoryLookup(categoryId: string) {
-  const cat = DEFAULT_CATEGORIES.find((c) => c.name === categoryId);
-  return {
-    name: cat?.name ?? 'Other',
-    icon: cat?.icon ?? '?',
-    color: cat?.color ?? '#B2BEC3',
-  };
-}
-
 export default function DashboardScreen() {
   const {colors, spacing} = useTheme();
   const navigation = useNavigation<Nav>();
   const [refreshing, setRefreshing] = useState(false);
+  const {categories} = useCategories();
+
+  const resolveCategory = useCallback(
+    (categoryId: string) => {
+      const cat = categories.find(
+        (c) => c.id === categoryId || c.name === categoryId,
+      );
+      return {
+        name: cat?.name ?? 'Other',
+        icon: cat?.icon ?? '?',
+        color: cat?.color ?? '#B2BEC3',
+      };
+    },
+    [categories],
+  );
 
   const {
     totalBalance,
@@ -240,7 +246,7 @@ export default function DashboardScreen() {
           />
         ) : (
           recentTransactions.map((tx) => {
-            const cat = categoryLookup(tx.categoryId);
+            const cat = resolveCategory(tx.categoryId);
             return (
               <View key={tx.id} style={styles.txGap}>
                 <TransactionCard
