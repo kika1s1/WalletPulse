@@ -158,7 +158,7 @@ export default function AnalyticsScreen() {
                     Income
                   </Text>
                   <Text style={[styles.statValue, {color: colors.income}]}>
-                    {formatAmount(totalIncome, baseCurrency)}
+                    {formatAmountMasked(totalIncome, baseCurrency, hide)}
                   </Text>
                 </Card>
                 <Card style={styles.statCard} padding="sm">
@@ -166,7 +166,7 @@ export default function AnalyticsScreen() {
                     Expenses
                   </Text>
                   <Text style={[styles.statValue, {color: colors.expense}]}>
-                    {formatAmount(totalExpenses, baseCurrency)}
+                    {formatAmountMasked(totalExpenses, baseCurrency, hide)}
                   </Text>
                 </Card>
               </View>
@@ -184,7 +184,7 @@ export default function AnalyticsScreen() {
                       {color: netFlow >= 0 ? colors.success : colors.danger},
                     ]}>
                     {netFlow >= 0 ? '+' : ''}
-                    {formatAmount(netFlow, baseCurrency)}
+                    {formatAmountMasked(netFlow, baseCurrency, hide)}
                   </Text>
                 </Card>
                 <Card style={styles.statCard} padding="sm">
@@ -192,7 +192,7 @@ export default function AnalyticsScreen() {
                     Avg Daily
                   </Text>
                   <Text style={[styles.statValue, {color: colors.text}]}>
-                    {formatAmount(avgDailySpending, baseCurrency)}
+                    {formatAmountMasked(avgDailySpending, baseCurrency, hide)}
                   </Text>
                 </Card>
               </View>
@@ -225,7 +225,7 @@ export default function AnalyticsScreen() {
                       </Text>
                       <View style={styles.merchantRight}>
                         <Text style={[styles.merchantAmount, {color: colors.expense}]}>
-                          {formatAmount(m.total, baseCurrency)}
+                          {formatAmountMasked(m.total, baseCurrency, hide)}
                         </Text>
                         <Text style={[styles.merchantCount, {color: colors.textTertiary}]}>
                           {m.count} txn{m.count !== 1 ? 's' : ''}
@@ -287,7 +287,7 @@ export default function AnalyticsScreen() {
                               styles.pieCenterAmount,
                               {color: colors.text},
                             ]}>
-                            {formatAmount(totalExpenses, baseCurrency)}
+                            {formatAmountMasked(totalExpenses, baseCurrency, hide)}
                           </Text>
                           <Text
                             style={[
@@ -322,7 +322,7 @@ export default function AnalyticsScreen() {
                       {cat.categoryName}
                     </Text>
                     <Text style={[styles.catAmount, {color: colors.text}]}>
-                      {formatAmount(cat.total, baseCurrency)}
+                      {formatAmountMasked(cat.total, baseCurrency, hide)}
                     </Text>
                   </View>
                   <ProgressBar
@@ -388,7 +388,7 @@ export default function AnalyticsScreen() {
                     Average daily spending
                   </Text>
                   <Text style={[styles.summaryStatValue, {color: colors.text}]}>
-                    {formatAmount(avgDailySpending, baseCurrency)}
+                    {formatAmountMasked(avgDailySpending, baseCurrency, hide)}
                   </Text>
                 </View>
                 <View style={styles.summaryStatRow}>
@@ -409,7 +409,7 @@ export default function AnalyticsScreen() {
                       {color: netFlow >= 0 ? colors.success : colors.danger},
                     ]}>
                     {netFlow >= 0 ? '+' : ''}
-                    {formatAmount(netFlow, baseCurrency)}
+                    {formatAmountMasked(netFlow, baseCurrency, hide)}
                   </Text>
                 </View>
               </Card>

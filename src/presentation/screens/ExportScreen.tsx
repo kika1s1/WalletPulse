@@ -23,7 +23,8 @@ import {
   type ExportFormat,
 } from '@domain/usecases/export-transactions';
 import {useTransactions} from '@presentation/hooks/useTransactions';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
 const MS_PER_DAY = 86400000;
 
@@ -61,6 +62,7 @@ const DATE_PRESETS: DatePreset[] = [
 export default function ExportScreen() {
   const navigation = useNavigation();
   const {colors, spacing, radius, typography, shadows} = useTheme();
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const insets = useSafeAreaInsets();
 
   const [format, setFormat] = useState<ExportFormat>('csv');
@@ -265,13 +267,13 @@ export default function ExportScreen() {
                   </View>
                   <View style={styles.statItem}>
                     <Text style={[styles.statValue, {color: colors.danger}]}>
-                      {formatAmount(stats.totalExpense, 'USD')}
+                      {formatAmountMasked(stats.totalExpense, 'USD', hide)}
                     </Text>
                     <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Expenses</Text>
                   </View>
                   <View style={styles.statItem}>
                     <Text style={[styles.statValue, {color: colors.success}]}>
-                      {formatAmount(stats.totalIncome, 'USD')}
+                      {formatAmountMasked(stats.totalIncome, 'USD', hide)}
                     </Text>
                     <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Income</Text>
                   </View>

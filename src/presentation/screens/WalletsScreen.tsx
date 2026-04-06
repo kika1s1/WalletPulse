@@ -4,7 +4,8 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {SectionHeader} from '@presentation/components/layout/SectionHeader';
 import {Spacer} from '@presentation/components/layout/Spacer';
@@ -23,6 +24,7 @@ export default function WalletsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading, refetch} = useWallets();
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -75,8 +77,8 @@ export default function WalletsScreen() {
           <View style={styles.summaryBlock}>
             <Text
               style={[styles.totalBalance, {color: colors.text}]}
-              accessibilityLabel={`Total balance ${formatAmount(totalBalance, baseCurrency)}`}>
-              {formatAmount(totalBalance, baseCurrency)}
+              accessibilityLabel={`Total balance ${formatAmountMasked(totalBalance, baseCurrency, hide)}`}>
+              {formatAmountMasked(totalBalance, baseCurrency, hide)}
             </Text>
             <Text style={[styles.totalLabel, {color: colors.textSecondary}]}>
               Total across {activeWallets.length} active{' '}

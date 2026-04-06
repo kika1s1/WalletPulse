@@ -94,6 +94,7 @@ export default function TransactionDetailScreen() {
   const {transaction, isLoading, error} = useTransactionById(transactionId);
   const {categories} = useCategories();
   const {deleteTransaction} = useTransactionActions();
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const category = useMemo(() => {
     if (!transaction) {
@@ -214,8 +215,14 @@ export default function TransactionDetailScreen() {
 
           <View style={styles.amountBlock}>
             <Text style={[styles.amountText, {color: amountColor}]}>
-              {amountDisplay.sign}
-              {amountDisplay.body}
+              {hide ? (
+                '••••'
+              ) : (
+                <>
+                  {amountDisplay.sign}
+                  {amountDisplay.body}
+                </>
+              )}
             </Text>
             <Text style={[typography.footnote, {color: colors.textTertiary, marginTop: 4}]}>
               {transaction.currency}

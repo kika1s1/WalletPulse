@@ -3,7 +3,8 @@ import {StyleSheet, Text, View} from 'react-native';
 import {BarChart} from 'react-native-gifted-charts';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {Card} from '../common/Card';
 import {Skeleton} from '../feedback/Skeleton';
 
@@ -27,6 +28,7 @@ const SKELETON_BAR_COUNT = 7;
 
 export function MiniBarChart({data, currency, isLoading}: MiniBarChartProps) {
   const {colors, spacing, radius, typography} = useTheme();
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const totalCents = useMemo(
     () => data.reduce((sum, d) => sum + d.amount, 0),
@@ -63,7 +65,7 @@ export function MiniBarChart({data, currency, isLoading}: MiniBarChartProps) {
             },
           ]}>
           <Text style={[styles.tooltipText, {color: colors.text}]}>
-            {formatAmount(cents, currency)}
+            {formatAmountMasked(cents, currency, hide)}
           </Text>
         </View>
       );
@@ -139,7 +141,7 @@ export function MiniBarChart({data, currency, isLoading}: MiniBarChartProps) {
             marginTop: spacing.md,
           },
         ]}>
-        Total: {formatAmount(totalCents, currency)}
+        Total: {formatAmountMasked(totalCents, currency, hide)}
       </Text>
     </Card>
   );
