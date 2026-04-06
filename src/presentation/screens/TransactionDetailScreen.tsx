@@ -90,7 +90,9 @@ function DetailRow({label, value}: RowProps) {
   return (
     <View style={styles.row}>
       <Text style={[typography.footnote, {color: colors.textSecondary, flex: 1}]}>{label}</Text>
-      <Text style={[typography.body, {color: colors.text, flex: 1.4, fontWeight: '500', textAlign: 'right'}]}>
+      <Text
+        numberOfLines={2}
+        style={[typography.body, {color: colors.text, flex: 1.4, fontWeight: '500', textAlign: 'right'}]}>
         {value}
       </Text>
     </View>

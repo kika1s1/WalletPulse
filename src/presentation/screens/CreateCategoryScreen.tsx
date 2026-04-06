@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
@@ -73,6 +76,7 @@ const TYPE_OPTIONS: {key: CategoryKind; label: string}[] = [
 ];
 
 export default function CreateCategoryScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -169,6 +173,7 @@ export default function CreateCategoryScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -188,6 +193,9 @@ export default function CreateCategoryScreen() {
         </View>
       </View>
 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{flex: 1}}>
       <ScrollView
         contentContainerStyle={{padding: spacing.base, paddingBottom: spacing['4xl']}}
         keyboardShouldPersistTaps="handled"
@@ -357,6 +365,7 @@ export default function CreateCategoryScreen() {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -365,7 +374,7 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
+    paddingTop: 0,
     paddingBottom: 12,
   },
   headerRow: {
@@ -434,9 +443,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   colorCell: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

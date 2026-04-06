@@ -183,7 +183,7 @@ export default function EditTransactionScreen() {
 
   if (isLoading) {
     return (
-      <ScreenContainer>
+      <ScreenContainer avoidKeyboard>
         <View
           style={{
             flex: 1,
@@ -200,7 +200,7 @@ export default function EditTransactionScreen() {
 
   if (error) {
     return (
-      <ScreenContainer>
+      <ScreenContainer avoidKeyboard>
         <View style={{flex: 1, paddingHorizontal: spacing.base, paddingTop: spacing.xl}}>
           <Text style={[typography.title3, {color: colors.text}]}>Something went wrong</Text>
           <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>{error}</Text>
@@ -214,7 +214,7 @@ export default function EditTransactionScreen() {
 
   if (!existing) {
     return (
-      <ScreenContainer>
+      <ScreenContainer avoidKeyboard>
         <View style={{flex: 1, paddingHorizontal: spacing.base, paddingTop: spacing.xl}}>
           <Text style={[typography.title3, {color: colors.text}]}>Transaction not found</Text>
           <Text style={[typography.body, {color: colors.textSecondary, marginTop: spacing.sm}]}>
@@ -230,7 +230,7 @@ export default function EditTransactionScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
-      <ScreenContainer scrollable={false}>
+      <ScreenContainer avoidKeyboard scrollable={false}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,

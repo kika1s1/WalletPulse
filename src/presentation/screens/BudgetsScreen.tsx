@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
@@ -96,6 +97,7 @@ function OverviewCard({
 }
 
 export default function BudgetsScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const {activeBudgets, isLoading, error, refetch} = useBudgets();
@@ -164,6 +166,7 @@ export default function BudgetsScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -234,7 +237,7 @@ export default function BudgetsScreen() {
           contentContainerStyle={{
             padding: spacing.base,
             gap: spacing.md,
-            paddingBottom: spacing['3xl'],
+            paddingBottom: insets.bottom + 24,
           }}
           data={items}
           keyExtractor={keyExtractor}
@@ -258,7 +261,6 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
     paddingBottom: 12,
   },
   headerRow: {

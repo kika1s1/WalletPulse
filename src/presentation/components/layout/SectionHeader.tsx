@@ -15,7 +15,10 @@ export function SectionHeader({title, actionLabel, onAction}: Props) {
     <View style={[styles.container, {paddingHorizontal: spacing.base}]}>
       <Text style={[styles.title, {color: colors.text}]}>{title}</Text>
       {actionLabel && onAction && (
-        <TouchableOpacity onPress={onAction} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={onAction}
+          activeOpacity={0.7}
+          style={{minHeight: 44, justifyContent: 'center'}}>
           <Text style={[styles.action, {color: colors.primary}]}>{actionLabel}</Text>
         </TouchableOpacity>
       )}

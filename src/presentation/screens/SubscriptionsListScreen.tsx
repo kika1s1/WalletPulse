@@ -129,7 +129,7 @@ export default function SubscriptionsListScreen() {
                 <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
               </View>
               <View style={{flex: 1}}>
-                <Text style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
+                <Text numberOfLines={1} style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
                 <Text style={[styles.subCycle, {color: colors.textTertiary}]}>
                   {sub.billingCycle} / {sub.categoryId}
                 </Text>

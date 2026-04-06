@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
@@ -87,7 +88,7 @@ function CategoryRow({
         <Pressable
           accessibilityLabel={`Edit ${cat.name}`}
           accessibilityRole="button"
-          hitSlop={8}
+          hitSlop={12}
           onPress={() => onEdit(cat.id)}
           style={[styles.actionBtn, {backgroundColor: colors.background}]}>
           <Text style={[styles.actionIcon, {color: colors.primary}]}>
@@ -99,7 +100,7 @@ function CategoryRow({
           <Pressable
             accessibilityLabel={`Archive ${cat.name}`}
             accessibilityRole="button"
-            hitSlop={8}
+            hitSlop={12}
             onPress={() => onArchive(cat.id, cat.name)}
             style={[styles.actionBtn, {backgroundColor: colors.dangerLight}]}>
             <Text style={[styles.actionIcon, {color: colors.danger}]}>
@@ -113,6 +114,7 @@ function CategoryRow({
 }
 
 export default function CategoryManagementScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const {categories, isLoading, error, refetch} = useCategories();
@@ -190,6 +192,7 @@ export default function CategoryManagementScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -286,7 +289,7 @@ export default function CategoryManagementScreen() {
           contentContainerStyle={{
             padding: spacing.base,
             gap: spacing.sm,
-            paddingBottom: spacing['3xl'],
+            paddingBottom: insets.bottom + 24,
           }}
           data={filtered}
           keyExtractor={keyExtractor}
@@ -310,7 +313,6 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
     paddingBottom: 12,
   },
   headerRow: {
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
   typeBadgeText: {fontSize: 11, fontWeight: fontWeight.semibold, textTransform: 'capitalize'},
   defaultLabel: {fontSize: 11},
   catActions: {flexDirection: 'row', gap: 6},
-  actionBtn: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8},
+  actionBtn: {minHeight: 44, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8},
   actionIcon: {fontSize: 12, fontWeight: fontWeight.semibold},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32},
   loadingText: {fontSize: 14, marginTop: 12},

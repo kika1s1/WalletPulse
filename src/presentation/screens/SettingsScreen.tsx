@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
@@ -135,6 +136,7 @@ const DATE_LABELS: Record<string, string> = {
 };
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const settings = useSettingsStore();
@@ -281,6 +283,7 @@ export default function SettingsScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <Text style={[styles.headerTitle, {color: colors.text}]}>
@@ -294,7 +297,7 @@ export default function SettingsScreen() {
       <ScrollView
         contentContainerStyle={{
           padding: spacing.base,
-          paddingBottom: spacing['4xl'],
+          paddingBottom: insets.bottom + 24,
         }}
         showsVerticalScrollIndicator={false}>
         <SectionHeader title="APPEARANCE" />
@@ -637,7 +640,6 @@ const styles = StyleSheet.create({
   },
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 56,
     paddingBottom: 16,
   },
   headerTitle: {

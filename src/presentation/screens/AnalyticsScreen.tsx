@@ -573,6 +573,7 @@ export default function AnalyticsScreen() {
                     showLabel={false}
                   />
                   <Text
+                    numberOfLines={1}
                     style={[styles.catPercent, {color: colors.textSecondary}]}>
                     {cat.percentage.toFixed(1)}% of spending ({cat.count} txn
                     {cat.count !== 1 ? 's' : ''})
@@ -708,7 +709,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   tabText: {
     fontSize: 14,

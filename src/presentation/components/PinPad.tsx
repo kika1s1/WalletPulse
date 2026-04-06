@@ -1,5 +1,6 @@
 import React, {useCallback} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -24,6 +25,7 @@ type Props = {
 
 export function PinPad({title, subtitle, pin, onPinChange, error}: Props) {
   const {colors, radius, spacing} = useTheme();
+  const insets = useSafeAreaInsets();
   const shakeX = useSharedValue(0);
 
   const triggerShake = useCallback(() => {
@@ -58,7 +60,7 @@ export function PinPad({title, subtitle, pin, onPinChange, error}: Props) {
   }, [error, triggerShake]);
 
   return (
-    <View style={[styles.container, {backgroundColor: colors.background}]}>
+    <View style={[styles.container, {backgroundColor: colors.background, paddingTop: insets.top + 40, paddingBottom: Math.max(insets.bottom, 24)}]}>
       <View style={styles.topSection}>
         <AppIcon name="lock-outline" size={40} color={colors.primary} />
         <Text style={[styles.title, {color: colors.text}]}>{title}</Text>
@@ -128,8 +130,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingTop: 80,
-    paddingBottom: 40,
     paddingHorizontal: 24,
   },
   topSection: {

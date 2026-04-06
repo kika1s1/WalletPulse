@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -64,6 +66,7 @@ function formatDate(ts: number): string {
 }
 
 export default function CreateGoalScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -185,7 +188,7 @@ export default function CreateGoalScreen() {
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
-      <View style={[styles.header, {backgroundColor: colors.surface, borderBottomColor: colors.borderLight, paddingHorizontal: spacing.base}]}>
+      <View style={[styles.header, {backgroundColor: colors.surface, borderBottomColor: colors.borderLight, paddingHorizontal: spacing.base, paddingTop: insets.top + 12}]}>
         <View style={styles.headerRow}>
           <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
             <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
@@ -202,6 +205,9 @@ export default function CreateGoalScreen() {
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{flex: 1}}>
       <ScrollView
         contentContainerStyle={{padding: spacing.base, paddingBottom: spacing['4xl']}}
         keyboardShouldPersistTaps="handled"
@@ -347,6 +353,7 @@ export default function CreateGoalScreen() {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
       )}
 
       <CurrencyPicker
@@ -362,7 +369,7 @@ export default function CreateGoalScreen() {
 const styles = StyleSheet.create({
   container: {flex: 1},
   loadingBox: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 52, paddingBottom: 12},
+  header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 0, paddingBottom: 12},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
@@ -380,6 +387,6 @@ const styles = StyleSheet.create({
   iconGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
   iconCell: {width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 2},
   colorGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
-  colorCell: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center'},
+  colorCell: {width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center'},
   colorCheck: {color: '#FFFFFF', fontSize: 18, fontWeight: fontWeight.bold, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 2},
 });

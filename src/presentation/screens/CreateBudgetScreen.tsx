@@ -2,6 +2,8 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
@@ -58,6 +61,7 @@ function getWeekRange(): {start: number; end: number} {
 }
 
 export default function CreateBudgetScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<CreateBudgetRoute>();
@@ -194,6 +198,7 @@ export default function CreateBudgetScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -231,6 +236,9 @@ export default function CreateBudgetScreen() {
           </Text>
         </View>
       ) : (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{flex: 1}}>
       <ScrollView
         contentContainerStyle={{padding: spacing.base, paddingBottom: spacing['4xl']}}
         keyboardShouldPersistTaps="handled"
@@ -431,6 +439,7 @@ export default function CreateBudgetScreen() {
           />
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
       )}
     </View>
   );
@@ -448,7 +457,6 @@ const styles = StyleSheet.create({
   notFoundBody: {fontSize: 14, lineHeight: 20, textAlign: 'center'},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
     paddingBottom: 12,
   },
   headerRow: {

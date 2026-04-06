@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -185,6 +186,7 @@ function LogItem({
 }
 
 export default function NotificationLogScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const navigation = useNavigation();
   const {logs, isLoading, error, refetch} = useNotificationLogs(100);
@@ -238,6 +240,7 @@ export default function NotificationLogScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -340,7 +343,7 @@ export default function NotificationLogScreen() {
           contentContainerStyle={{
             padding: spacing.base,
             gap: spacing.sm,
-            paddingBottom: spacing['3xl'],
+            paddingBottom: insets.bottom + 24,
           }}
           data={filtered}
           keyExtractor={keyExtractor}
@@ -366,7 +369,6 @@ const styles = StyleSheet.create({
   },
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
     paddingBottom: 12,
   },
   headerRow: {

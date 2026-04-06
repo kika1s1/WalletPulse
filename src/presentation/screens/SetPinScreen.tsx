@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {PinPad} from '@presentation/components/PinPad';
 import {usePinStore} from '@presentation/stores/usePinStore';
 import {useTheme} from '@shared/theme';
@@ -12,6 +13,7 @@ type Step = 'enter' | 'confirm';
 export default function SetPinScreen() {
   const navigation = useNavigation();
   const {colors} = useTheme();
+  const insets = useSafeAreaInsets();
   const setPin = usePinStore((s) => s.setPin);
 
   const [step, setStep] = useState<Step>('enter');
@@ -52,7 +54,7 @@ export default function SetPinScreen() {
         accessibilityRole="button"
         hitSlop={12}
         onPress={() => navigation.goBack()}
-        style={styles.cancelBtn}>
+        style={[styles.cancelBtn, {top: insets.top + 12}]}>
         <Text style={[styles.cancelText, {color: colors.textSecondary}]}>Cancel</Text>
       </Pressable>
       <PinPad
@@ -74,10 +76,12 @@ const styles = StyleSheet.create({
   root: {flex: 1},
   cancelBtn: {
     position: 'absolute',
-    top: 52,
     left: 16,
     zIndex: 10,
     padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   cancelText: {
     fontSize: 16,

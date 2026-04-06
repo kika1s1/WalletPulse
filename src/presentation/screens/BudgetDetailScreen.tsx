@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
@@ -73,6 +74,7 @@ function daysRemaining(endDate: number): number {
 }
 
 export default function BudgetDetailScreen() {
+  const insets = useSafeAreaInsets();
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -232,6 +234,7 @@ export default function BudgetDetailScreen() {
             backgroundColor: colors.surface,
             borderBottomColor: colors.borderLight,
             paddingHorizontal: spacing.base,
+            paddingTop: insets.top + 12,
           },
         ]}>
         <View style={styles.headerRow}>
@@ -284,7 +287,7 @@ export default function BudgetDetailScreen() {
               ]}>
               <View style={styles.heroTopRow}>
                 <View style={[styles.heroDot, {backgroundColor: catColor}]} />
-                <Text style={[styles.heroName, {color: colors.text}]}>
+                <Text numberOfLines={1} style={[styles.heroName, {color: colors.text}]}>
                   {catName}
                 </Text>
                 <View
@@ -426,7 +429,7 @@ export default function BudgetDetailScreen() {
         contentContainerStyle={{
           padding: spacing.base,
           gap: spacing.sm,
-          paddingBottom: spacing['3xl'],
+          paddingBottom: insets.bottom + 24,
         }}
         data={transactions}
         keyExtractor={(item) => item.id}
@@ -467,7 +470,6 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: 52,
     paddingBottom: 12,
   },
   headerRow: {

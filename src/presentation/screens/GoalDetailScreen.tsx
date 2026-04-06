@@ -222,7 +222,7 @@ export default function GoalDetailScreen() {
                 <AppIcon color={goal.color} name={resolveIconName(goal.icon)} size={28} />
               </View>
               <View style={{flex: 1}}>
-                <Text style={[styles.goalName, {color: colors.text}]}>{goal.name}</Text>
+                <Text numberOfLines={1} style={[styles.goalName, {color: colors.text}]}>{goal.name}</Text>
                 <Text style={[styles.categoryLine, {color: colors.textTertiary}]}>
                   {goal.category}
                 </Text>

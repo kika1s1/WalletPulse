@@ -380,7 +380,7 @@ export default function AddTransactionScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
-      <ScreenContainer scrollable={false}>
+      <ScreenContainer avoidKeyboard scrollable={false}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,

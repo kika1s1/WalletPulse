@@ -79,7 +79,7 @@ export default function GoalsListScreen() {
             <AppIcon name={resolveIconName(goal.icon)} size={22} color={goal.color} />
           </View>
           <View style={{flex: 1}}>
-            <Text style={[styles.goalName, {color: colors.text}]}>{goal.name}</Text>
+            <Text numberOfLines={1} style={[styles.goalName, {color: colors.text}]}>{goal.name}</Text>
             <Text style={[styles.goalCategory, {color: colors.textTertiary}]}>
               {goal.category}
             </Text>

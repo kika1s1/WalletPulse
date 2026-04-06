@@ -155,7 +155,7 @@ export default function BillRemindersScreen() {
           >
             <View style={styles.billHeader}>
               <View style={{flex: 1}}>
-                <Text style={[styles.billName, {color: colors.text}]}>{bill.name}</Text>
+                <Text numberOfLines={1} style={[styles.billName, {color: colors.text}]}>{bill.name}</Text>
                 <Text style={[styles.billCategory, {color: colors.textTertiary}]}>
                   {bill.categoryId} / {bill.recurrence}
                 </Text>

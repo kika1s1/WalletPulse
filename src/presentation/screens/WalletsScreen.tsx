@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 12,
   },
   addBtnText: {
     color: '#FFFFFF',
