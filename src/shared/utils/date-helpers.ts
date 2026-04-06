@@ -55,3 +55,59 @@ export function formatRelativeDate(timestampMs: number, nowMs: number = Date.now
   }
   return toDateString(timestampMs);
 }
+
+export type DateFormatPreference = 'US' | 'EU' | 'ISO';
+
+export function formatDateWithPreference(
+  timestampMs: number,
+  format: DateFormatPreference = 'US',
+): string {
+  const d = new Date(timestampMs);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+
+  switch (format) {
+    case 'EU':
+      return `${day}/${month}/${year}`;
+    case 'ISO':
+      return `${year}-${month}-${day}`;
+    case 'US':
+    default:
+      return `${month}/${day}/${year}`;
+  }
+}
+
+export function formatDateLong(
+  timestampMs: number,
+  format: DateFormatPreference = 'US',
+): string {
+  const d = new Date(timestampMs);
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+
+  switch (format) {
+    case 'EU':
+      return `${day} ${month} ${year}`;
+    case 'ISO':
+      return `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    case 'US':
+    default:
+      return `${month} ${day}, ${year}`;
+  }
+}
+
+export function getWeekDayLabels(
+  firstDay: 'monday' | 'sunday' = 'sunday',
+): string[] {
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (firstDay === 'monday') {
+    return [...labels.slice(1), labels[0]];
+  }
+  return labels;
+}

@@ -1,20 +1,24 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {BarChart, PieChart} from 'react-native-gifted-charts';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmountMasked} from '@shared/utils/format-currency';
+import {startOfDay, endOfDay} from '@shared/utils/date-helpers';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {SectionHeader} from '@presentation/components/layout/SectionHeader';
 import {Spacer} from '@presentation/components/layout/Spacer';
 import {Card} from '@presentation/components/common/Card';
+import {Chip} from '@presentation/components/common/Chip';
 import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {useAnalytics} from '@presentation/hooks/useAnalytics';
+import type {AnalyticsDateRange} from '@presentation/hooks/useAnalytics';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import type {AnalyticsStackParamList} from '@presentation/navigation/types';
 
@@ -22,11 +26,137 @@ type Nav = NativeStackNavigationProp<AnalyticsStackParamList>;
 
 type TabId = 'overview' | 'categories' | 'trends';
 
+type RangePreset =
+  | 'this_week'
+  | 'this_month'
+  | 'last_month'
+  | 'last_3_months'
+  | 'this_year'
+  | 'custom';
+
+function computeThisWeekRange(firstDay: 'monday' | 'sunday'): AnalyticsDateRange {
+  const now = new Date();
+  const dow = now.getDay();
+  const offset =
+    firstDay === 'sunday' ? dow : (dow + 6) % 7;
+  const start = new Date(now);
+  start.setDate(now.getDate() - offset);
+  return {
+    startMs: startOfDay(start.getTime()),
+    endMs: endOfDay(now.getTime()),
+  };
+}
+
+function computeThisMonthRange(): AnalyticsDateRange {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return {
+    startMs: startOfDay(start.getTime()),
+    endMs: endOfDay(now.getTime()),
+  };
+}
+
+function computeLastMonthRange(): AnalyticsDateRange {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), 0);
+  return {
+    startMs: startOfDay(start.getTime()),
+    endMs: endOfDay(end.getTime()),
+  };
+}
+
+function computeLast3MonthsRange(): AnalyticsDateRange {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  return {
+    startMs: startOfDay(start.getTime()),
+    endMs: endOfDay(now.getTime()),
+  };
+}
+
+function computeThisYearRange(): AnalyticsDateRange {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  return {
+    startMs: startOfDay(start.getTime()),
+    endMs: endOfDay(now.getTime()),
+  };
+}
+
+function computeNonCustomRange(
+  preset: Exclude<RangePreset, 'custom'>,
+  firstDay: 'monday' | 'sunday',
+): AnalyticsDateRange {
+  switch (preset) {
+    case 'this_week':
+      return computeThisWeekRange(firstDay);
+    case 'this_month':
+      return computeThisMonthRange();
+    case 'last_month':
+      return computeLastMonthRange();
+    case 'last_3_months':
+      return computeLast3MonthsRange();
+    case 'this_year':
+      return computeThisYearRange();
+    default:
+      return computeThisMonthRange();
+  }
+}
+
+const RANGE_PRESETS: {id: RangePreset; label: string}[] = [
+  {id: 'this_week', label: 'This Week'},
+  {id: 'this_month', label: 'This Month'},
+  {id: 'last_month', label: 'Last Month'},
+  {id: 'last_3_months', label: 'Last 3 Months'},
+  {id: 'this_year', label: 'This Year'},
+  {id: 'custom', label: 'Custom'},
+];
+
 export default function AnalyticsScreen() {
-  const {colors, spacing, radius, typography} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
+  const firstDayOfWeek = useSettingsStore((s) => s.firstDayOfWeek);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [rangePreset, setRangePreset] = useState<RangePreset>('this_month');
+  const [customStartMs, setCustomStartMs] = useState(() => {
+    const now = new Date();
+    return startOfDay(new Date(now.getFullYear(), now.getMonth(), 1).getTime());
+  });
+  const [customEndMs, setCustomEndMs] = useState(() => endOfDay(Date.now()));
+  const [showCustomStartPicker, setShowCustomStartPicker] = useState(false);
+  const [showCustomEndPicker, setShowCustomEndPicker] = useState(false);
+
+  const dateRange = useMemo((): AnalyticsDateRange => {
+    switch (rangePreset) {
+      case 'this_week':
+        return computeThisWeekRange(firstDayOfWeek);
+      case 'this_month':
+        return computeThisMonthRange();
+      case 'last_month':
+        return computeLastMonthRange();
+      case 'last_3_months':
+        return computeLast3MonthsRange();
+      case 'this_year':
+        return computeThisYearRange();
+      case 'custom': {
+        const lo = Math.min(customStartMs, customEndMs);
+        const hi = Math.max(customStartMs, customEndMs);
+        return {
+          startMs: startOfDay(lo),
+          endMs: endOfDay(hi),
+        };
+      }
+      default:
+        return computeThisMonthRange();
+    }
+  }, [
+    rangePreset,
+    firstDayOfWeek,
+    customStartMs,
+    customEndMs,
+  ]);
 
   const {
     baseCurrency,
@@ -38,9 +168,10 @@ export default function AnalyticsScreen() {
     dailyTrend,
     topMerchants,
     avgDailySpending,
+    rangeSubtitle,
     isLoading,
     refetch,
-  } = useAnalytics();
+  } = useAnalytics({dateRange});
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
@@ -81,6 +212,23 @@ export default function AnalyticsScreen() {
     [trendBars],
   );
 
+  const trendsChartTitle =
+    dailyTrend.length <= 7 ? 'Spending by day' : 'Last 7 days';
+
+  const onSelectPreset = useCallback(
+    (id: RangePreset) => {
+      setRangePreset((prev) => {
+        if (id === 'custom' && prev !== 'custom') {
+          const seed = computeNonCustomRange(prev, firstDayOfWeek);
+          setCustomStartMs(seed.startMs);
+          setCustomEndMs(seed.endMs);
+        }
+        return id;
+      });
+    },
+    [firstDayOfWeek],
+  );
+
   return (
     <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
@@ -90,8 +238,101 @@ export default function AnalyticsScreen() {
           Analytics
         </Text>
         <Text style={[styles.subtitle, {color: colors.textSecondary}]}>
-          This month
+          {rangeSubtitle}
         </Text>
+
+        <Spacer size={spacing.sm} />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipScrollContent}>
+          {RANGE_PRESETS.map((p) => (
+            <Chip
+              key={p.id}
+              label={p.label}
+              selected={rangePreset === p.id}
+              onPress={() => onSelectPreset(p.id)}
+              size="sm"
+            />
+          ))}
+        </ScrollView>
+
+        {rangePreset === 'custom' ? (
+          <>
+            <Spacer size={spacing.sm} />
+            <View style={styles.customDateRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Custom range start date"
+                onPress={() => setShowCustomStartPicker(true)}
+                style={[
+                  styles.customDateCard,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.md,
+                  },
+                ]}>
+                <Text style={[styles.customDateLabel, {color: colors.textSecondary}]}>
+                  Start
+                </Text>
+                <Text style={[styles.customDateValue, {color: colors.text}]}>
+                  {new Date(customStartMs).toLocaleDateString()}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Custom range end date"
+                onPress={() => setShowCustomEndPicker(true)}
+                style={[
+                  styles.customDateCard,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.md,
+                  },
+                ]}>
+                <Text style={[styles.customDateLabel, {color: colors.textSecondary}]}>
+                  End
+                </Text>
+                <Text style={[styles.customDateValue, {color: colors.text}]}>
+                  {new Date(customEndMs).toLocaleDateString()}
+                </Text>
+              </Pressable>
+            </View>
+            {showCustomStartPicker ? (
+              <DateTimePicker
+                maximumDate={new Date()}
+                mode="date"
+                onChange={(_e, selected) => {
+                  if (Platform.OS === 'android') {
+                    setShowCustomStartPicker(false);
+                  }
+                  if (selected) {
+                    setCustomStartMs(startOfDay(selected.getTime()));
+                  }
+                }}
+                value={new Date(customStartMs)}
+              />
+            ) : null}
+            {showCustomEndPicker ? (
+              <DateTimePicker
+                maximumDate={new Date()}
+                mode="date"
+                onChange={(_e, selected) => {
+                  if (Platform.OS === 'android') {
+                    setShowCustomEndPicker(false);
+                  }
+                  if (selected) {
+                    setCustomEndMs(endOfDay(selected.getTime()));
+                  }
+                }}
+                value={new Date(customEndMs)}
+              />
+            ) : null}
+          </>
+        ) : null}
 
         <Spacer size={spacing.base} />
 
@@ -345,7 +586,7 @@ export default function AnalyticsScreen() {
             <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
               <Card padding="md">
                 <Text style={[styles.cardTitle, {color: colors.text}]}>
-                  Last 7 Days
+                  {trendsChartTitle}
                 </Text>
                 <Spacer size={spacing.base} />
                 <BarChart
@@ -435,6 +676,31 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  chipScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 4,
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  customDateCard: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  customDateLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  customDateValue: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   tabRow: {
     flexDirection: 'row',

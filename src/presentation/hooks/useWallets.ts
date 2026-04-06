@@ -4,12 +4,17 @@ import WalletModel from '@data/database/models/WalletModel';
 import {Q} from '@nozbe/watermelondb';
 import {toDomain} from '@data/mappers/wallet-mapper';
 import type {Wallet} from '@domain/entities/Wallet';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {makeUpdateWallet} from '@domain/usecases/update-wallet';
+import type {UpdateWalletFields} from '@domain/usecases/update-wallet';
 
 export type UseWalletsReturn = {
   wallets: Wallet[];
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  updateWallet: (id: string, fields: UpdateWalletFields) => Promise<Wallet>;
+  deleteWallet: (id: string) => Promise<void>;
 };
 
 function walletModelToDomain(model: WalletModel): Wallet {
@@ -38,6 +43,17 @@ export function useWallets(): UseWalletsReturn {
     setRefetchKey((k) => k + 1);
   }, []);
 
+  const updateWallet = useCallback(async (id: string, fields: UpdateWalletFields) => {
+    const ds = getLocalDataSource();
+    const execute = makeUpdateWallet({walletRepo: ds.wallets});
+    return execute(id, fields);
+  }, []);
+
+  const deleteWallet = useCallback(async (id: string) => {
+    const ds = getLocalDataSource();
+    await ds.wallets.delete(id);
+  }, []);
+
   useEffect(() => {
     const collection = database.get<WalletModel>('wallets');
     const query = collection.query(Q.sortBy('sort_order', Q.asc));
@@ -62,5 +78,5 @@ export function useWallets(): UseWalletsReturn {
     return () => subscription.unsubscribe();
   }, [refetchKey]);
 
-  return {wallets, isLoading, error, refetch};
+  return {wallets, isLoading, error, refetch, updateWallet, deleteWallet};
 }

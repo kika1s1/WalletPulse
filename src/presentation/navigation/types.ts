@@ -9,15 +9,28 @@ export type HomeStackParamList = {
 
 export type TransactionsStackParamList = {
   TransactionsList: undefined;
-  AddTransaction: {type?: 'income' | 'expense' | 'transfer'} | undefined;
+  AddTransaction:
+    | {
+        type?: 'income' | 'expense' | 'transfer';
+        templateAmount?: number;
+        templateCategoryId?: string;
+        templateDescription?: string;
+        templateMerchant?: string;
+        templateCurrency?: string;
+        templateTags?: string[];
+      }
+    | undefined;
   EditTransaction: {transactionId: string};
   Search: undefined;
 };
 
 export type WalletsStackParamList = {
   WalletsList: undefined;
-  CreateWallet: undefined;
+  CreateWallet: {editWalletId?: string} | undefined;
+  EditWallet: {walletId: string};
   WalletDetail: {walletId: string};
+  TransactionDetail: {transactionId: string};
+  EditTransaction: {transactionId: string};
 };
 
 export type AnalyticsStackParamList = {
@@ -43,6 +56,8 @@ export type SettingsStackParamList = {
   GoalDetail: {goalId: string};
   SubscriptionsList: undefined;
   CreateSubscription: {editSubscriptionId?: string} | undefined;
+  TransactionDetail: {transactionId: string};
+  EditTransaction: {transactionId: string};
 };
 
 export type TabParamList = {

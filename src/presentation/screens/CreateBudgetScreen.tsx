@@ -1,5 +1,6 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -16,14 +17,25 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {AmountInput} from '@presentation/components/common/AmountInput';
 import {Button} from '@presentation/components/common/Button';
+import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeCreateBudget} from '@domain/usecases/create-budget';
+import {makeUpdateBudget} from '@domain/usecases/update-budget';
 import {generateId} from '@shared/utils/hash';
-import type {BudgetPeriod} from '@domain/entities/Budget';
+import {isOverallBudget, type BudgetPeriod} from '@domain/entities/Budget';
+import {createCurrency, isValidCurrencyCode} from '@domain/value-objects/Currency';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateBudget'>;
-type Route = RouteProp<SettingsStackParamList, 'CreateBudget'>;
+type CreateBudgetRoute = RouteProp<SettingsStackParamList, 'CreateBudget'>;
+
+function currencySymbolForCode(code: string): string {
+  const normalized = code.toUpperCase();
+  if (isValidCurrencyCode(normalized)) {
+    return createCurrency(normalized).symbol;
+  }
+  return normalized;
+}
 
 function getMonthRange(): {start: number; end: number} {
   const now = new Date();
@@ -48,15 +60,62 @@ function getWeekRange(): {start: number; end: number} {
 export default function CreateBudgetScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
-  const route = useRoute<Route>();
+  const route = useRoute<CreateBudgetRoute>();
+  const editBudgetId = route.params?.editBudgetId;
+  const isEditing = Boolean(editBudgetId);
+
+  const {budgets, isLoading: budgetsLoading} = useBudgets();
   const {expenseCategories} = useCategories();
+
+  const existingBudget = useMemo(
+    () => (editBudgetId ? budgets.find((b) => b.id === editBudgetId) : undefined),
+    [budgets, editBudgetId],
+  );
 
   const [amount, setAmount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [period, setPeriod] = useState<BudgetPeriod>('monthly');
   const [rollover, setRollover] = useState(false);
   const [isOverall, setIsOverall] = useState(false);
+  const [budgetCurrency, setBudgetCurrency] = useState('USD');
   const [isSaving, setIsSaving] = useState(false);
+
+  const hydratedBudgetIdRef = useRef<string | null>(null);
+  const prevEditBudgetIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const prev = prevEditBudgetIdRef.current;
+    prevEditBudgetIdRef.current = editBudgetId;
+    if (prev && !editBudgetId) {
+      hydratedBudgetIdRef.current = null;
+      setAmount(0);
+      setSelectedCategoryId(null);
+      setPeriod('monthly');
+      setRollover(false);
+      setIsOverall(false);
+      setBudgetCurrency('USD');
+    }
+  }, [editBudgetId]);
+
+  useEffect(() => {
+    if (!editBudgetId || !existingBudget) {
+      return;
+    }
+    if (hydratedBudgetIdRef.current === existingBudget.id) {
+      return;
+    }
+    hydratedBudgetIdRef.current = existingBudget.id;
+    setAmount(existingBudget.amount);
+    setPeriod(existingBudget.period);
+    setRollover(existingBudget.rollover);
+    const overall = isOverallBudget(existingBudget);
+    setIsOverall(overall);
+    setSelectedCategoryId(overall ? null : existingBudget.categoryId);
+    setBudgetCurrency(existingBudget.currency);
+  }, [editBudgetId, existingBudget]);
+
+  const editLoadPending = isEditing && budgetsLoading;
+  const editNotFound = isEditing && !budgetsLoading && !existingBudget;
 
   const canSave = amount > 0 && (isOverall || selectedCategoryId !== null);
 
@@ -68,34 +127,63 @@ export default function CreateBudgetScreen() {
 
     try {
       const ds = getLocalDataSource();
-      const create = makeCreateBudget({budgetRepo: ds.budgets});
-      const range = period === 'monthly' ? getMonthRange() : getWeekRange();
       const now = Date.now();
 
-      await create({
-        id: generateId(),
-        categoryId: isOverall ? null : selectedCategoryId,
-        amount,
-        currency: 'USD',
-        period,
-        startDate: range.start,
-        endDate: range.end,
-        rollover,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (isEditing && existingBudget) {
+        const update = makeUpdateBudget({budgetRepo: ds.budgets});
+        await update({
+          id: existingBudget.id,
+          categoryId: isOverall ? null : selectedCategoryId,
+          amount,
+          currency: budgetCurrency,
+          period,
+          startDate: existingBudget.startDate,
+          endDate: existingBudget.endDate,
+          rollover,
+          isActive: existingBudget.isActive,
+          createdAt: existingBudget.createdAt,
+          updatedAt: existingBudget.updatedAt,
+        });
+      } else {
+        const create = makeCreateBudget({budgetRepo: ds.budgets});
+        const range = period === 'monthly' ? getMonthRange() : getWeekRange();
+        await create({
+          id: generateId(),
+          categoryId: isOverall ? null : selectedCategoryId,
+          amount,
+          currency: 'USD',
+          period,
+          startDate: range.start,
+          endDate: range.end,
+          rollover,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
 
       navigation.goBack();
     } catch (e) {
       Alert.alert(
-        'Could not create budget',
+        isEditing ? 'Could not update budget' : 'Could not create budget',
         e instanceof Error ? e.message : 'Unknown error',
       );
     } finally {
       setIsSaving(false);
     }
-  }, [amount, canSave, isOverall, isSaving, navigation, period, rollover, selectedCategoryId]);
+  }, [
+    amount,
+    budgetCurrency,
+    canSave,
+    existingBudget,
+    isEditing,
+    isOverall,
+    isSaving,
+    navigation,
+    period,
+    rollover,
+    selectedCategoryId,
+  ]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -119,12 +207,30 @@ export default function CreateBudgetScreen() {
             </Text>
           </Pressable>
           <Text style={[styles.headerTitle, {color: colors.text}]}>
-            New Budget
+            {isEditing ? 'Edit Budget' : 'New Budget'}
           </Text>
           <View style={{width: 60}} />
         </View>
       </View>
 
+      {editLoadPending ? (
+        <View style={styles.centeredState}>
+          <ActivityIndicator
+            accessibilityLabel="Loading budget"
+            color={colors.primary}
+            size="large"
+          />
+        </View>
+      ) : editNotFound ? (
+        <View style={[styles.centeredState, {paddingHorizontal: spacing.base}]}>
+          <Text style={[styles.notFoundTitle, {color: colors.text}]}>
+            Budget not found
+          </Text>
+          <Text style={[styles.notFoundBody, {color: colors.textSecondary}]}>
+            This budget may have been deleted. Go back and refresh the list.
+          </Text>
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={{padding: spacing.base, paddingBottom: spacing['4xl']}}
         keyboardShouldPersistTaps="handled"
@@ -146,9 +252,9 @@ export default function CreateBudgetScreen() {
               shadows.sm,
             ]}>
             <AmountInput
-              autoFocus
-              currency="USD"
-              currencySymbol="$"
+              autoFocus={!isEditing}
+              currency={budgetCurrency}
+              currencySymbol={currencySymbolForCode(budgetCurrency)}
               onChangeValue={setAmount}
               value={amount}
             />
@@ -321,16 +427,25 @@ export default function CreateBudgetScreen() {
             loading={isSaving}
             onPress={handleSave}
             size="lg"
-            title="Create Budget"
+            title={isEditing ? 'Update Budget' : 'Create Budget'}
           />
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  centeredState: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  notFoundTitle: {
+    fontSize: 18,
+    fontWeight: fontWeight.semibold,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  notFoundBody: {fontSize: 14, lineHeight: 20, textAlign: 'center'},
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingTop: 52,

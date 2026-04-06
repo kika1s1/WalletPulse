@@ -1,5 +1,6 @@
 import {
   collectAllTags,
+  mergeUniqueSortedTagNames,
   suggestTags,
   validateTag,
   normalizeTag,
@@ -67,6 +68,18 @@ describe('tag-management', () => {
       const result = collectAllTags(txns);
       expect(result[0]).toBe('common');
       expect(result[1]).toBe('medium');
+    });
+  });
+
+  describe('mergeUniqueSortedTagNames', () => {
+    it('merges, dedupes, and sorts alphabetically', () => {
+      expect(
+        mergeUniqueSortedTagNames(['Zebra', 'apple'], ['apple', 'banana']),
+      ).toEqual(['apple', 'banana', 'zebra']);
+    });
+
+    it('returns empty when both inputs are empty', () => {
+      expect(mergeUniqueSortedTagNames([], [])).toEqual([]);
     });
   });
 

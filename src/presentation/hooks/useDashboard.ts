@@ -1,8 +1,11 @@
-import {useMemo, useCallback} from 'react';
+import {useMemo, useCallback, useState, useEffect, useRef} from 'react';
 import {useTransactions} from './useTransactions';
 import {useWallets} from './useWallets';
 import {useAppStore} from '@presentation/stores/useAppStore';
-import {startOfDay, endOfDay, daysAgo} from '@shared/utils/date-helpers';
+import {startOfDay, endOfDay, daysAgo, getWeekDayLabels} from '@shared/utils/date-helpers';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {makeGetConversionRate} from '@infrastructure/fx-service';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {DaySpending} from '@presentation/components/charts/MiniBarChart';
@@ -11,6 +14,8 @@ import type {InsightCardProps} from '@presentation/components/InsightCard';
 export type DashboardData = {
   totalBalance: number;
   baseCurrency: string;
+  displayCurrency: string;
+  displayBalance: number;
   percentChange: number;
   monthIncome: number;
   monthExpenses: number;
@@ -18,12 +23,14 @@ export type DashboardData = {
   recentTransactions: Transaction[];
   insights: InsightCardProps[];
   wallets: Wallet[];
+  selectedWalletId: string | null;
+  setSelectedWalletId: (id: string | null) => void;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 };
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DEFAULT_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function getMonthRange(): {startMs: number; endMs: number} {
   const now = new Date();
@@ -44,7 +51,12 @@ function getPrevMonthRange(): {startMs: number; endMs: number} {
   };
 }
 
-function buildWeeklySpending(transactions: Transaction[]): DaySpending[] {
+function buildWeeklySpending(
+  transactions: Transaction[],
+  baseCurrency: string,
+  rates: RateMap,
+  dayLabels: string[] = DEFAULT_DAY_LABELS,
+): DaySpending[] {
   const now = Date.now();
   const todayDow = new Date(now).getDay();
   const result: DaySpending[] = [];
@@ -62,10 +74,14 @@ function buildWeeklySpending(transactions: Transaction[]): DaySpending[] {
           t.transactionDate >= dayStart &&
           t.transactionDate <= dayEnd,
       )
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce(
+        (sum, t) =>
+          sum + convertToBase(t.amount, t.currency, baseCurrency, rates),
+        0,
+      );
 
     result.push({
-      label: DAY_LABELS[dow],
+      label: dayLabels[dow] ?? DEFAULT_DAY_LABELS[dow],
       amount: dayTotal,
       isToday: dow === todayDow && i === 0,
     });
@@ -74,20 +90,6 @@ function buildWeeklySpending(transactions: Transaction[]): DaySpending[] {
   return result;
 }
 
-function sumByType(
-  transactions: Transaction[],
-  type: 'income' | 'expense',
-  range: {startMs: number; endMs: number},
-): number {
-  return transactions
-    .filter(
-      (t) =>
-        t.type === type &&
-        t.transactionDate >= range.startMs &&
-        t.transactionDate <= range.endMs,
-    )
-    .reduce((sum, t) => sum + t.amount, 0);
-}
 
 function computePercentChange(current: number, previous: number): number {
   if (previous === 0 && current === 0) {
@@ -145,11 +147,69 @@ function generateInsights(
   return list;
 }
 
+type RateMap = Record<string, number>;
+
+function useConversionRates(
+  currencies: string[],
+  baseCurrency: string,
+): RateMap {
+  const [rates, setRates] = useState<RateMap>({});
+  const fetchedRef = useRef<string>('');
+
+  useEffect(() => {
+    const key = [...currencies].sort().join(',') + ':' + baseCurrency;
+    if (key === fetchedRef.current) return;
+    fetchedRef.current = key;
+
+    const uniqueNonBase = currencies.filter(
+      (c) => c.toUpperCase() !== baseCurrency.toUpperCase(),
+    );
+    if (uniqueNonBase.length === 0) {
+      setRates({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const ds = getLocalDataSource();
+      const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
+      const result: RateMap = {};
+      for (const c of uniqueNonBase) {
+        try {
+          const r = await getRate(c, baseCurrency);
+          if (r !== null) result[c.toUpperCase()] = r;
+        } catch {
+          // Skip currencies without rate data
+        }
+      }
+      if (!cancelled) setRates(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currencies, baseCurrency]);
+
+  return rates;
+}
+
+function convertToBase(
+  amount: number,
+  currency: string,
+  baseCurrency: string,
+  rates: RateMap,
+): number {
+  if (currency.toUpperCase() === baseCurrency.toUpperCase()) return amount;
+  const rate = rates[currency.toUpperCase()];
+  if (!rate) return amount;
+  return Math.round(amount * rate);
+}
+
 export function useDashboard(): DashboardData {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
 
   const {
-    transactions,
+    transactions: allTransactions,
     isLoading: txLoading,
     error: txError,
     refetch: txRefetch,
@@ -162,6 +222,30 @@ export function useDashboard(): DashboardData {
     refetch: walletRefetch,
   } = useWallets();
 
+  const selectedWallet = useMemo(
+    () => (selectedWalletId ? wallets.find((w) => w.id === selectedWalletId) ?? null : null),
+    [wallets, selectedWalletId],
+  );
+
+  const transactions = useMemo(
+    () =>
+      selectedWalletId
+        ? allTransactions.filter((t) => t.walletId === selectedWalletId)
+        : allTransactions,
+    [allTransactions, selectedWalletId],
+  );
+
+  const activeCurrency = selectedWallet?.currency ?? baseCurrency;
+
+  const allCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    for (const w of wallets) set.add(w.currency.toUpperCase());
+    for (const t of allTransactions) set.add(t.currency.toUpperCase());
+    return Array.from(set);
+  }, [wallets, allTransactions]);
+
+  const fxRates = useConversionRates(allCurrencies, baseCurrency);
+
   const monthRange = useMemo(getMonthRange, []);
   const prevMonthRange = useMemo(getPrevMonthRange, []);
 
@@ -169,23 +253,72 @@ export function useDashboard(): DashboardData {
     () =>
       wallets
         .filter((w) => w.isActive)
-        .reduce((sum, w) => sum + w.balance, 0),
-    [wallets],
+        .reduce(
+          (sum, w) =>
+            sum + convertToBase(w.balance, w.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [wallets, baseCurrency, fxRates],
   );
 
+  const displayBalance = selectedWallet ? selectedWallet.balance : totalBalance;
+  const displayCurrency = activeCurrency;
+
   const monthIncome = useMemo(
-    () => sumByType(transactions, 'income', monthRange),
-    [transactions, monthRange],
+    () =>
+      transactions
+        .filter(
+          (t) =>
+            t.type === 'income' &&
+            t.transactionDate >= monthRange.startMs &&
+            t.transactionDate <= monthRange.endMs,
+        )
+        .reduce(
+          (sum, t) =>
+            selectedWalletId
+              ? sum + t.amount
+              : sum + convertToBase(t.amount, t.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [transactions, monthRange, baseCurrency, fxRates, selectedWalletId],
   );
 
   const monthExpenses = useMemo(
-    () => sumByType(transactions, 'expense', monthRange),
-    [transactions, monthRange],
+    () =>
+      transactions
+        .filter(
+          (t) =>
+            t.type === 'expense' &&
+            t.transactionDate >= monthRange.startMs &&
+            t.transactionDate <= monthRange.endMs,
+        )
+        .reduce(
+          (sum, t) =>
+            selectedWalletId
+              ? sum + t.amount
+              : sum + convertToBase(t.amount, t.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [transactions, monthRange, baseCurrency, fxRates, selectedWalletId],
   );
 
   const prevMonthExpenses = useMemo(
-    () => sumByType(transactions, 'expense', prevMonthRange),
-    [transactions, prevMonthRange],
+    () =>
+      transactions
+        .filter(
+          (t) =>
+            t.type === 'expense' &&
+            t.transactionDate >= prevMonthRange.startMs &&
+            t.transactionDate <= prevMonthRange.endMs,
+        )
+        .reduce(
+          (sum, t) =>
+            selectedWalletId
+              ? sum + t.amount
+              : sum + convertToBase(t.amount, t.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [transactions, prevMonthRange, baseCurrency, fxRates, selectedWalletId],
   );
 
   const percentChange = useMemo(
@@ -193,9 +326,15 @@ export function useDashboard(): DashboardData {
     [monthExpenses, prevMonthExpenses],
   );
 
+  const firstDayOfWeek = useSettingsStore((s) => s.firstDayOfWeek);
+  const dayLabels = useMemo(() => getWeekDayLabels(firstDayOfWeek), [firstDayOfWeek]);
+
   const weeklySpending = useMemo(
-    () => buildWeeklySpending(transactions),
-    [transactions],
+    () =>
+      selectedWalletId
+        ? buildWeeklySpending(transactions, activeCurrency, {}, dayLabels)
+        : buildWeeklySpending(transactions, baseCurrency, fxRates, dayLabels),
+    [transactions, baseCurrency, activeCurrency, fxRates, dayLabels, selectedWalletId],
   );
 
   const recentTransactions = useMemo(
@@ -226,6 +365,8 @@ export function useDashboard(): DashboardData {
   return {
     totalBalance,
     baseCurrency,
+    displayCurrency,
+    displayBalance,
     percentChange,
     monthIncome,
     monthExpenses,
@@ -233,6 +374,8 @@ export function useDashboard(): DashboardData {
     recentTransactions,
     insights,
     wallets,
+    selectedWalletId,
+    setSelectedWalletId,
     isLoading,
     error,
     refetch,

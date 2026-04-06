@@ -1,7 +1,8 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {useRoute} from '@react-navigation/native';
+import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmountMasked} from '@shared/utils/format-currency';
@@ -16,14 +17,17 @@ import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useTransactions} from '@presentation/hooks/useTransactions';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
 type WalletDetailRoute = RouteProp<WalletsStackParamList, 'WalletDetail'>;
+type WalletDetailNav = NativeStackNavigationProp<WalletsStackParamList, 'WalletDetail'>;
 
 export default function WalletDetailScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
+  const navigation = useNavigation<WalletDetailNav>();
   const route = useRoute<WalletDetailRoute>();
   const {walletId} = route.params;
   const [refreshing, setRefreshing] = useState(false);
@@ -43,7 +47,7 @@ export default function WalletDetailScreen() {
     [categories],
   );
 
-  const {wallets, isLoading: walletLoading, refetch: walletRefetch} = useWallets();
+  const {wallets, isLoading: walletLoading, refetch: walletRefetch, deleteWallet} = useWallets();
   const wallet = useMemo(
     () => wallets.find((w) => w.id === walletId) ?? null,
     [wallets, walletId],
@@ -58,6 +62,38 @@ export default function WalletDetailScreen() {
     syncWithFilterStore: false,
     filter: {walletId},
   });
+
+  const {deleteTransaction} = useTransactionActions();
+
+  const openTxDetail = useCallback(
+    (id: string) => navigation.navigate('TransactionDetail', {transactionId: id}),
+    [navigation],
+  );
+  const openTxEdit = useCallback(
+    (id: string) => navigation.navigate('EditTransaction', {transactionId: id}),
+    [navigation],
+  );
+  const confirmTxDelete = useCallback(
+    (id: string) => {
+      Alert.alert(
+        'Delete Transaction',
+        'This will permanently delete this transaction and update the wallet balance.',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              deleteTransaction(id).catch(() =>
+                Alert.alert('Error', 'Failed to delete the transaction.'),
+              );
+            },
+          },
+        ],
+      );
+    },
+    [deleteTransaction],
+  );
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -97,12 +133,56 @@ export default function WalletDetailScreen() {
     );
   }
 
+  const handleDeleteWallet = useCallback(() => {
+    Alert.alert(
+      'Delete Wallet',
+      'This will permanently delete this wallet and all its transactions. This cannot be undone.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteWallet(walletId);
+              navigation.goBack();
+            } catch {
+              Alert.alert('Error', 'Failed to delete the wallet.');
+            }
+          },
+        },
+      ],
+    );
+  }, [deleteWallet, walletId, navigation]);
+
   const currency = wallet?.currency ?? 'USD';
 
   return (
     <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.base} />
+
+        {wallet && !isLoading ? (
+          <View style={styles.headerActions}>
+            <View style={{flex: 1}} />
+            <Pressable
+              accessibilityLabel="Edit wallet"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() =>
+                navigation.navigate('CreateWallet', {editWalletId: walletId})
+              }>
+              <Text style={[styles.editLabel, {color: colors.primary}]}>Edit</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Delete wallet"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={handleDeleteWallet}>
+              <Text style={[styles.editLabel, {color: colors.danger}]}>Delete</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {isLoading && !wallet ? (
           <>
@@ -208,8 +288,12 @@ export default function WalletDetailScreen() {
                   categoryColor={cat.color}
                   description={tx.description}
                   merchant={tx.merchant}
+                  notes={tx.notes}
                   transactionDate={tx.transactionDate}
                   source={tx.source}
+                  onPress={openTxDetail}
+                  onEdit={openTxEdit}
+                  onDelete={confirmTxDelete}
                 />
               </View>
             );
@@ -225,6 +309,16 @@ export default function WalletDetailScreen() {
 const styles = StyleSheet.create({
   padded: {
     alignSelf: 'stretch',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 8,
+  },
+  editLabel: {
+    fontSize: 16,
+    fontWeight: fontWeight.medium,
   },
   headerRow: {
     flexDirection: 'row',

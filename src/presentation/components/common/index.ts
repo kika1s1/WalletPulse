@@ -7,6 +7,7 @@ export {Card} from './Card';
 export {Chip} from './Chip';
 export {CategoryPicker} from './CategoryPicker';
 export {CurrencyPicker} from './CurrencyPicker';
+export {WalletPicker} from './WalletPicker';
 export {FAB} from './FAB';
 export {Input} from './Input';
 export {SwipeableRow} from './SwipeableRow';

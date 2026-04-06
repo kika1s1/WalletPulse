@@ -1,10 +1,17 @@
-import {useMemo} from 'react';
+import {useMemo, useState, useEffect, useRef} from 'react';
 import {useTransactions} from './useTransactions';
 import {useCategories} from './useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
-import {startOfDay, endOfDay, daysAgo} from '@shared/utils/date-helpers';
+import {startOfDay, endOfDay, formatDateLong} from '@shared/utils/date-helpers';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {makeGetConversionRate} from '@infrastructure/fx-service';
 import type {Category} from '@domain/entities/Category';
 import type {Transaction} from '@domain/entities/Transaction';
+
+export type AnalyticsDateRange = {
+  startMs: number;
+  endMs: number;
+};
 
 export type CategoryBreakdown = {
   categoryId: string;
@@ -33,14 +40,16 @@ export type AnalyticsData = {
   dailyTrend: DailyTrend[];
   topMerchants: {name: string; total: number; count: number}[];
   avgDailySpending: number;
+  rangeSubtitle: string;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 };
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MS_PER_DAY = 86400000;
 
-function getMonthRange(): {startMs: number; endMs: number} {
+function getDefaultMonthRange(): AnalyticsDateRange {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   return {
@@ -49,21 +58,90 @@ function getMonthRange(): {startMs: number; endMs: number} {
   };
 }
 
+function inclusiveCalendarDays(startMs: number, endMs: number): number {
+  const s = startOfDay(startMs);
+  const e = startOfDay(endMs);
+  return Math.max(1, Math.floor((e - s) / MS_PER_DAY) + 1);
+}
+
+function formatRangeSubtitle(startMs: number, endMs: number): string {
+  return `${formatDateLong(startMs, 'US')} – ${formatDateLong(endMs, 'US')}`;
+}
+
+type RateMap = Record<string, number>;
+
+function convertToBase(
+  amount: number,
+  currency: string,
+  baseCurrency: string,
+  rates: RateMap,
+): number {
+  if (currency.toUpperCase() === baseCurrency.toUpperCase()) return amount;
+  const rate = rates[currency.toUpperCase()];
+  if (!rate) return amount;
+  return Math.round(amount * rate);
+}
+
+function useConversionRates(
+  currencies: string[],
+  baseCurrency: string,
+): RateMap {
+  const [rates, setRates] = useState<RateMap>({});
+  const fetchedRef = useRef<string>('');
+
+  useEffect(() => {
+    const key = [...currencies].sort().join(',') + ':' + baseCurrency;
+    if (key === fetchedRef.current) return;
+    fetchedRef.current = key;
+
+    const uniqueNonBase = currencies.filter(
+      (c) => c.toUpperCase() !== baseCurrency.toUpperCase(),
+    );
+    if (uniqueNonBase.length === 0) {
+      setRates({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const ds = getLocalDataSource();
+      const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
+      const result: RateMap = {};
+      for (const c of uniqueNonBase) {
+        try {
+          const r = await getRate(c, baseCurrency);
+          if (r !== null) result[c.toUpperCase()] = r;
+        } catch {
+          // Skip currencies without rate data
+        }
+      }
+      if (!cancelled) setRates(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currencies, baseCurrency]);
+
+  return rates;
+}
+
 function buildCategoryBreakdown(
   transactions: Transaction[],
   categoryList: Category[],
+  baseCurrency: string,
+  rates: RateMap,
 ): CategoryBreakdown[] {
   const expenses = transactions.filter((t) => t.type === 'expense');
-  const totalExpenses = expenses.reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = expenses.reduce(
+    (s, t) => s + convertToBase(t.amount, t.currency, baseCurrency, rates),
+    0,
+  );
 
-  const map = new Map<
-    string,
-    {total: number; count: number}
-  >();
+  const map = new Map<string, {total: number; count: number}>();
 
   for (const tx of expenses) {
     const entry = map.get(tx.categoryId) ?? {total: 0, count: 0};
-    entry.total += tx.amount;
+    entry.total += convertToBase(tx.amount, tx.currency, baseCurrency, rates);
     entry.count += 1;
     map.set(tx.categoryId, entry);
   }
@@ -88,37 +166,55 @@ function buildCategoryBreakdown(
   return result;
 }
 
-function buildDailyTrend(transactions: Transaction[]): DailyTrend[] {
-  const now = Date.now();
-  const result: DailyTrend[] = [];
+function buildDailyTrend(
+  transactions: Transaction[],
+  range: AnalyticsDateRange,
+  baseCurrency: string,
+  rates: RateMap,
+): DailyTrend[] {
+  const dayTotals = new Map<
+    number,
+    {income: number; expense: number}
+  >();
 
-  for (let i = 29; i >= 0; i--) {
-    const dayMs = daysAgo(i, now);
-    const dayStart = startOfDay(dayMs);
-    const dayEnd = endOfDay(dayMs);
-    const d = new Date(dayMs);
+  for (const tx of transactions) {
+    if (
+      tx.transactionDate < range.startMs ||
+      tx.transactionDate > range.endMs
+    ) {
+      continue;
+    }
+    const dayKey = startOfDay(tx.transactionDate);
+    const bucket = dayTotals.get(dayKey) ?? {income: 0, expense: 0};
+    const conv = convertToBase(tx.amount, tx.currency, baseCurrency, rates);
+    if (tx.type === 'income') {
+      bucket.income += conv;
+    } else if (tx.type === 'expense') {
+      bucket.expense += conv;
+    }
+    dayTotals.set(dayKey, bucket);
+  }
+
+  const result: DailyTrend[] = [];
+  let cursor = startOfDay(range.startMs);
+  const rangeEnd = startOfDay(range.endMs);
+
+  const spanDays =
+    Math.floor((rangeEnd - startOfDay(range.startMs)) / MS_PER_DAY) + 1;
+  const preferDowLabels = spanDays <= 14;
+
+  while (cursor <= rangeEnd) {
+    const d = new Date(cursor);
     const dow = DAY_SHORT[d.getDay()];
     const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
-
-    let income = 0;
-    let expense = 0;
-
-    for (const tx of transactions) {
-      if (tx.transactionDate >= dayStart && tx.transactionDate <= dayEnd) {
-        if (tx.type === 'income') {
-          income += tx.amount;
-        } else if (tx.type === 'expense') {
-          expense += tx.amount;
-        }
-      }
-    }
-
+    const bucket = dayTotals.get(cursor) ?? {income: 0, expense: 0};
     result.push({
-      label: i < 7 ? dow : dateStr,
-      income,
-      expense,
+      label: preferDowLabels ? dow : dateStr,
+      income: bucket.income,
+      expense: bucket.expense,
       date: dateStr,
     });
+    cursor += MS_PER_DAY;
   }
 
   return result;
@@ -126,6 +222,8 @@ function buildDailyTrend(transactions: Transaction[]): DailyTrend[] {
 
 function buildTopMerchants(
   transactions: Transaction[],
+  baseCurrency: string,
+  rates: RateMap,
 ): {name: string; total: number; count: number}[] {
   const expenses = transactions.filter(
     (t) => t.type === 'expense' && t.merchant.trim() !== '',
@@ -135,7 +233,7 @@ function buildTopMerchants(
   for (const tx of expenses) {
     const key = tx.merchant.trim().toLowerCase();
     const entry = map.get(key) ?? {total: 0, count: 0};
-    entry.total += tx.amount;
+    entry.total += convertToBase(tx.amount, tx.currency, baseCurrency, rates);
     entry.count += 1;
     map.set(key, entry);
   }
@@ -150,7 +248,11 @@ function buildTopMerchants(
   return list.slice(0, 5);
 }
 
-export function useAnalytics(): AnalyticsData {
+export type UseAnalyticsOptions = {
+  dateRange?: AnalyticsDateRange;
+};
+
+export function useAnalytics(options?: UseAnalyticsOptions): AnalyticsData {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {categories} = useCategories();
 
@@ -161,69 +263,107 @@ export function useAnalytics(): AnalyticsData {
     refetch,
   } = useTransactions({syncWithFilterStore: false});
 
-  const monthRange = useMemo(getMonthRange, []);
+  const effectiveRange = useMemo(() => {
+    if (options?.dateRange) {
+      const {startMs, endMs} = options.dateRange;
+      if (startMs <= endMs) {
+        return options.dateRange;
+      }
+      return {startMs: endMs, endMs: startMs};
+    }
+    return getDefaultMonthRange();
+  }, [options?.dateRange]);
 
-  const monthTransactions = useMemo(
+  const allCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of transactions) set.add(t.currency.toUpperCase());
+    return Array.from(set);
+  }, [transactions]);
+
+  const fxRates = useConversionRates(allCurrencies, baseCurrency);
+
+  const rangeTransactions = useMemo(
     () =>
       transactions.filter(
         (t) =>
-          t.transactionDate >= monthRange.startMs &&
-          t.transactionDate <= monthRange.endMs,
+          t.transactionDate >= effectiveRange.startMs &&
+          t.transactionDate <= effectiveRange.endMs,
       ),
-    [transactions, monthRange],
+    [transactions, effectiveRange],
   );
 
   const totalIncome = useMemo(
     () =>
-      monthTransactions
+      rangeTransactions
         .filter((t) => t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0),
-    [monthTransactions],
+        .reduce(
+          (s, t) =>
+            s + convertToBase(t.amount, t.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [rangeTransactions, baseCurrency, fxRates],
   );
 
   const totalExpenses = useMemo(
     () =>
-      monthTransactions
+      rangeTransactions
         .filter((t) => t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0),
-    [monthTransactions],
+        .reduce(
+          (s, t) =>
+            s + convertToBase(t.amount, t.currency, baseCurrency, fxRates),
+          0,
+        ),
+    [rangeTransactions, baseCurrency, fxRates],
   );
 
   const categoryBreakdown = useMemo(
-    () => buildCategoryBreakdown(monthTransactions, categories),
-    [monthTransactions, categories],
+    () =>
+      buildCategoryBreakdown(
+        rangeTransactions,
+        categories,
+        baseCurrency,
+        fxRates,
+      ),
+    [rangeTransactions, categories, baseCurrency, fxRates],
   );
 
   const dailyTrend = useMemo(
-    () => buildDailyTrend(transactions),
-    [transactions],
+    () => buildDailyTrend(transactions, effectiveRange, baseCurrency, fxRates),
+    [transactions, effectiveRange, baseCurrency, fxRates],
   );
 
   const topMerchants = useMemo(
-    () => buildTopMerchants(monthTransactions),
-    [monthTransactions],
+    () => buildTopMerchants(rangeTransactions, baseCurrency, fxRates),
+    [rangeTransactions, baseCurrency, fxRates],
   );
 
-  const daysInMonth = useMemo(() => {
-    const now = new Date();
-    return now.getDate();
-  }, []);
+  const daysInRange = useMemo(
+    () => inclusiveCalendarDays(effectiveRange.startMs, effectiveRange.endMs),
+    [effectiveRange.startMs, effectiveRange.endMs],
+  );
 
   const avgDailySpending = useMemo(
-    () => (daysInMonth > 0 ? Math.round(totalExpenses / daysInMonth) : 0),
-    [totalExpenses, daysInMonth],
+    () =>
+      daysInRange > 0 ? Math.round(totalExpenses / daysInRange) : 0,
+    [totalExpenses, daysInRange],
+  );
+
+  const rangeSubtitle = useMemo(
+    () => formatRangeSubtitle(effectiveRange.startMs, effectiveRange.endMs),
+    [effectiveRange.startMs, effectiveRange.endMs],
   );
 
   return {
     baseCurrency,
     totalIncome,
     totalExpenses,
-    totalTransactions: monthTransactions.length,
+    totalTransactions: rangeTransactions.length,
     netFlow: totalIncome - totalExpenses,
     categoryBreakdown,
     dailyTrend,
     topMerchants,
     avgDailySpending,
+    rangeSubtitle,
     isLoading,
     error,
     refetch,

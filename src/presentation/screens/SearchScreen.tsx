@@ -300,6 +300,7 @@ export default function SearchScreen() {
             }
             id={item.id}
             merchant={item.merchant}
+            notes={item.notes}
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}

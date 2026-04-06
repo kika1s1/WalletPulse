@@ -4,20 +4,13 @@ import {
   createTransaction,
   type CreateTransactionInput,
   type Transaction,
-  type TransactionType,
 } from '@domain/entities/Transaction';
+import {transactionLedgerDeltaCents} from '@domain/value-objects/WalletTransferNotes';
 
 type Deps = {
   transactionRepo: ITransactionRepository;
   walletRepo: IWalletRepository;
 };
-
-function ledgerImpact(type: TransactionType, amount: number): number {
-  if (type === 'income') {
-    return amount;
-  }
-  return -amount;
-}
 
 export function makeCreateTransaction({transactionRepo, walletRepo}: Deps) {
   return async (input: CreateTransactionInput): Promise<Transaction> => {
@@ -34,7 +27,7 @@ export function makeCreateTransaction({transactionRepo, walletRepo}: Deps) {
 
     const wallet = await walletRepo.findById(transaction.walletId);
     if (wallet) {
-      const delta = ledgerImpact(transaction.type, transaction.amount);
+      const delta = transactionLedgerDeltaCents(transaction);
       await walletRepo.updateBalance(wallet.id, wallet.balance + delta);
     }
 

@@ -1,10 +1,7 @@
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
-import {
-  createTransaction,
-  type Transaction,
-  type TransactionType,
-} from '@domain/entities/Transaction';
+import {createTransaction, type Transaction} from '@domain/entities/Transaction';
+import {transactionLedgerDeltaCentsFromTransaction} from '@domain/value-objects/WalletTransferNotes';
 
 export type UpdateTransactionInput = {id: string} & Partial<Omit<Transaction, 'id'>>;
 
@@ -12,13 +9,6 @@ type Deps = {
   transactionRepo: ITransactionRepository;
   walletRepo: IWalletRepository;
 };
-
-function ledgerImpact(type: TransactionType, amount: number): number {
-  if (type === 'income') {
-    return amount;
-  }
-  return -amount;
-}
 
 function toCreateInputFromTransaction(t: Transaction) {
   return {
@@ -59,8 +49,8 @@ export function makeUpdateTransaction({transactionRepo, walletRepo}: Deps) {
     const merged: Transaction = {...existing, ...input, id: existing.id};
     const updated = createTransaction(toCreateInputFromTransaction(merged));
 
-    const oldDelta = ledgerImpact(existing.type, existing.amount);
-    const newDelta = ledgerImpact(updated.type, updated.amount);
+    const oldDelta = transactionLedgerDeltaCentsFromTransaction(existing);
+    const newDelta = transactionLedgerDeltaCentsFromTransaction(updated);
 
     if (existing.walletId === updated.walletId) {
       const wallet = await walletRepo.findById(existing.walletId);

@@ -2,6 +2,7 @@ import type {Transaction} from '@domain/entities/Transaction';
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import {makeCalculateWalletBalance} from '@domain/usecases/calculate-wallet-balance';
+import {buildWalletTransferNotes} from '@domain/value-objects/WalletTransferNotes';
 
 function createTransactionRepoMock(): jest.Mocked<ITransactionRepository> {
   return {
@@ -97,6 +98,24 @@ describe('makeCalculateWalletBalance', () => {
     const balance = await execute('w1');
 
     expect(balance).toBe(3_000);
+  });
+
+  it('adds paired transfer destination leg to the wallet balance', async () => {
+    const transactionRepo = createTransactionRepoMock();
+    const walletRepo = createWalletRepoMock();
+    transactionRepo.findByWalletId.mockResolvedValue([
+      tx({
+        id: 't-in',
+        type: 'transfer',
+        amount: 2_000,
+        notes: buildWalletTransferNotes('t-out', 'destination', ''),
+      }),
+    ]);
+
+    const execute = makeCalculateWalletBalance({transactionRepo, walletRepo});
+    const balance = await execute('w1');
+
+    expect(balance).toBe(2_000);
   });
 
   it('calls updateBalance when persistBalance is true', async () => {

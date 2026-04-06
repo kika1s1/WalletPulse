@@ -2,6 +2,7 @@ import React, {useCallback, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -9,6 +10,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import * as RNFS from '@dr.pogodin/react-native-fs';
+import {generatePDF} from 'react-native-html-to-pdf';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -19,6 +22,7 @@ import {Chip} from '@presentation/components/common';
 import {
   formatTransactionsAsCsv,
   formatTransactionsAsJson,
+  formatTransactionsAsPdfHtml,
   buildExportFilename,
   type ExportFormat,
 } from '@domain/usecases/export-transactions';
@@ -27,6 +31,27 @@ import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
 const MS_PER_DAY = 86400000;
+
+function exportTargetDirectory(): string {
+  if (Platform.OS === 'android' && RNFS.DownloadDirectoryPath) {
+    return RNFS.DownloadDirectoryPath;
+  }
+  return RNFS.DocumentDirectoryPath;
+}
+
+async function writePdfToDirectory(
+  directory: string,
+  fileBaseName: string,
+  transactions: Parameters<typeof formatTransactionsAsPdfHtml>[0],
+): Promise<string> {
+  const html = formatTransactionsAsPdfHtml(transactions);
+  const result = await generatePDF({
+    html,
+    fileName: fileBaseName,
+    directory,
+  });
+  return result.filePath;
+}
 
 type DatePreset = {
   label: string;
@@ -67,8 +92,9 @@ export default function ExportScreen() {
 
   const [format, setFormat] = useState<ExportFormat>('csv');
   const [selectedPreset, setSelectedPreset] = useState(1);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportBusy, setExportBusy] = useState<'save' | 'share' | null>(null);
   const [lastExportInfo, setLastExportInfo] = useState<string | null>(null);
+  const isExporting = exportBusy !== null;
 
   const {transactions, isLoading, error} = useTransactions({syncWithFilterStore: false});
 
@@ -97,7 +123,7 @@ export default function ExportScreen() {
     return {count: filteredTransactions.length, totalExpense, totalIncome};
   }, [filteredTransactions]);
 
-  const handleExport = useCallback(async () => {
+  const runShare = useCallback(async () => {
     if (isLoading) {
       return;
     }
@@ -106,28 +132,79 @@ export default function ExportScreen() {
       return;
     }
 
-    setIsExporting(true);
+    setExportBusy('share');
     try {
-      const content =
-        format === 'csv'
-          ? formatTransactionsAsCsv(filteredTransactions)
-          : formatTransactionsAsJson(filteredTransactions);
       const filename = buildExportFilename(format);
-
-      await Share.share({
-        message: content,
-        title: filename,
-      });
+      if (format === 'csv' || format === 'json') {
+        const content =
+          format === 'csv'
+            ? formatTransactionsAsCsv(filteredTransactions)
+            : formatTransactionsAsJson(filteredTransactions);
+        await Share.share({
+          message: content,
+          title: filename,
+        });
+      } else {
+        const dir = exportTargetDirectory();
+        const baseName = filename.replace(/\.pdf$/i, '');
+        const filePath = await writePdfToDirectory(dir, baseName, filteredTransactions);
+        await Share.share({
+          title: filename,
+          message: `WalletPulse PDF export (${filteredTransactions.length} transactions).\n\nSaved on this device:\n${filePath}\n\nTip: open your Files app, Downloads, to attach or share the PDF.`,
+        });
+      }
 
       setLastExportInfo(
-        `Exported ${filteredTransactions.length} transactions as ${format.toUpperCase()}`,
+        `Shared ${filteredTransactions.length} transactions as ${format.toUpperCase()}`,
       );
     } catch (err) {
-      if ((err as any)?.message !== 'User did not share') {
-        Alert.alert('Export failed', 'Something went wrong while exporting.');
+      if ((err as Error)?.message !== 'User did not share') {
+        Alert.alert('Share failed', 'Something went wrong while sharing.');
       }
     } finally {
-      setIsExporting(false);
+      setExportBusy(null);
+    }
+  }, [filteredTransactions, format, isLoading]);
+
+  const runSaveToDevice = useCallback(async () => {
+    if (isLoading) {
+      return;
+    }
+    if (filteredTransactions.length === 0) {
+      Alert.alert('No data', 'No transactions found in the selected date range.');
+      return;
+    }
+
+    setExportBusy('save');
+    try {
+      const filename = buildExportFilename(format);
+      const dir = exportTargetDirectory();
+      let savedPath: string;
+
+      if (format === 'pdf') {
+        const baseName = filename.replace(/\.pdf$/i, '');
+        savedPath = await writePdfToDirectory(dir, baseName, filteredTransactions);
+      } else {
+        const content =
+          format === 'csv'
+            ? formatTransactionsAsCsv(filteredTransactions)
+            : formatTransactionsAsJson(filteredTransactions);
+        savedPath = `${dir}/${filename}`;
+        await RNFS.writeFile(savedPath, content, 'utf8');
+      }
+
+      setLastExportInfo(
+        `Saved ${filteredTransactions.length} transactions as ${filename}`,
+      );
+      Alert.alert(
+        'Saved',
+        `File saved successfully.\n\n${savedPath}`,
+        [{text: 'OK'}],
+      );
+    } catch {
+      Alert.alert('Save failed', 'Could not write the file. Check storage permissions and try again.');
+    } finally {
+      setExportBusy(null);
     }
   }, [filteredTransactions, format, isLoading]);
 
@@ -213,6 +290,32 @@ export default function ExportScreen() {
                 </Text>
                 <Text style={[styles.formatDesc, {color: colors.textTertiary}]}>
                   APIs, backups
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{selected: format === 'pdf'}}
+                onPress={() => setFormat('pdf')}
+                style={[
+                  styles.formatCard,
+                  {
+                    borderColor: format === 'pdf' ? colors.primary : colors.border,
+                    borderWidth: format === 'pdf' ? 2 : 1,
+                    borderRadius: radius.md,
+                    backgroundColor:
+                      format === 'pdf' ? colors.primaryLight + '15' : colors.surfaceElevated,
+                  },
+                ]}
+              >
+                <Text style={[styles.formatIcon, {color: format === 'pdf' ? colors.primary : colors.textTertiary}]}>
+                  PDF
+                </Text>
+                <Text style={[styles.formatLabel, {color: colors.text}]}>
+                  Report
+                </Text>
+                <Text style={[styles.formatDesc, {color: colors.textTertiary}]}>
+                  Print, archive
                 </Text>
               </Pressable>
             </View>
@@ -301,26 +404,53 @@ export default function ExportScreen() {
             </Animated.View>
           )}
 
-          {/* Export button */}
-          <Animated.View entering={FadeInDown.delay(400).duration(300)}>
+          {/* Save and Share */}
+          <Animated.View
+            entering={FadeInDown.delay(400).duration(300)}
+            style={styles.exportActions}
+          >
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Save export file to device"
               disabled={isExporting || isLoading || Boolean(error)}
-              onPress={handleExport}
+              onPress={runSaveToDevice}
               style={({pressed}) => [
                 styles.exportBtn,
                 {
                   backgroundColor: colors.primary,
                   borderRadius: radius.md,
-                  opacity: pressed || isExporting ? 0.8 : 1,
+                  opacity: pressed || exportBusy === 'save' ? 0.8 : 1,
                 },
               ]}
             >
-              {isExporting ? (
+              {exportBusy === 'save' ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.exportBtnText}>
-                  Export {stats.count} transactions as {format.toUpperCase()}
+                  Save to device ({stats.count} as {format.toUpperCase()})
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share export"
+              disabled={isExporting || isLoading || Boolean(error)}
+              onPress={runShare}
+              style={({pressed}) => [
+                styles.shareBtn,
+                {
+                  borderColor: colors.primary,
+                  borderRadius: radius.md,
+                  opacity: pressed || exportBusy === 'share' ? 0.75 : 1,
+                },
+              ]}
+            >
+              {exportBusy === 'share' ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <Text style={[styles.shareBtnText, {color: colors.primary}]}>
+                  Share
                 </Text>
               )}
             </Pressable>
@@ -329,7 +459,7 @@ export default function ExportScreen() {
           {/* Info note */}
           <View style={[styles.infoNote, {backgroundColor: colors.primaryLight + '12', borderRadius: radius.md}]}>
             <Text style={[styles.infoText, {color: colors.textSecondary}]}>
-              Exported data includes all transaction fields. Amounts are converted to major currency units (e.g., 12.99 instead of 1299 cents). Files can be imported into spreadsheet apps or used as backups.
+              Exported data includes all transaction fields. Amounts use major currency units (e.g., 12.99 instead of 1299 cents). Save writes to your Downloads folder on Android. CSV and JSON share as text; PDF share also saves the file and includes its path because Android cannot attach files through the built-in share dialog.
             </Text>
           </View>
         </ScrollView>
@@ -367,10 +497,13 @@ const styles = StyleSheet.create({
   },
   formatRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   formatCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '28%',
+    minWidth: 96,
     alignItems: 'center',
     paddingVertical: 16,
     gap: 4,
@@ -442,6 +575,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: fontWeight.semibold,
   },
+  exportActions: {
+    gap: 12,
+  },
   exportBtn: {
     height: 52,
     alignItems: 'center',
@@ -449,6 +585,19 @@ const styles = StyleSheet.create({
   },
   exportBtnText: {
     color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  shareBtn: {
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  shareBtnText: {
     fontSize: 16,
     fontWeight: fontWeight.semibold,
   },

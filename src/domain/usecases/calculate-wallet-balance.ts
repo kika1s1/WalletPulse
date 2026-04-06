@@ -1,5 +1,6 @@
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
+import {transactionLedgerDeltaCentsFromTransaction} from '@domain/value-objects/WalletTransferNotes';
 
 export type CalculateWalletBalanceDeps = {
   transactionRepo: ITransactionRepository;
@@ -18,11 +19,7 @@ export function makeCalculateWalletBalance(deps: CalculateWalletBalanceDeps) {
     const transactions = await deps.transactionRepo.findByWalletId(walletId);
     let balanceCents = 0;
     for (const t of transactions) {
-      if (t.type === 'income') {
-        balanceCents += t.amount;
-      } else if (t.type === 'expense' || t.type === 'transfer') {
-        balanceCents -= t.amount;
-      }
+      balanceCents += transactionLedgerDeltaCentsFromTransaction(t);
     }
     if (options?.persistBalance === true) {
       await deps.walletRepo.updateBalance(walletId, balanceCents);

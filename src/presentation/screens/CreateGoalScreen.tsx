@@ -1,8 +1,19 @@
-import React, {useCallback, useState} from 'react';
-import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -13,9 +24,11 @@ import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {useGoalActions} from '@presentation/hooks/useGoals';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {generateId} from '@shared/utils/hash';
-import type {GoalCategory} from '@domain/entities/Goal';
+import type {Goal, GoalCategory} from '@domain/entities/Goal';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateGoal'>;
+type Route = RouteProp<SettingsStackParamList, 'CreateGoal'>;
 
 const GOAL_CATEGORIES: {key: GoalCategory; label: string; icon: string}[] = [
   {key: 'emergency', label: 'Emergency Fund', icon: 'shield-outline'},
@@ -53,8 +66,13 @@ function formatDate(ts: number): string {
 export default function CreateGoalScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const editId = route.params?.editGoalId;
   const baseCurrency = useAppStore((s) => s.baseCurrency);
-  const {saveGoal, isSubmitting} = useGoalActions();
+  const {saveGoal, updateGoal, isSubmitting} = useGoalActions();
+
+  const [existing, setExisting] = useState<Goal | null>(null);
+  const [editLoading, setEditLoading] = useState(!!editId);
 
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState(0);
@@ -70,32 +88,100 @@ export default function CreateGoalScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
 
+  useEffect(() => {
+    if (!editId) {
+      setEditLoading(false);
+      return;
+    }
+    let mounted = true;
+    setEditLoading(true);
+    (async () => {
+      const g = await getLocalDataSource().goals.findById(editId);
+      if (!mounted) {
+        return;
+      }
+      if (g) {
+        setExisting(g);
+        setName(g.name);
+        setTargetAmount(g.targetAmount);
+        setCurrency(g.currency);
+        setDeadline(g.deadline);
+        setCategory(g.category);
+        setIcon(g.icon);
+        setColor(g.color);
+      } else {
+        Alert.alert('Goal not found', 'This goal is no longer available.', [
+          {text: 'OK', onPress: () => navigation.goBack()},
+        ]);
+      }
+      setEditLoading(false);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [editId, navigation]);
+
   const selectedMdi = GOAL_ICONS.find((i) => i.key === icon)?.mdi ?? 'piggy-bank-outline';
   const canSave = name.trim().length > 0 && targetAmount > 0;
+  const isEditing = existing !== null;
 
   const handleSave = useCallback(async () => {
-    if (!canSave || isSubmitting) return;
+    if (!canSave || isSubmitting) {
+      return;
+    }
     const now = Date.now();
     try {
-      await saveGoal({
-        id: generateId(),
-        name: name.trim(),
-        targetAmount,
-        currentAmount: 0,
-        currency: currency.toUpperCase(),
-        deadline,
-        icon,
-        color,
-        category,
-        isCompleted: false,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (existing) {
+        await updateGoal({
+          ...existing,
+          name: name.trim(),
+          targetAmount,
+          currency: currency.toUpperCase(),
+          deadline,
+          icon,
+          color,
+          category,
+          updatedAt: now,
+        });
+      } else {
+        await saveGoal({
+          id: generateId(),
+          name: name.trim(),
+          targetAmount,
+          currentAmount: 0,
+          currency: currency.toUpperCase(),
+          deadline,
+          icon,
+          color,
+          category,
+          isCompleted: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create goal');
+      Alert.alert(
+        'Error',
+        e instanceof Error ? e.message : isEditing ? 'Failed to update goal' : 'Failed to create goal',
+      );
     }
-  }, [canSave, isSubmitting, saveGoal, name, targetAmount, currency, deadline, icon, color, category, navigation]);
+  }, [
+    canSave,
+    category,
+    color,
+    currency,
+    deadline,
+    existing,
+    icon,
+    isEditing,
+    isSubmitting,
+    name,
+    navigation,
+    saveGoal,
+    targetAmount,
+    updateGoal,
+  ]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -104,11 +190,18 @@ export default function CreateGoalScreen() {
           <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
             <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.headerTitle, {color: colors.text}]}>New Goal</Text>
+          <Text style={[styles.headerTitle, {color: colors.text}]}>
+            {editId ? 'Edit Goal' : 'New Goal'}
+          </Text>
           <View style={{width: 60}} />
         </View>
       </View>
 
+      {editLoading ? (
+        <View style={[styles.loadingBox, {backgroundColor: colors.background}]}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : (
       <ScrollView
         contentContainerStyle={{padding: spacing.base, paddingBottom: spacing['4xl']}}
         keyboardShouldPersistTaps="handled"
@@ -124,7 +217,7 @@ export default function CreateGoalScreen() {
           <Text style={[styles.sectionTitle, {color: colors.textTertiary}]}>NAME</Text>
           <View style={[styles.inputWrap, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md}]}>
             <TextInput
-              autoFocus
+              autoFocus={!isEditing}
               maxLength={40}
               onChangeText={setName}
               placeholder="e.g. Emergency Fund"
@@ -158,11 +251,15 @@ export default function CreateGoalScreen() {
         </View>
         {showDatePicker && (
           <DateTimePicker
-            minimumDate={new Date()}
+            minimumDate={isEditing ? undefined : new Date()}
             mode="date"
             onChange={(_e, selected) => {
-              if (Platform.OS === 'android') setShowDatePicker(false);
-              if (selected) setDeadline(selected.getTime());
+              if (Platform.OS === 'android') {
+                setShowDatePicker(false);
+              }
+              if (selected) {
+                setDeadline(selected.getTime());
+              }
             }}
             value={new Date(deadline)}
           />
@@ -240,9 +337,17 @@ export default function CreateGoalScreen() {
         </View>
 
         <View style={{marginTop: spacing['2xl']}}>
-          <Button disabled={!canSave} fullWidth loading={isSubmitting} onPress={handleSave} size="lg" title="Create Goal" />
+          <Button
+            disabled={!canSave}
+            fullWidth
+            loading={isSubmitting}
+            onPress={handleSave}
+            size="lg"
+            title={isEditing ? 'Save Changes' : 'Create Goal'}
+          />
         </View>
       </ScrollView>
+      )}
 
       <CurrencyPicker
         onClose={() => setCurrencyPickerOpen(false)}
@@ -256,6 +361,7 @@ export default function CreateGoalScreen() {
 
 const styles = StyleSheet.create({
   container: {flex: 1},
+  loadingBox: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 52, paddingBottom: 12},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},

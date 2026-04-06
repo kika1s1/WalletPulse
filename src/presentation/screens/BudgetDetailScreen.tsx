@@ -20,6 +20,7 @@ import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useTransactions} from '@presentation/hooks/useTransactions';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import type {Budget} from '@domain/entities/Budget';
 import {isOverallBudget} from '@domain/entities/Budget';
 import type {CalculateBudgetProgressResult, BudgetProgressStatus} from '@domain/usecases/calculate-budget-progress';
@@ -100,6 +101,37 @@ export default function BudgetDetailScreen() {
     filter,
     syncWithFilterStore: false,
   });
+  const {deleteTransaction} = useTransactionActions();
+
+  const openTxDetail = useCallback(
+    (id: string) => navigation.navigate('TransactionDetail', {transactionId: id}),
+    [navigation],
+  );
+  const openTxEdit = useCallback(
+    (id: string) => navigation.navigate('EditTransaction', {transactionId: id}),
+    [navigation],
+  );
+  const confirmTxDelete = useCallback(
+    (id: string) => {
+      Alert.alert(
+        'Delete Transaction',
+        'This will permanently delete this transaction and update the wallet balance.',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              deleteTransaction(id).catch(() =>
+                Alert.alert('Error', 'Failed to delete the transaction.'),
+              );
+            },
+          },
+        ],
+      );
+    },
+    [deleteTransaction],
+  );
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
@@ -213,15 +245,26 @@ export default function BudgetDetailScreen() {
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             Budget Detail
           </Text>
-          <Pressable
-            accessibilityLabel="Delete budget"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={handleDelete}>
-            <Text style={[styles.deleteBtn, {color: colors.danger}]}>
-              {isDeleting ? '...' : 'Delete'}
-            </Text>
-          </Pressable>
+          <View style={{flexDirection: 'row', gap: 16}}>
+            <Pressable
+              accessibilityLabel="Edit budget"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() =>
+                navigation.navigate('CreateBudget', {editBudgetId: budgetId})
+              }>
+              <Text style={[styles.deleteBtn, {color: colors.primary}]}>Edit</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Delete budget"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={handleDelete}>
+              <Text style={[styles.deleteBtn, {color: colors.danger}]}>
+                {isDeleting ? '...' : 'Delete'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -405,9 +448,13 @@ export default function BudgetDetailScreen() {
             description={item.description}
             id={item.id}
             merchant={item.merchant}
+            notes={item.notes}
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}
+            onPress={openTxDetail}
+            onEdit={openTxEdit}
+            onDelete={confirmTxDelete}
           />
         )}
         showsVerticalScrollIndicator={false}

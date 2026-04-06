@@ -5,7 +5,7 @@ export default class TagModel extends Model {
   static table = 'tags';
 
   @field('name') name!: string;
-  @field('color') color!: string;
+  @field('color') color!: string | null;
   @field('usage_count') usageCount!: number;
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;

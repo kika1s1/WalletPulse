@@ -1,6 +1,10 @@
 import {useCallback, useMemo, useState} from 'react';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
+import {
+  makeCreateWalletTransfer,
+  type CreateWalletTransferInput,
+} from '@domain/usecases/create-wallet-transfer';
 import {makeUpdateTransaction} from '@domain/usecases/update-transaction';
 import type {UpdateTransactionInput} from '@domain/usecases/update-transaction';
 import {makeDeleteTransaction} from '@domain/usecases/delete-transaction';
@@ -8,6 +12,7 @@ import type {CreateTransactionInput, Transaction} from '@domain/entities/Transac
 
 export type UseTransactionActionsReturn = {
   createTransaction: (input: CreateTransactionInput) => Promise<Transaction>;
+  createWalletTransfer: (input: CreateWalletTransferInput) => Promise<[Transaction, Transaction]>;
   updateTransaction: (input: UpdateTransactionInput) => Promise<Transaction>;
   deleteTransaction: (id: string) => Promise<void>;
   isSubmitting: boolean;
@@ -18,10 +23,14 @@ export function useTransactionActions(): UseTransactionActionsReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {create, update, remove} = useMemo(() => {
+  const {create, createTransfer, update, remove} = useMemo(() => {
     const {transactions, wallets} = getLocalDataSource();
     return {
       create: makeCreateTransaction({
+        transactionRepo: transactions,
+        walletRepo: wallets,
+      }),
+      createTransfer: makeCreateWalletTransfer({
         transactionRepo: transactions,
         walletRepo: wallets,
       }),
@@ -52,6 +61,24 @@ export function useTransactionActions(): UseTransactionActionsReturn {
       }
     },
     [create],
+  );
+
+  const createWalletTransfer = useCallback(
+    async (input: CreateWalletTransferInput) => {
+      setIsSubmitting(true);
+      setError(null);
+      try {
+        const result = await createTransfer(input);
+        return result;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        setError(message);
+        throw e;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [createTransfer],
   );
 
   const updateTransaction = useCallback(
@@ -91,6 +118,7 @@ export function useTransactionActions(): UseTransactionActionsReturn {
 
   return {
     createTransaction,
+    createWalletTransfer,
     updateTransaction,
     deleteTransaction,
     isSubmitting,

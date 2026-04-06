@@ -15,8 +15,11 @@ import BillRemindersScreen from '@presentation/screens/BillRemindersScreen.tsx';
 import CreateBillReminderScreen from '@presentation/screens/CreateBillReminderScreen';
 import GoalsListScreen from '@presentation/screens/GoalsListScreen.tsx';
 import CreateGoalScreen from '@presentation/screens/CreateGoalScreen';
+import GoalDetailScreen from '@presentation/screens/GoalDetailScreen';
 import SubscriptionsListScreen from '@presentation/screens/SubscriptionsListScreen.tsx';
 import CreateSubscriptionScreen from '@presentation/screens/CreateSubscriptionScreen';
+import TransactionDetailScreen from '@presentation/screens/TransactionDetailScreen';
+import EditTransactionScreen from '@presentation/screens/EditTransactionScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -36,9 +39,12 @@ export default function SettingsStack() {
       <Stack.Screen name="BillReminders" component={BillRemindersScreen} />
       <Stack.Screen name="CreateBillReminder" component={CreateBillReminderScreen} />
       <Stack.Screen name="GoalsList" component={GoalsListScreen} />
+      <Stack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <Stack.Screen name="CreateGoal" component={CreateGoalScreen} />
       <Stack.Screen name="SubscriptionsList" component={SubscriptionsListScreen} />
       <Stack.Screen name="CreateSubscription" component={CreateSubscriptionScreen} />
+      <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
     </Stack.Navigator>
   );
 }

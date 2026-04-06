@@ -1,8 +1,9 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -11,12 +12,13 @@ import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
-import {useBillReminderActions} from '@presentation/hooks/useBillReminders';
+import {useBillReminderActions, useBillReminders} from '@presentation/hooks/useBillReminders';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {generateId} from '@shared/utils/hash';
-import type {BillRecurrence} from '@domain/entities/BillReminder';
+import type {BillRecurrence, BillReminder} from '@domain/entities/BillReminder';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateBillReminder'>;
+type CreateRoute = RouteProp<SettingsStackParamList, 'CreateBillReminder'>;
 
 const RECURRENCE_OPTIONS: {key: BillRecurrence; label: string}[] = [
   {key: 'once', label: 'One-time'},
@@ -45,8 +47,15 @@ function formatDate(ts: number): string {
 export default function CreateBillReminderScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<CreateRoute>();
+  const editBillId = route.params?.editBillId;
+  const isEditing = Boolean(editBillId);
+
   const baseCurrency = useAppStore((s) => s.baseCurrency);
-  const {saveBill, isSubmitting} = useBillReminderActions();
+  const {bills, isLoading} = useBillReminders();
+  const {saveBill, updateBill, isSubmitting} = useBillReminderActions();
+  const [baseline, setBaseline] = useState<BillReminder | null>(null);
+  const missingBillAlertedRef = useRef(false);
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(0);
@@ -63,30 +72,121 @@ export default function CreateBillReminderScreen() {
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
+  useEffect(() => {
+    if (editBillId) {
+      return;
+    }
+    setBaseline(null);
+    setName('');
+    setAmount(0);
+    setCurrency(baseCurrency);
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    setDueDate(d.getTime());
+    setRecurrence('monthly');
+    setCategoryId('');
+    setRemindDaysBefore(3);
+  }, [editBillId, baseCurrency]);
+
+  useEffect(() => {
+    if (!editBillId) {
+      return;
+    }
+    const found = bills.find((b) => b.id === editBillId);
+    if (!found) {
+      return;
+    }
+    setBaseline(found);
+    setName(found.name);
+    setAmount(found.amount);
+    setCurrency(found.currency);
+    setDueDate(found.dueDate);
+    setRecurrence(found.recurrence);
+    setCategoryId(found.categoryId === 'uncategorized' ? '' : found.categoryId);
+    setRemindDaysBefore(found.remindDaysBefore);
+  }, [editBillId, bills]);
+
+  useEffect(() => {
+    if (!editBillId) {
+      missingBillAlertedRef.current = false;
+      return;
+    }
+    if (isLoading) {
+      return;
+    }
+    const found = bills.some((b) => b.id === editBillId);
+    if (found) {
+      missingBillAlertedRef.current = false;
+      return;
+    }
+    if (missingBillAlertedRef.current) {
+      return;
+    }
+    missingBillAlertedRef.current = true;
+    Alert.alert('Not found', 'This bill reminder no longer exists.', [
+      {text: 'OK', onPress: () => navigation.goBack()},
+    ]);
+  }, [editBillId, bills, isLoading, navigation]);
+
   const canSave = name.trim().length > 0 && amount > 0;
 
   const handleSave = useCallback(async () => {
     if (!canSave || isSubmitting) return;
     const now = Date.now();
     try {
-      await saveBill({
-        id: generateId(),
-        name: name.trim(),
-        amount,
-        currency: currency.toUpperCase(),
-        dueDate,
-        recurrence,
-        categoryId: categoryId || 'uncategorized',
-        isPaid: false,
-        remindDaysBefore,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (isEditing && baseline) {
+        await updateBill({
+          id: baseline.id,
+          name: name.trim(),
+          amount,
+          currency: currency.toUpperCase(),
+          dueDate,
+          recurrence,
+          categoryId: categoryId || 'uncategorized',
+          isPaid: baseline.isPaid,
+          paidTransactionId: baseline.paidTransactionId,
+          remindDaysBefore,
+          createdAt: baseline.createdAt,
+          updatedAt: now,
+        });
+      } else {
+        await saveBill({
+          id: generateId(),
+          name: name.trim(),
+          amount,
+          currency: currency.toUpperCase(),
+          dueDate,
+          recurrence,
+          categoryId: categoryId || 'uncategorized',
+          isPaid: false,
+          remindDaysBefore,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create reminder');
+      Alert.alert(
+        'Error',
+        e instanceof Error ? e.message : isEditing ? 'Failed to update reminder' : 'Failed to create reminder',
+      );
     }
-  }, [canSave, isSubmitting, saveBill, name, amount, currency, dueDate, recurrence, categoryId, remindDaysBefore, navigation]);
+  }, [
+    baseline,
+    canSave,
+    isEditing,
+    isSubmitting,
+    saveBill,
+    updateBill,
+    name,
+    amount,
+    currency,
+    dueDate,
+    recurrence,
+    categoryId,
+    remindDaysBefore,
+    navigation,
+  ]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -95,7 +195,9 @@ export default function CreateBillReminderScreen() {
           <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
             <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.headerTitle, {color: colors.text}]}>New Bill Reminder</Text>
+          <Text style={[styles.headerTitle, {color: colors.text}]}>
+            {isEditing ? 'Edit Bill Reminder' : 'New Bill Reminder'}
+          </Text>
           <View style={{width: 60}} />
         </View>
       </View>
@@ -109,7 +211,7 @@ export default function CreateBillReminderScreen() {
           <Text style={[styles.sectionTitle, {color: colors.textTertiary}]}>NAME</Text>
           <View style={[styles.inputWrap, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md}]}>
             <TextInput
-              autoFocus
+              autoFocus={!isEditing}
               maxLength={40}
               onChangeText={setName}
               placeholder="e.g. Rent, Electric, Internet"
@@ -143,7 +245,7 @@ export default function CreateBillReminderScreen() {
         </View>
         {showDatePicker && (
           <DateTimePicker
-            minimumDate={new Date()}
+            minimumDate={isEditing ? undefined : new Date()}
             mode="date"
             onChange={(_e, selected) => {
               if (Platform.OS === 'android') setShowDatePicker(false);
@@ -226,7 +328,14 @@ export default function CreateBillReminderScreen() {
         </View>
 
         <View style={{marginTop: spacing['2xl']}}>
-          <Button disabled={!canSave} fullWidth loading={isSubmitting} onPress={handleSave} size="lg" title="Create Reminder" />
+          <Button
+            disabled={!canSave || (isEditing && !baseline)}
+            fullWidth
+            loading={isSubmitting}
+            onPress={handleSave}
+            size="lg"
+            title={isEditing ? 'Save changes' : 'Create Reminder'}
+          />
         </View>
       </ScrollView>
 

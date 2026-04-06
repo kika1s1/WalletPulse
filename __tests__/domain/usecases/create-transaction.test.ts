@@ -3,6 +3,7 @@ import type {ITransactionRepository} from '@domain/repositories/ITransactionRepo
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import type {CreateTransactionInput} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
+import {buildWalletTransferNotes} from '@domain/value-objects/WalletTransferNotes';
 
 function createMockTransactionRepo(): jest.Mocked<ITransactionRepository> {
   return {
@@ -153,7 +154,7 @@ describe('makeCreateTransaction', () => {
     expect(walletRepo.updateBalance).not.toHaveBeenCalled();
   });
 
-  it('subtracts amount for transfer from the transaction wallet', async () => {
+  it('subtracts amount for transfer from the transaction wallet (legacy, no pair marker)', async () => {
     const transactionRepo = createMockTransactionRepo();
     transactionRepo.findBySourceHash.mockResolvedValue(null);
     const walletRepo = createMockWalletRepo({...baseWallet, balance: 20000});
@@ -167,5 +168,22 @@ describe('makeCreateTransaction', () => {
     });
 
     expect(walletRepo.updateBalance).toHaveBeenCalledWith('w1', 15000);
+  });
+
+  it('adds amount for paired transfer destination leg', async () => {
+    const transactionRepo = createMockTransactionRepo();
+    transactionRepo.findBySourceHash.mockResolvedValue(null);
+    const walletRepo = createMockWalletRepo({...baseWallet, balance: 20000});
+    const execute = makeCreateTransaction({transactionRepo, walletRepo});
+
+    await execute({
+      ...baseInput,
+      id: 'txn-tr-in',
+      type: 'transfer',
+      amount: 5000,
+      notes: buildWalletTransferNotes('txn-tr-out', 'destination', ''),
+    });
+
+    expect(walletRepo.updateBalance).toHaveBeenCalledWith('w1', 25000);
   });
 });

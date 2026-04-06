@@ -55,3 +55,24 @@ export function normalizeTag(tag: string): string {
     .toLowerCase()
     .replace(/\s+/g, ' ');
 }
+
+/** Merges tag names from the tags table and from transactions, dedupes, sorts A to Z. */
+export function mergeUniqueSortedTagNames(
+  tableTagNames: string[],
+  transactionTagNames: string[],
+): string[] {
+  const set = new Set<string>();
+  for (const t of tableTagNames) {
+    const n = normalizeTag(t);
+    if (n) {
+      set.add(n);
+    }
+  }
+  for (const t of transactionTagNames) {
+    const n = normalizeTag(t);
+    if (n) {
+      set.add(n);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}

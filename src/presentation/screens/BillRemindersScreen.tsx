@@ -1,5 +1,5 @@
-import React, {useMemo, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -17,8 +17,10 @@ import {
   calculateMonthlyBillTotal,
 } from '@domain/usecases/bill-reminder-management';
 import type {BillReminder} from '@domain/entities/BillReminder';
-import {useBillReminders} from '@presentation/hooks/useBillReminders';
+import {useBillReminderActions, useBillReminders} from '@presentation/hooks/useBillReminders';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {SwipeableRow, type SwipeAction} from '@presentation/components/common/SwipeableRow';
+import {Toast} from '@presentation/components/feedback/Toast';
 
 const DAY = 86400000;
 
@@ -33,8 +35,10 @@ export default function BillRemindersScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('upcoming');
   const {bills, isLoading, error} = useBillReminders();
+  const {markPaid, deleteBill} = useBillReminderActions();
   const hide = useSettingsStore((s) => s.hideAmounts);
   const now = Date.now();
+  const [paidToastVisible, setPaidToastVisible] = useState(false);
 
   const upcoming = useMemo(() => getUpcomingBills(bills, now, 30), [bills, now]);
   const overdue = useMemo(() => getOverdueBills(bills, now), [bills, now]);
@@ -55,6 +59,71 @@ export default function BillRemindersScreen() {
     return `Due in ${days}d`;
   }
 
+  const navigateToEdit = useCallback(
+    (billId: string) => {
+      navigation.navigate('CreateBillReminder', {editBillId: billId});
+    },
+    [navigation],
+  );
+
+  const confirmDelete = useCallback(
+    (bill: BillReminder) => {
+      Alert.alert(
+        'Delete bill reminder',
+        `Remove "${bill.name}"? This cannot be undone.`,
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              void deleteBill(bill.id).catch((e) =>
+                Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete'),
+              );
+            },
+          },
+        ],
+      );
+    },
+    [deleteBill],
+  );
+
+  const handleMarkPaid = useCallback(
+    async (billId: string) => {
+      try {
+        await markPaid(billId);
+        setPaidToastVisible(true);
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to mark as paid');
+      }
+    },
+    [markPaid],
+  );
+
+  function billSwipeActions(bill: BillReminder): SwipeAction[] {
+    const actions: SwipeAction[] = [];
+    if (!bill.isPaid) {
+      actions.push({
+        label: 'Mark paid',
+        color: colors.success,
+        onPress: () => {
+          void handleMarkPaid(bill.id);
+        },
+      });
+    }
+    actions.push({
+      label: 'Edit',
+      color: colors.primary,
+      onPress: () => navigateToEdit(bill.id),
+    });
+    actions.push({
+      label: 'Delete',
+      color: colors.danger,
+      onPress: () => confirmDelete(bill),
+    });
+    return actions;
+  }
+
   function renderBillCard(bill: BillReminder, index: number) {
     const isOverdueItem = !bill.isPaid && bill.dueDate < now;
     const dueBadgeColor = isOverdueItem
@@ -64,50 +133,58 @@ export default function BillRemindersScreen() {
         : colors.warning;
 
     return (
-      <Animated.View
-        key={bill.id}
-        entering={FadeInDown.delay(index * 60).duration(250)}
-        style={[
-          styles.billCard,
-          {
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: radius.lg,
-            borderColor: isOverdueItem ? colors.danger + '40' : colors.border,
-            borderLeftColor: isOverdueItem ? colors.danger : colors.primary,
-          },
-          shadows.sm,
-        ]}
-      >
-        <View style={styles.billHeader}>
-          <View style={{flex: 1}}>
-            <Text style={[styles.billName, {color: colors.text}]}>{bill.name}</Text>
-            <Text style={[styles.billCategory, {color: colors.textTertiary}]}>
-              {bill.categoryId} / {bill.recurrence}
-            </Text>
-          </View>
-          <Text style={[styles.billAmount, {color: colors.text}]}>
-            {formatAmountMasked(bill.amount, bill.currency, hide)}
-          </Text>
-        </View>
-
-        <View style={styles.billFooter}>
-          <View
-            style={[
-              styles.dueBadge,
-              {backgroundColor: dueBadgeColor + '18', borderRadius: radius.sm},
-            ]}
+      <SwipeableRow key={bill.id} rightActions={billSwipeActions(bill)}>
+        <Animated.View
+          entering={FadeInDown.delay(index * 60).duration(250)}
+          style={[
+            styles.billCard,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.lg,
+              borderColor: isOverdueItem ? colors.danger + '40' : colors.border,
+              borderLeftColor: isOverdueItem ? colors.danger : colors.primary,
+            },
+            shadows.sm,
+          ]}
+        >
+          <Pressable
+            accessibilityLabel={`Edit ${bill.name}`}
+            accessibilityRole="button"
+            onPress={() => navigateToEdit(bill.id)}
+            style={({pressed}) => ({opacity: pressed ? 0.92 : 1})}
           >
-            <Text style={[styles.dueBadgeText, {color: dueBadgeColor}]}>
-              {bill.isPaid ? 'Paid' : formatDueDate(bill.dueDate)}
-            </Text>
-          </View>
-          {bill.remindDaysBefore > 0 && !bill.isPaid && (
-            <Text style={[styles.remindText, {color: colors.textTertiary}]}>
-              Remind {bill.remindDaysBefore}d before
-            </Text>
-          )}
-        </View>
-      </Animated.View>
+            <View style={styles.billHeader}>
+              <View style={{flex: 1}}>
+                <Text style={[styles.billName, {color: colors.text}]}>{bill.name}</Text>
+                <Text style={[styles.billCategory, {color: colors.textTertiary}]}>
+                  {bill.categoryId} / {bill.recurrence}
+                </Text>
+              </View>
+              <Text style={[styles.billAmount, {color: colors.text}]}>
+                {formatAmountMasked(bill.amount, bill.currency, hide)}
+              </Text>
+            </View>
+
+            <View style={styles.billFooter}>
+              <View
+                style={[
+                  styles.dueBadge,
+                  {backgroundColor: dueBadgeColor + '18', borderRadius: radius.sm},
+                ]}
+              >
+                <Text style={[styles.dueBadgeText, {color: dueBadgeColor}]}>
+                  {bill.isPaid ? 'Paid' : formatDueDate(bill.dueDate)}
+                </Text>
+              </View>
+              {bill.remindDaysBefore > 0 && !bill.isPaid && (
+                <Text style={[styles.remindText, {color: colors.textTertiary}]}>
+                  Remind {bill.remindDaysBefore}d before
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
+      </SwipeableRow>
     );
   }
 
@@ -119,6 +196,13 @@ export default function BillRemindersScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
+      <Toast
+        duration={2200}
+        message="Marked as paid"
+        onDismiss={() => setPaidToastVisible(false)}
+        type="success"
+        visible={paidToastVisible}
+      />
       <ScreenContainer scrollable={false}>
         <View style={[styles.header, {paddingHorizontal: spacing.base, paddingTop: spacing.sm}]}>
           <Pressable accessibilityRole="button" onPress={() => navigation.goBack()} hitSlop={12}>

@@ -1,8 +1,8 @@
 import {
   formatTransactionsAsCsv,
   formatTransactionsAsJson,
+  formatTransactionsAsPdfHtml,
   buildExportFilename,
-  type ExportFormat,
 } from '@domain/usecases/export-transactions';
 import type {Transaction} from '@domain/entities/Transaction';
 
@@ -145,6 +145,43 @@ describe('export-transactions', () => {
     it('builds JSON filename with date', () => {
       const name = buildExportFilename('json');
       expect(name).toMatch(/^walletpulse-export-\d{4}-\d{2}-\d{2}\.json$/);
+    });
+
+    it('builds PDF filename with date', () => {
+      const name = buildExportFilename('pdf');
+      expect(name).toMatch(/^walletpulse-export-\d{4}-\d{2}-\d{2}\.pdf$/);
+    });
+  });
+
+  describe('formatTransactionsAsPdfHtml', () => {
+    it('includes table and header row labels', () => {
+      const html = formatTransactionsAsPdfHtml(txns);
+      expect(html).toContain('<table>');
+      expect(html).toContain('Date');
+      expect(html).toContain('Amount');
+      expect(html).toContain('Currency');
+      expect(html).toContain('12.99');
+      expect(html).toContain('5000.00');
+    });
+
+    it('escapes HTML in text fields', () => {
+      const special: Transaction[] = [
+        {
+          ...txns[0],
+          description: 'Eat <script>alert(1)</script>',
+          merchant: 'Tom & Jerry',
+        },
+      ];
+      const html = formatTransactionsAsPdfHtml(special);
+      expect(html).toContain('&lt;script&gt;');
+      expect(html).toContain('Tom &amp; Jerry');
+      expect(html).not.toContain('<script>alert(1)</script>');
+    });
+
+    it('renders empty tbody for no transactions', () => {
+      const html = formatTransactionsAsPdfHtml([]);
+      expect(html).toContain('<tbody></tbody>');
+      expect(html).toContain('0 transaction(s)');
     });
   });
 });

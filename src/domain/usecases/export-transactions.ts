@@ -1,6 +1,6 @@
 import type {Transaction} from '@domain/entities/Transaction';
 
-export type ExportFormat = 'csv' | 'json';
+export type ExportFormat = 'csv' | 'json' | 'pdf';
 
 const CSV_HEADERS = [
   'Date',
@@ -29,6 +29,15 @@ function formatDate(ms: number): string {
 
 function toMajor(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function formatTransactionsAsCsv(transactions: Transaction[]): string {
@@ -88,5 +97,105 @@ export function formatTransactionsAsJson(transactions: Transaction[]): string {
 
 export function buildExportFilename(format: ExportFormat): string {
   const date = new Date().toISOString().slice(0, 10);
-  return `walletpulse-export-${date}.${format}`;
+  const ext = format === 'pdf' ? 'pdf' : format;
+  return `walletpulse-export-${date}.${ext}`;
+}
+
+/**
+ * Full HTML document suitable for PDF conversion or opening in a browser.
+ */
+export function formatTransactionsAsPdfHtml(transactions: Transaction[]): string {
+  const generatedAt = new Date().toISOString();
+  const headerCells = CSV_HEADERS.map(
+    (h) => `<th>${escapeHtml(h)}</th>`,
+  ).join('');
+
+  const bodyRows = transactions
+    .map((t) => {
+      const cells = [
+        formatDate(t.transactionDate),
+        toMajor(t.amount),
+        t.currency,
+        t.type,
+        t.categoryId,
+        t.description,
+        t.merchant,
+        t.source,
+        t.tags.join('; '),
+        t.notes,
+        t.isRecurring ? 'Yes' : 'No',
+      ].map((c) => `<td>${escapeHtml(String(c))}</td>`);
+      return `<tr>${cells.join('')}</tr>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>WalletPulse export</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #1a1a1a;
+    margin: 24px;
+    background: #fafafa;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: #111;
+  }
+  .meta {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th {
+    text-align: left;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f9fafb; }
+  tr:last-child td { border-bottom: none; }
+  .footer {
+    margin-top: 16px;
+    font-size: 10px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>WalletPulse transaction export</h1>
+  <p class="meta">Generated: ${escapeHtml(generatedAt)} · ${transactions.length} transaction(s)</p>
+  <table>
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+  <p class="footer">Amounts are in major currency units (e.g. 12.99 not cents).</p>
+</body>
+</html>`;
 }

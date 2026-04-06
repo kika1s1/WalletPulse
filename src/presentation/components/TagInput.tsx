@@ -15,10 +15,10 @@ import {
   validateTag,
   normalizeTag,
 } from '@domain/usecases/tag-management';
+import {useTagSuggestions} from '@presentation/hooks/useTagSuggestions';
 
 type Props = {
   tags: string[];
-  allKnownTags: string[];
   onTagsChange: (tags: string[]) => void;
   maxTags?: number;
   testID?: string;
@@ -26,11 +26,11 @@ type Props = {
 
 export function TagInput({
   tags,
-  allKnownTags,
   onTagsChange,
   maxTags = 10,
   testID,
 }: Props) {
+  const {allKnownTags, persistNewTag} = useTagSuggestions();
   const {colors, spacing, radius} = useTheme();
   const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
@@ -61,8 +61,9 @@ export function TagInput({
       setError(null);
       onTagsChange([...tags, normalized]);
       setDraft('');
+      void persistNewTag(normalized);
     },
-    [tags, onTagsChange, maxTags],
+    [tags, onTagsChange, maxTags, persistNewTag],
   );
 
   const removeTag = useCallback(

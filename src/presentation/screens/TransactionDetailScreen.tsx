@@ -1,5 +1,15 @@
-import React, {useCallback, useMemo} from 'react';
-import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -17,6 +27,7 @@ import {useTransactionById} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
+import {parseWalletTransferMeta} from '@domain/value-objects/WalletTransferNotes';
 
 type DetailNav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, 'TransactionDetail'>,
@@ -57,6 +68,7 @@ function signedAmountParts(
   type: 'income' | 'expense' | 'transfer',
   amountCents: number,
   currency: string,
+  notes: string,
 ): {sign: string; body: string; colorKey: 'income' | 'expense' | 'transfer'} {
   const abs = Math.abs(amountCents);
   const core = formatAmount(abs, currency).replace(/^[+-]/u, '').trim();
@@ -66,7 +78,8 @@ function signedAmountParts(
   if (type === 'expense') {
     return {sign: '-', body: core, colorKey: 'expense'};
   }
-  const sign = amountCents < 0 ? '-' : amountCents > 0 ? '+' : '';
+  const meta = parseWalletTransferMeta(notes);
+  const sign = meta?.leg === 'destination' ? '+' : '-';
   return {sign, body: core, colorKey: 'transfer'};
 }
 
@@ -95,6 +108,7 @@ export default function TransactionDetailScreen() {
   const {categories} = useCategories();
   const {deleteTransaction} = useTransactionActions();
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const [receiptViewerOpen, setReceiptViewerOpen] = useState(false);
 
   const category = useMemo(() => {
     if (!transaction) {
@@ -107,7 +121,12 @@ export default function TransactionDetailScreen() {
     if (!transaction) {
       return null;
     }
-    return signedAmountParts(transaction.type, transaction.amount, transaction.currency);
+    return signedAmountParts(
+      transaction.type,
+      transaction.amount,
+      transaction.currency,
+      transaction.notes,
+    );
   }, [transaction]);
 
   const amountColor = amountDisplay
@@ -192,6 +211,7 @@ export default function TransactionDetailScreen() {
   const notesText = transaction.notes.trim() || '—';
   const merchantText = transaction.merchant.trim() || '—';
   const descText = transaction.description.trim() || '—';
+  const receiptUri = transaction.receiptUri?.trim() ?? '';
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -249,6 +269,35 @@ export default function TransactionDetailScreen() {
             <DetailRow label="Tags" value={tagsText} />
           </Card>
 
+          {receiptUri ? (
+            <Card padding="md">
+              <Text
+                style={[
+                  typography.caption,
+                  {color: colors.textSecondary, fontWeight: '600', marginBottom: spacing.sm},
+                ]}>
+                Receipt
+              </Text>
+              <Pressable
+                accessibilityLabel="View receipt full screen"
+                accessibilityRole="button"
+                onPress={() => setReceiptViewerOpen(true)}>
+                <Image
+                  accessibilityLabel="Receipt"
+                  resizeMode="cover"
+                  source={{uri: receiptUri}}
+                  style={[
+                    styles.receiptPreview,
+                    {backgroundColor: colors.surfaceElevated},
+                  ]}
+                />
+              </Pressable>
+              <Text style={[typography.caption, {color: colors.textTertiary, marginTop: spacing.xs}]}>
+                Tap to enlarge
+              </Text>
+            </Card>
+          ) : null}
+
           <View style={styles.actions}>
             <Button fullWidth onPress={handleEdit} title="Edit" variant="outline" />
             <Pressable
@@ -268,6 +317,24 @@ export default function TransactionDetailScreen() {
           </View>
         </ScrollView>
       </ScreenContainer>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setReceiptViewerOpen(false)}
+        transparent
+        visible={receiptViewerOpen && Boolean(receiptUri)}>
+        <Pressable
+          accessibilityLabel="Close receipt viewer"
+          onPress={() => setReceiptViewerOpen(false)}
+          style={styles.receiptModalBackdrop}>
+          <Image
+            accessibilityLabel="Receipt full size"
+            resizeMode="contain"
+            source={{uri: receiptUri}}
+            style={styles.receiptFull}
+          />
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -324,5 +391,21 @@ const styles = StyleSheet.create({
   },
   missing: {
     flex: 1,
+  },
+  receiptPreview: {
+    borderRadius: 12,
+    height: 220,
+    width: '100%',
+  },
+  receiptModalBackdrop: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 16,
+  },
+  receiptFull: {
+    height: '88%',
+    width: '100%',
   },
 });

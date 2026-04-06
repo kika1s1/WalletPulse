@@ -9,6 +9,7 @@ import {BillReminderRepository} from '@data/repositories/BillReminderRepository'
 import {FxRateRepository} from '@data/repositories/FxRateRepository';
 import {NotificationLogRepository} from '@data/repositories/NotificationLogRepository';
 import {SettingsRepository} from '@data/repositories/SettingsRepository';
+import {TagRepository} from '@data/repositories/TagRepository';
 
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
@@ -20,6 +21,7 @@ import type {IBillReminderRepository} from '@domain/repositories/IBillReminderRe
 import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
 import type {ISettingsRepository} from '@domain/repositories/ISettingsRepository';
+import type {ITagRepository} from '@domain/repositories/ITagRepository';
 
 export type LocalDataSource = {
   transactions: ITransactionRepository;
@@ -32,6 +34,7 @@ export type LocalDataSource = {
   fxRates: IFxRateRepository;
   notificationLogs: INotificationLogRepository;
   settings: ISettingsRepository;
+  tags: ITagRepository;
 };
 
 let instance: LocalDataSource | null = null;
@@ -49,6 +52,7 @@ export function getLocalDataSource(): LocalDataSource {
       fxRates: new FxRateRepository(database),
       notificationLogs: new NotificationLogRepository(database),
       settings: new SettingsRepository(database),
+      tags: new TagRepository(database),
     };
   }
   return instance;

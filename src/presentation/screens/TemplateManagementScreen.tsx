@@ -1,17 +1,28 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
+import type {CompositeNavigationProp} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
 import {EmptyState} from '@presentation/components/feedback';
 import {
+  applyTemplate,
   getDefaultTemplates,
   type TransactionTemplate,
 } from '@domain/usecases/quick-action-templates';
+import {buildAddTransactionParamsFromApplied} from '@presentation/navigation/build-add-transaction-params';
+import type {SettingsStackParamList, TabParamList} from '@presentation/navigation/types';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
+
+type TemplateManagementNav = CompositeNavigationProp<
+  NativeStackNavigationProp<SettingsStackParamList, 'TemplateManagement'>,
+  BottomTabNavigationProp<TabParamList>
+>;
 
 function hexToAlpha(hex: string, alpha: string): string {
   const m = /^#([0-9A-Fa-f]{6})$/.exec(hex.trim());
@@ -19,12 +30,22 @@ function hexToAlpha(hex: string, alpha: string): string {
 }
 
 export default function TemplateManagementScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<TemplateManagementNav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
 
   const templates = useMemo(() => getDefaultTemplates(), []);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const useTemplate = useCallback(
+    (item: TransactionTemplate) => {
+      const applied = applyTemplate(item);
+      navigation.getParent()?.navigate('TransactionsTab', {
+        screen: 'AddTransaction',
+        params: buildAddTransactionParamsFromApplied(applied),
+      });
+    },
+    [navigation],
+  );
 
   const expenseTemplates = useMemo(
     () => templates.filter((t) => t.type === 'expense'),
@@ -37,7 +58,6 @@ export default function TemplateManagementScreen() {
 
   const renderTemplate = useCallback(
     (item: TransactionTemplate, idx: number) => {
-      const isSelected = selectedId === item.id;
       return (
         <Animated.View
           entering={FadeInDown.delay(idx * 60).duration(300)}
@@ -45,13 +65,14 @@ export default function TemplateManagementScreen() {
         >
           <Pressable
             accessibilityRole="button"
-            onPress={() => setSelectedId(isSelected ? null : item.id)}
+            accessibilityLabel={`Use template ${item.name}`}
+            onPress={() => useTemplate(item)}
             style={[
               styles.card,
               {
                 backgroundColor: colors.card,
-                borderColor: isSelected ? colors.primary : colors.borderLight,
-                borderWidth: isSelected ? 2 : StyleSheet.hairlineWidth,
+                borderColor: colors.borderLight,
+                borderWidth: StyleSheet.hairlineWidth,
                 borderRadius: radius.md,
               },
               shadows.sm,
@@ -108,35 +129,38 @@ export default function TemplateManagementScreen() {
               )}
             </View>
 
-            <View
-              style={[
-                styles.typeBadge,
-                {
-                  backgroundColor:
-                    item.type === 'income'
-                      ? colors.successLight
-                      : colors.dangerLight,
-                  borderRadius: radius.xs,
-                },
-              ]}
-            >
-              <Text
+            <View style={styles.cardActions}>
+              <Text style={[styles.useLabel, {color: colors.primary}]}>Use</Text>
+              <View
                 style={[
-                  styles.typeBadgeText,
+                  styles.typeBadge,
                   {
-                    color:
-                      item.type === 'income' ? colors.success : colors.danger,
+                    backgroundColor:
+                      item.type === 'income'
+                        ? colors.successLight
+                        : colors.dangerLight,
+                    borderRadius: radius.xs,
                   },
                 ]}
               >
-                {item.type}
-              </Text>
+                <Text
+                  style={[
+                    styles.typeBadgeText,
+                    {
+                      color:
+                        item.type === 'income' ? colors.success : colors.danger,
+                    },
+                  ]}
+                >
+                  {item.type}
+                </Text>
+              </View>
             </View>
           </Pressable>
         </Animated.View>
       );
     },
-    [colors, radius, shadows, selectedId],
+    [colors, radius, shadows, useTemplate],
   );
 
   return (
@@ -164,7 +188,7 @@ export default function TemplateManagementScreen() {
           style={[styles.infoCard, {backgroundColor: colors.primaryLight + '15', borderRadius: radius.md, marginHorizontal: spacing.base}]}
         >
           <Text style={[styles.infoText, {color: colors.text}]}>
-            Templates let you add common transactions with one tap. Tap a template to see its details.
+            Templates let you add common transactions with one tap. Tap a template to open Add Transaction with its fields filled in.
           </Text>
         </Animated.View>
 
@@ -321,6 +345,14 @@ const styles = StyleSheet.create({
   },
   tagLabel: {
     fontSize: 10,
+    fontWeight: fontWeight.semibold,
+  },
+  cardActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  useLabel: {
+    fontSize: 13,
     fontWeight: fontWeight.semibold,
   },
   typeBadge: {

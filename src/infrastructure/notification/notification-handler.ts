@@ -35,6 +35,7 @@ export function startNotificationHandler(
     transactionRepo: ds.transactions,
     walletRepo: ds.wallets,
     notificationLogRepo: ds.notificationLogs,
+    categoryRepo: ds.categories,
     dedupService: dedup,
     getDefaultWalletId: async () => {
       try {

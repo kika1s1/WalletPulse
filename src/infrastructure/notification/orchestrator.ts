@@ -3,6 +3,7 @@ import type {DedupService} from './dedup-service';
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
+import type {ICategoryRepository} from '@domain/repositories/ICategoryRepository';
 import {getParserForPackage} from './parser-registry';
 import {categorizeByMerchant} from './auto-categorize';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
@@ -13,6 +14,7 @@ export type OrchestratorDeps = {
   transactionRepo: ITransactionRepository;
   walletRepo: IWalletRepository;
   notificationLogRepo: INotificationLogRepository;
+  categoryRepo: ICategoryRepository;
   dedupService: DedupService;
   getDefaultWalletId: () => Promise<string | null>;
 };
@@ -148,13 +150,29 @@ export function makeNotificationOrchestrator(deps: OrchestratorDeps) {
     }
 
     const categoryName = categorizeByMerchant(parsed.merchant);
+    let categoryId = 'other';
+    try {
+      const catMatch = await deps.categoryRepo.findByName(categoryName);
+      if (catMatch) {
+        categoryId = catMatch.id;
+      } else {
+        const allCats = await deps.categoryRepo.findAll();
+        const fallback = allCats.find(
+          (c) => c.name.toLowerCase() === 'other',
+        );
+        if (fallback) categoryId = fallback.id;
+      }
+    } catch {
+      // Category resolution failures are non-critical
+    }
+
     const now = Date.now();
 
     try {
       const transaction = await createTx({
         id: generateId(),
         walletId,
-        categoryId: categoryName,
+        categoryId,
         amount: parsed.amountCents,
         currency: parsed.currency,
         type: parsed.type,

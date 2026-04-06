@@ -1,5 +1,5 @@
-import React, {useMemo, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -20,8 +20,9 @@ import {
 } from '@domain/usecases/subscription-management';
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
-import {useSubscriptions} from '@presentation/hooks/useSubscriptions';
+import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {SwipeableRow, type SwipeAction} from '@presentation/components/common/SwipeableRow';
 
 const DAY = 86400000;
 
@@ -36,6 +37,7 @@ export default function SubscriptionsListScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('active');
   const {subscriptions, isLoading, error} = useSubscriptions();
+  const {cancelSubscription, deleteSubscription} = useSubscriptionActions();
   const hide = useSettingsStore((s) => s.hideAmounts);
   const now = Date.now();
 
@@ -57,47 +59,99 @@ export default function SubscriptionsListScreen() {
     return `In ${days}d`;
   }
 
-  function renderSubCard(sub: Subscription, index: number) {
-    return (
-      <Animated.View
-        key={sub.id}
-        entering={FadeInDown.delay(index * 60).duration(250)}
-        style={[
-          styles.subCard,
-          {
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: radius.lg,
-            borderColor: colors.border,
+  const confirmDeleteSubscription = useCallback(
+    (sub: Subscription) => {
+      Alert.alert('Delete subscription', `Remove "${sub.name}"? This cannot be undone.`, [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void deleteSubscription(sub.id).catch((e) =>
+              Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete'),
+            );
           },
-          shadows.sm,
-        ]}
-      >
-        <View style={styles.subRow}>
-          <View style={[styles.subIconWrap, {backgroundColor: sub.color + '18', borderRadius: radius.md}]}>
-            <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
-          </View>
-          <View style={{flex: 1}}>
-            <Text style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
-            <Text style={[styles.subCycle, {color: colors.textTertiary}]}>
-              {sub.billingCycle} / {sub.categoryId}
-            </Text>
-          </View>
-          <View style={{alignItems: 'flex-end'}}>
-            <Text style={[styles.subAmount, {color: sub.isActive ? colors.text : colors.textTertiary}]}>
-              {formatAmountMasked(sub.amount, sub.currency, hide)}
-            </Text>
-            {sub.isActive ? (
-              <Text style={[styles.subDue, {color: colors.textSecondary}]}>
-                {formatDueIn(sub.nextDueDate)}
-              </Text>
-            ) : (
-              <View style={[styles.cancelledBadge, {backgroundColor: colors.danger + '15', borderRadius: radius.xs}]}>
-                <Text style={[styles.cancelledText, {color: colors.danger}]}>Cancelled</Text>
+        },
+      ]);
+    },
+    [deleteSubscription],
+  );
+
+  const handleCancelSubscription = useCallback(
+    (sub: Subscription) => {
+      void cancelSubscription(sub.id).catch((e) =>
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to cancel'),
+      );
+    },
+    [cancelSubscription],
+  );
+
+  function renderSubCard(sub: Subscription, index: number) {
+    const rightActions: SwipeAction[] = [
+      {
+        label: 'Edit',
+        color: colors.primary,
+        onPress: () => navigation.navigate('CreateSubscription', {editSubscriptionId: sub.id}),
+      },
+    ];
+    if (sub.isActive) {
+      rightActions.push({
+        label: 'Cancel',
+        color: colors.warning,
+        onPress: () => handleCancelSubscription(sub),
+      });
+    }
+    rightActions.push({
+      label: 'Delete',
+      color: colors.danger,
+      onPress: () => confirmDeleteSubscription(sub),
+    });
+
+    return (
+      <SwipeableRow key={sub.id} rightActions={rightActions}>
+        <Animated.View entering={FadeInDown.delay(index * 60).duration(250)}>
+          <Pressable
+            accessibilityLabel={`Edit ${sub.name}`}
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('CreateSubscription', {editSubscriptionId: sub.id})}
+            style={[
+              styles.subCard,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.lg,
+                borderColor: colors.border,
+              },
+              shadows.sm,
+            ]}
+          >
+            <View style={styles.subRow}>
+              <View style={[styles.subIconWrap, {backgroundColor: sub.color + '18', borderRadius: radius.md}]}>
+                <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
               </View>
-            )}
-          </View>
-        </View>
-      </Animated.View>
+              <View style={{flex: 1}}>
+                <Text style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
+                <Text style={[styles.subCycle, {color: colors.textTertiary}]}>
+                  {sub.billingCycle} / {sub.categoryId}
+                </Text>
+              </View>
+              <View style={{alignItems: 'flex-end'}}>
+                <Text style={[styles.subAmount, {color: sub.isActive ? colors.text : colors.textTertiary}]}>
+                  {formatAmountMasked(sub.amount, sub.currency, hide)}
+                </Text>
+                {sub.isActive ? (
+                  <Text style={[styles.subDue, {color: colors.textSecondary}]}>
+                    {formatDueIn(sub.nextDueDate)}
+                  </Text>
+                ) : (
+                  <View style={[styles.cancelledBadge, {backgroundColor: colors.danger + '15', borderRadius: radius.xs}]}>
+                    <Text style={[styles.cancelledText, {color: colors.danger}]}>Cancelled</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Pressable>
+        </Animated.View>
+      </SwipeableRow>
     );
   }
 

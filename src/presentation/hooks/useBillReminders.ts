@@ -70,6 +70,7 @@ export function useBillReminders(): UseBillRemindersReturn {
 
 export type UseBillReminderActionsReturn = {
   saveBill: (input: CreateBillReminderInput) => Promise<void>;
+  updateBill: (input: CreateBillReminderInput) => Promise<void>;
   markPaid: (id: string, paidTransactionId?: string) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
   isSubmitting: boolean;
@@ -86,6 +87,21 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     try {
       const bill = createBillReminder(input);
       await getLocalDataSource().billReminders.save(bill);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      throw e;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  const updateBill = useCallback(async (input: CreateBillReminderInput) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const bill = createBillReminder(input);
+      await getLocalDataSource().billReminders.update(bill);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -123,5 +139,5 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     }
   }, []);
 
-  return {saveBill, markPaid, deleteBill, isSubmitting, error};
+  return {saveBill, updateBill, markPaid, deleteBill, isSubmitting, error};
 }

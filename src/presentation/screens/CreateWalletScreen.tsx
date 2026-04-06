@@ -1,7 +1,8 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Button} from '@presentation/components/common/Button';
@@ -11,9 +12,19 @@ import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useWallets} from '@presentation/hooks/useWallets';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
-type Nav = NativeStackNavigationProp<WalletsStackParamList, 'CreateWallet'>;
+type Nav = NativeStackNavigationProp<WalletsStackParamList, 'CreateWallet' | 'EditWallet'>;
+type WalletFormRoute = RouteProp<WalletsStackParamList, 'CreateWallet' | 'EditWallet'>;
+
+function iconKeyFromStored(stored: string): string {
+  const byMdi = WALLET_ICONS.find((i) => i.mdi === stored);
+  if (byMdi) return byMdi.key;
+  const byKey = WALLET_ICONS.find((i) => i.key === stored);
+  if (byKey) return byKey.key;
+  return 'wallet';
+}
 
 const WALLET_COLORS = [
   '#6C5CE7', '#00B894', '#0984E3', '#E17055', '#FD79A8',
@@ -35,7 +46,14 @@ const WALLET_ICONS: {key: string; mdi: string}[] = [
 export default function CreateWalletScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<WalletFormRoute>();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
+  const {wallets, isLoading: walletsLoading, updateWallet} = useWallets();
+
+  const p = route.params;
+  const editWalletId: string | undefined =
+    p == null ? undefined : 'walletId' in p ? p.walletId : p.editWalletId;
+  const isEditing = Boolean(editWalletId);
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState(baseCurrency);
@@ -43,6 +61,27 @@ export default function CreateWalletScreen() {
   const [icon, setIcon] = useState('wallet');
   const [color, setColor] = useState('#6C5CE7');
   const [isSaving, setIsSaving] = useState(false);
+  const hydratedForId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!editWalletId) {
+      hydratedForId.current = null;
+      return;
+    }
+    if (hydratedForId.current === editWalletId) return;
+    if (walletsLoading) return;
+    const w = wallets.find((x) => x.id === editWalletId);
+    if (!w) {
+      Alert.alert('Error', 'Wallet not found');
+      navigation.goBack();
+      return;
+    }
+    hydratedForId.current = editWalletId;
+    setName(w.name);
+    setCurrency(w.currency.toUpperCase());
+    setIcon(iconKeyFromStored(w.icon));
+    setColor(w.color);
+  }, [editWalletId, wallets, walletsLoading, navigation]);
 
   const selectedMdi = WALLET_ICONS.find((i) => i.key === icon)?.mdi ?? 'wallet-outline';
   const canSave = name.trim().length > 0 && currency.length === 3;
@@ -52,31 +91,52 @@ export default function CreateWalletScreen() {
     setIsSaving(true);
 
     try {
-      const ds = getLocalDataSource();
-      const create = makeCreateWallet({walletRepo: ds.wallets});
-      const allWallets = await ds.wallets.findAll();
-      const now = Date.now();
+      if (editWalletId) {
+        await updateWallet(editWalletId, {
+          name: name.trim(),
+          currency: currency.toUpperCase(),
+          icon,
+          color,
+        });
+      } else {
+        const ds = getLocalDataSource();
+        const create = makeCreateWallet({walletRepo: ds.wallets});
+        const allWallets = await ds.wallets.findAll();
+        const now = Date.now();
 
-      await create({
-        id: generateId(),
-        name: name.trim(),
-        currency: currency.toUpperCase(),
-        balance: 0,
-        isActive: true,
-        icon,
-        color,
-        sortOrder: allWallets.length,
-        createdAt: now,
-        updatedAt: now,
-      });
+        await create({
+          id: generateId(),
+          name: name.trim(),
+          currency: currency.toUpperCase(),
+          balance: 0,
+          isActive: true,
+          icon,
+          color,
+          sortOrder: allWallets.length,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
 
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create wallet');
+      const fallback = isEditing ? 'Failed to update wallet' : 'Failed to create wallet';
+      Alert.alert('Error', e instanceof Error ? e.message : fallback);
     } finally {
       setIsSaving(false);
     }
-  }, [canSave, isSaving, name, currency, icon, color, navigation]);
+  }, [
+    canSave,
+    isSaving,
+    name,
+    currency,
+    icon,
+    color,
+    navigation,
+    editWalletId,
+    updateWallet,
+    isEditing,
+  ]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -89,7 +149,9 @@ export default function CreateWalletScreen() {
           <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
             <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.headerTitle, {color: colors.text}]}>New Wallet</Text>
+          <Text style={[styles.headerTitle, {color: colors.text}]}>
+            {isEditing ? 'Edit Wallet' : 'New Wallet'}
+          </Text>
           <View style={{width: 60}} />
         </View>
       </View>
@@ -109,7 +171,7 @@ export default function CreateWalletScreen() {
           <Text style={[styles.sectionTitle, {color: colors.textTertiary}]}>NAME</Text>
           <View style={[styles.inputWrap, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md}]}>
             <TextInput
-              autoFocus
+              autoFocus={!isEditing}
               maxLength={30}
               onChangeText={setName}
               placeholder="Wallet name"
@@ -174,7 +236,14 @@ export default function CreateWalletScreen() {
         </View>
 
         <View style={{marginTop: spacing['2xl']}}>
-          <Button disabled={!canSave} fullWidth loading={isSaving} onPress={handleSave} size="lg" title="Create Wallet" />
+          <Button
+            disabled={!canSave}
+            fullWidth
+            loading={isSaving}
+            onPress={handleSave}
+            size="lg"
+            title={isEditing ? 'Save Changes' : 'Create Wallet'}
+          />
         </View>
       </ScrollView>
 

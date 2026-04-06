@@ -378,10 +378,31 @@ export default function OnboardingScreen() {
     navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
   }, [currentStep, steps, state, walletName, currency, setBaseCurrency, setOnboardingCompleted, navigation]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
+    try {
+      const ds = getLocalDataSource();
+      await seedDefaultCategories(database);
+      const create = makeCreateWallet({walletRepo: ds.wallets});
+      const now = Date.now();
+      await create({
+        id: generateId(),
+        name: 'Main Account',
+        currency: 'USD',
+        balance: 0,
+        isActive: true,
+        icon: 'wallet',
+        color: '#6C5CE7',
+        sortOrder: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } catch {
+      // Categories or wallet may already exist
+    }
+    setBaseCurrency('USD');
     setOnboardingCompleted(true);
     navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
-  }, [setOnboardingCompleted, navigation]);
+  }, [setBaseCurrency, setOnboardingCompleted, navigation]);
 
   const progressWidth = ((currentStep + 1) / steps.length) * 100;
 

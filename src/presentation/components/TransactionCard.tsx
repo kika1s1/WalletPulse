@@ -9,6 +9,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatRelativeDate} from '@shared/utils/date-helpers';
 import {formatAmount} from '@shared/utils/format-currency';
+import {parseWalletTransferMeta} from '@domain/value-objects/WalletTransferNotes';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {SwipeableRow, type SwipeAction} from './common/SwipeableRow';
 import {AppIcon, resolveIconName} from './common/AppIcon';
@@ -28,6 +29,7 @@ export type TransactionCardProps = {
   merchant: string;
   transactionDate: number;
   source: string;
+  notes?: string;
   convertedLabel?: string;
   onPress?: (id: string) => void;
   onEdit?: (id: string) => void;
@@ -39,6 +41,7 @@ function formatSignedAmount(
   type: 'income' | 'expense' | 'transfer',
   amountCents: number,
   currency: string,
+  notes?: string,
 ): string {
   const abs = Math.abs(amountCents);
   const core = formatAmount(abs, currency).replace(/^[+-]/u, '').trim();
@@ -48,13 +51,11 @@ function formatSignedAmount(
   if (type === 'expense') {
     return `-${core}`;
   }
-  if (amountCents < 0) {
-    return `-${core}`;
-  }
-  if (amountCents > 0) {
+  const meta = notes ? parseWalletTransferMeta(notes) : null;
+  if (meta?.leg === 'destination') {
     return `+${core}`;
   }
-  return core;
+  return `-${core}`;
 }
 
 function formatSourceBadge(source: string): string {
@@ -86,6 +87,7 @@ export function TransactionCard({
   merchant,
   transactionDate,
   source,
+  notes,
   convertedLabel,
   onPress,
   onEdit,
@@ -136,7 +138,7 @@ export function TransactionCard({
   const hide = useSettingsStore((s) => s.hideAmounts);
   const titleText = description.trim() || merchant.trim() || 'Transaction';
   const subtitleText = `${categoryName} · ${formatRelativeDate(transactionDate)}`;
-  const signedAmount = hide ? '••••' : formatSignedAmount(type, amount, currency);
+  const signedAmount = hide ? '••••' : formatSignedAmount(type, amount, currency, notes);
   const amountColor =
     type === 'income'
       ? colors.income

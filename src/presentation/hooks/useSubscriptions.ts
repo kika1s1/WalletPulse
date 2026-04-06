@@ -71,6 +71,7 @@ export function useSubscriptions(): UseSubscriptionsReturn {
 
 export type UseSubscriptionActionsReturn = {
   saveSubscription: (input: CreateSubscriptionInput) => Promise<void>;
+  updateSubscription: (input: CreateSubscriptionInput) => Promise<void>;
   cancelSubscription: (id: string) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
   isSubmitting: boolean;
@@ -87,6 +88,21 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     try {
       const sub = createSubscription(input);
       await getLocalDataSource().subscriptions.save(sub);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      throw e;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  const updateSubscription = useCallback(async (input: CreateSubscriptionInput) => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const sub = createSubscription(input);
+      await getLocalDataSource().subscriptions.update(sub);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -124,5 +140,5 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     }
   }, []);
 
-  return {saveSubscription, cancelSubscription, deleteSubscription, isSubmitting, error};
+  return {saveSubscription, updateSubscription, cancelSubscription, deleteSubscription, isSubmitting, error};
 }

@@ -1,8 +1,9 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -11,12 +12,13 @@ import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
-import {useSubscriptionActions} from '@presentation/hooks/useSubscriptions';
+import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {generateId} from '@shared/utils/hash';
-import type {BillingCycle} from '@domain/entities/Subscription';
+import type {BillingCycle, Subscription} from '@domain/entities/Subscription';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateSubscription'>;
+type CreateSubscriptionRouteProp = RouteProp<SettingsStackParamList, 'CreateSubscription'>;
 
 const BILLING_CYCLES: {key: BillingCycle; label: string}[] = [
   {key: 'weekly', label: 'Weekly'},
@@ -53,8 +55,14 @@ function formatDate(ts: number): string {
 export default function CreateSubscriptionScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<CreateSubscriptionRouteProp>();
+  const editSubscriptionId = route.params?.editSubscriptionId;
   const baseCurrency = useAppStore((s) => s.baseCurrency);
-  const {saveSubscription, isSubmitting} = useSubscriptionActions();
+  const {subscriptions} = useSubscriptions();
+  const {saveSubscription, updateSubscription, isSubmitting} = useSubscriptionActions();
+
+  const [baseline, setBaseline] = useState<Subscription | null>(null);
+  const hydratedEditId = useRef<string | null>(null);
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(0);
@@ -72,6 +80,32 @@ export default function CreateSubscriptionScreen() {
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
+  useEffect(() => {
+    if (!editSubscriptionId) {
+      hydratedEditId.current = null;
+      setBaseline(null);
+      return;
+    }
+    if (hydratedEditId.current === editSubscriptionId) {
+      return;
+    }
+    const sub = subscriptions.find((s) => s.id === editSubscriptionId);
+    if (!sub) {
+      return;
+    }
+    hydratedEditId.current = editSubscriptionId;
+    setBaseline(sub);
+    setName(sub.name);
+    setAmount(sub.amount);
+    setCurrency(sub.currency);
+    setBillingCycle(sub.billingCycle);
+    setNextDueDate(sub.nextDueDate);
+    setCategoryId(sub.categoryId === 'uncategorized' ? '' : sub.categoryId);
+    setIcon(SUB_ICONS.some((i) => i.key === sub.icon) ? sub.icon : 'play-circle');
+    setColor(sub.color);
+  }, [editSubscriptionId, subscriptions]);
+
+  const isEditing = baseline != null;
   const selectedMdi = SUB_ICONS.find((i) => i.key === icon)?.mdi ?? 'play-circle-outline';
   const canSave = name.trim().length > 0 && amount > 0;
 
@@ -79,25 +113,58 @@ export default function CreateSubscriptionScreen() {
     if (!canSave || isSubmitting) return;
     const now = Date.now();
     try {
-      await saveSubscription({
-        id: generateId(),
-        name: name.trim(),
-        amount,
-        currency: currency.toUpperCase(),
-        billingCycle,
-        nextDueDate,
-        categoryId: categoryId || 'uncategorized',
-        isActive: true,
-        icon,
-        color,
-        createdAt: now,
-        updatedAt: now,
-      });
+      if (baseline) {
+        await updateSubscription({
+          id: baseline.id,
+          name: name.trim(),
+          amount,
+          currency: currency.toUpperCase(),
+          billingCycle,
+          nextDueDate,
+          categoryId: categoryId || 'uncategorized',
+          isActive: baseline.isActive,
+          cancelledAt: baseline.cancelledAt,
+          icon,
+          color,
+          createdAt: baseline.createdAt,
+          updatedAt: now,
+        });
+      } else {
+        await saveSubscription({
+          id: generateId(),
+          name: name.trim(),
+          amount,
+          currency: currency.toUpperCase(),
+          billingCycle,
+          nextDueDate,
+          categoryId: categoryId || 'uncategorized',
+          isActive: true,
+          icon,
+          color,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create subscription');
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save subscription');
     }
-  }, [canSave, isSubmitting, saveSubscription, name, amount, currency, billingCycle, nextDueDate, categoryId, icon, color, navigation]);
+  }, [
+    baseline,
+    canSave,
+    isSubmitting,
+    saveSubscription,
+    updateSubscription,
+    name,
+    amount,
+    currency,
+    billingCycle,
+    nextDueDate,
+    categoryId,
+    icon,
+    color,
+    navigation,
+  ]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -106,7 +173,9 @@ export default function CreateSubscriptionScreen() {
           <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
             <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.headerTitle, {color: colors.text}]}>New Subscription</Text>
+          <Text style={[styles.headerTitle, {color: colors.text}]}>
+            {isEditing ? 'Edit Subscription' : 'New Subscription'}
+          </Text>
           <View style={{width: 60}} />
         </View>
       </View>
@@ -126,7 +195,7 @@ export default function CreateSubscriptionScreen() {
           <Text style={[styles.sectionTitle, {color: colors.textTertiary}]}>NAME</Text>
           <View style={[styles.inputWrap, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md}]}>
             <TextInput
-              autoFocus
+              autoFocus={!isEditing}
               maxLength={40}
               onChangeText={setName}
               placeholder="e.g. Netflix, Spotify"
@@ -186,7 +255,7 @@ export default function CreateSubscriptionScreen() {
         </View>
         {showDatePicker && (
           <DateTimePicker
-            minimumDate={new Date()}
+            minimumDate={isEditing ? undefined : new Date()}
             mode="date"
             onChange={(_e, selected) => {
               if (Platform.OS === 'android') setShowDatePicker(false);
@@ -250,7 +319,14 @@ export default function CreateSubscriptionScreen() {
         </View>
 
         <View style={{marginTop: spacing['2xl']}}>
-          <Button disabled={!canSave} fullWidth loading={isSubmitting} onPress={handleSave} size="lg" title="Create Subscription" />
+          <Button
+            disabled={!canSave}
+            fullWidth
+            loading={isSubmitting}
+            onPress={handleSave}
+            size="lg"
+            title={isEditing ? 'Save Changes' : 'Create Subscription'}
+          />
         </View>
       </ScrollView>
 

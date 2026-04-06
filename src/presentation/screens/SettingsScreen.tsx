@@ -1,6 +1,9 @@
-import React, {useCallback, useMemo} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +21,12 @@ import {usePinStore} from '@presentation/stores/usePinStore';
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {
+  createBackup,
+  listBackups,
+  restoreBackup,
+  type BackupFileInfo,
+} from '@infrastructure/backup/backup-service';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>;
 
@@ -140,6 +149,69 @@ export default function SettingsScreen() {
     stopListening,
     recentCount,
   } = useNotificationListener();
+
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreModalVisible, setRestoreModalVisible] = useState(false);
+  const [backupFiles, setBackupFiles] = useState<BackupFileInfo[]>([]);
+
+  const openRestorePicker = useCallback(async () => {
+    setRestoreBusy(true);
+    try {
+      const files = await listBackups();
+      setBackupFiles(files);
+      if (files.length === 0) {
+        Alert.alert(
+          'No backups found',
+          'No WalletPulse backup files were found in your Downloads folder. Create a backup first, or copy a backup file into Downloads.',
+        );
+        return;
+      }
+      setRestoreModalVisible(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert('Could not list backups', msg);
+    } finally {
+      setRestoreBusy(false);
+    }
+  }, []);
+
+  const runCreateBackup = useCallback(async () => {
+    setBackupBusy(true);
+    try {
+      const path = await createBackup();
+      Alert.alert('Backup saved', path);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert('Backup failed', msg);
+    } finally {
+      setBackupBusy(false);
+    }
+  }, []);
+
+  const confirmRestoreFromPath = useCallback((filePath: string, label: string) => {
+    Alert.alert(
+      'Restore from backup?',
+      `This will erase all current data in WalletPulse and replace it with "${label}". This cannot be undone.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setRestoreBusy(true);
+            const result = await restoreBackup(filePath);
+            setRestoreBusy(false);
+            if (result.ok) {
+              Alert.alert('Restore complete', 'Your data was restored from the backup.');
+            } else {
+              Alert.alert('Restore failed', result.error);
+            }
+          },
+        },
+      ],
+    );
+  }, []);
 
   const themeCycle = useCallback(() => {
     const modes: Array<'light' | 'dark' | 'system'> = [
@@ -395,6 +467,42 @@ export default function SettingsScreen() {
         <SectionHeader title="DATA" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow
+            description="Save a full copy of your data as JSON in Downloads"
+            icon="cloud-upload-outline"
+            label="Create Backup"
+            disabled={backupBusy || restoreBusy}
+            onPress={runCreateBackup}
+            trailing={
+              backupBusy ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <View style={styles.rowRight}>
+                  <Text style={[styles.chevron, {color: colors.textTertiary}]}>
+                    ›
+                  </Text>
+                </View>
+              )
+            }
+          />
+          <SettingsRow
+            description="Replace all app data from a backup file in Downloads"
+            icon="backup-restore"
+            label="Restore from Backup"
+            disabled={backupBusy || restoreBusy}
+            onPress={openRestorePicker}
+            trailing={
+              restoreBusy ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <View style={styles.rowRight}>
+                  <Text style={[styles.chevron, {color: colors.textTertiary}]}>
+                    ›
+                  </Text>
+                </View>
+              )
+            }
+          />
+          <SettingsRow
             icon="tag-outline"
             label="Categories"
             onPress={() => navigation.navigate('CategoryManagement')}
@@ -441,6 +549,84 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={restoreModalVisible}
+        onRequestClose={() => setRestoreModalVisible(false)}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close backup list"
+          onPress={() => setRestoreModalVisible(false)}
+          style={styles.modalBackdrop}>
+          <Pressable
+            onPress={() => {}}
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.borderLight,
+                padding: spacing.base,
+              },
+            ]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>
+              Choose backup
+            </Text>
+            <Text
+              style={[
+                styles.modalSubtitle,
+                {color: colors.textSecondary, marginBottom: spacing.md},
+              ]}>
+              Files in Downloads named WalletPulse-backup-*.json
+            </Text>
+            <FlatList
+              data={backupFiles}
+              keyExtractor={(item) => item.path}
+              style={{maxHeight: 320}}
+              renderItem={({item}) => (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setRestoreModalVisible(false);
+                    confirmRestoreFromPath(item.path, item.name);
+                  }}
+                  style={({pressed}) => [
+                    styles.backupRow,
+                    {
+                      backgroundColor: pressed
+                        ? colors.background
+                        : colors.surface,
+                      borderColor: colors.borderLight,
+                    },
+                  ]}>
+                  <Text
+                    style={[styles.backupRowName, {color: colors.text}]}
+                    numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.backupRowMeta, {color: colors.textTertiary}]}>
+                    {item.size > 0
+                      ? `${Math.max(1, Math.round(item.size / 1024))} KB`
+                      : ''}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRestoreModalVisible(false)}
+              style={[
+                styles.modalCancelBtn,
+                {marginTop: spacing.md, borderColor: colors.borderLight},
+              ]}>
+              <Text style={[styles.modalCancelText, {color: colors.primary}]}>
+                Cancel
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -550,5 +736,49 @@ const styles = StyleSheet.create({
   aboutDesc: {
     fontSize: 12,
     marginTop: 2,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: fontWeight.bold,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  backupRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  backupRowName: {
+    fontSize: 14,
+    fontWeight: fontWeight.medium,
+  },
+  backupRowMeta: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
   },
 });

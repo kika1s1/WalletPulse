@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo} from 'react';
-import {Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
+import {Alert, Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import {useNavigation} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -14,11 +14,13 @@ import {Chip} from '@presentation/components/common';
 import {QuickActionsFAB} from '@presentation/components/QuickActionsFAB';
 import {applyTemplate} from '@domain/usecases/quick-action-templates';
 import type {TransactionTemplate} from '@domain/usecases/quick-action-templates';
+import {buildAddTransactionParamsFromApplied} from '@presentation/navigation/build-add-transaction-params';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {toDateString, isToday} from '@shared/utils/date-helpers';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
 import {useTransactions} from '@presentation/hooks/useTransactions';
+import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
 
@@ -75,6 +77,7 @@ export default function TransactionsScreen() {
   const setTypeFilter = useFilterStore((s) => s.setTypeFilter);
 
   const {transactions, isLoading, error, refetch} = useTransactions();
+  const {deleteTransaction} = useTransactionActions();
   const {categories} = useCategories();
 
   const categoryById = useMemo(() => {
@@ -88,7 +91,7 @@ export default function TransactionsScreen() {
   const sections = useMemo(() => groupTransactionsByDate(transactions), [transactions]);
 
   const openAdd = useCallback(() => {
-    navigation.navigate('AddTransaction');
+    navigation.navigate('AddTransaction', {});
   }, [navigation]);
 
   const openSearch = useCallback(() => {
@@ -98,7 +101,10 @@ export default function TransactionsScreen() {
   const handleTemplate = useCallback(
     (tpl: TransactionTemplate) => {
       const applied = applyTemplate(tpl);
-      navigation.navigate('AddTransaction', {type: applied.type});
+      navigation.navigate(
+        'AddTransaction',
+        buildAddTransactionParamsFromApplied(applied),
+      );
     },
     [navigation],
   );
@@ -118,6 +124,28 @@ export default function TransactionsScreen() {
       navigation.navigate('EditTransaction', {transactionId: id});
     },
     [navigation],
+  );
+
+  const confirmDelete = useCallback(
+    (id: string) => {
+      Alert.alert(
+        'Delete Transaction',
+        'This will permanently delete this transaction and update the wallet balance.',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              deleteTransaction(id).catch(() => {
+                Alert.alert('Error', 'Failed to delete the transaction.');
+              });
+            },
+          },
+        ],
+      );
+    },
+    [deleteTransaction],
   );
 
   const renderSectionHeader = useCallback(
@@ -143,17 +171,18 @@ export default function TransactionsScreen() {
             description={item.description}
             id={item.id}
             merchant={item.merchant}
+            notes={item.notes}
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}
-            onDelete={() => {}}
+            onDelete={confirmDelete}
             onEdit={openEdit}
             onPress={openDetail}
           />
         </View>
       );
     },
-    [categoryById, openDetail, openEdit, spacing.base, spacing.sm],
+    [categoryById, confirmDelete, openDetail, openEdit, spacing.base, spacing.sm],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);

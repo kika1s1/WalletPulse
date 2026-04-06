@@ -27,6 +27,7 @@ import {useTransactionById} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {buildCreateTransactionInputFromForm} from './AddTransactionScreen';
+import {ReceiptAttachmentField} from '@presentation/components/ReceiptAttachmentField';
 
 type Nav = NativeStackNavigationProp<TransactionsStackParamList, 'EditTransaction'>;
 type Route = RouteProp<TransactionsStackParamList, 'EditTransaction'>;
@@ -83,16 +84,12 @@ export default function EditTransactionScreen() {
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [transactionDate, setTransactionDate] = useState(Date.now());
+  const [receiptUri, setReceiptUri] = useState('');
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categoryError, setCategoryError] = useState<string | undefined>(undefined);
-
-  const knownTags = useMemo(
-    () => ['food', 'team', 'travel', 'bills', 'payroll', 'office', 'home', 'subs', 'client-a'],
-    [],
-  );
 
   useEffect(() => {
     if (!existing) {
@@ -107,6 +104,7 @@ export default function EditTransactionScreen() {
     setNotes(existing.notes);
     setTags([...existing.tags]);
     setTransactionDate(existing.transactionDate);
+    setReceiptUri(existing.receiptUri?.trim() ?? '');
   }, [existing]);
 
   const categoryMeta = useMemo(
@@ -141,8 +139,10 @@ export default function EditTransactionScreen() {
         notes,
         tags,
         transactionDate,
+        receiptUri,
       },
       existing.walletId,
+      existing.id,
     );
     try {
       await updateTransaction({
@@ -157,6 +157,7 @@ export default function EditTransactionScreen() {
         notes: draft.notes,
         tags: draft.tags,
         transactionDate: draft.transactionDate,
+        receiptUri: draft.receiptUri,
         updatedAt: Date.now(),
       });
       navigation.goBack();
@@ -173,6 +174,7 @@ export default function EditTransactionScreen() {
     merchant,
     navigation,
     notes,
+    receiptUri,
     tags,
     transactionDate,
     type,
@@ -342,8 +344,13 @@ export default function EditTransactionScreen() {
 
           <TagInput
             tags={tags}
-            allKnownTags={knownTags}
             onTagsChange={setTags}
+          />
+
+          <ReceiptAttachmentField
+            onChange={setReceiptUri}
+            storageKeyId={existing.id}
+            value={receiptUri}
           />
 
           <Button

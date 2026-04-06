@@ -15,6 +15,7 @@ import {MiniBarChart} from '@presentation/components/charts/MiniBarChart';
 import {InsightCard} from '@presentation/components/InsightCard';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {WalletPulseLogo} from '@presentation/components/WalletPulseLogo';
+import {WalletSwitcher} from '@presentation/components/WalletSwitcher';
 import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
@@ -48,12 +49,17 @@ export default function DashboardScreen() {
   const {
     totalBalance,
     baseCurrency,
+    displayCurrency,
+    displayBalance,
     percentChange,
     monthIncome,
     monthExpenses,
     weeklySpending,
     recentTransactions,
     insights,
+    wallets,
+    selectedWalletId,
+    setSelectedWalletId,
     isLoading,
     error,
     refetch,
@@ -168,16 +174,24 @@ export default function DashboardScreen() {
         </View>
         <Spacer size={spacing.base} />
         <BalanceHeader
-          totalBalance={totalBalance}
-          currency={baseCurrency}
+          totalBalance={displayBalance}
+          currency={displayCurrency}
           percentChange={percentChange}
           isLoading={isLoading}
+        />
+        <Spacer size={spacing.sm} />
+        <WalletSwitcher
+          wallets={wallets}
+          totalBalance={totalBalance}
+          baseCurrency={baseCurrency}
+          selectedWalletId={selectedWalletId}
+          onSelect={setSelectedWalletId}
         />
         <Spacer size={spacing.lg} />
         <SummaryPills
           income={monthIncome}
           expenses={monthExpenses}
-          currency={baseCurrency}
+          currency={displayCurrency}
           isLoading={isLoading}
         />
         <Spacer size={spacing.lg} />
@@ -188,7 +202,7 @@ export default function DashboardScreen() {
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <MiniBarChart
           data={weeklySpending}
-          currency={baseCurrency}
+          currency={displayCurrency}
           isLoading={isLoading}
         />
       </View>
@@ -200,7 +214,7 @@ export default function DashboardScreen() {
             items={budgetItems}
             totalBudget={totalBudget}
             totalSpent={totalSpent}
-            currency={baseCurrency}
+            currency={displayCurrency}
             onPress={() =>
               navigation.getParent()?.navigate('SettingsTab', {
                 screen: 'BudgetList',
@@ -259,6 +273,7 @@ export default function DashboardScreen() {
                   categoryColor={cat.color}
                   description={tx.description}
                   merchant={tx.merchant}
+                  notes={tx.notes}
                   transactionDate={tx.transactionDate}
                   source={tx.source}
                   onPress={handleTransactionPress}

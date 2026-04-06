@@ -59,17 +59,21 @@ export default function GoalsListScreen() {
     return (
       <Animated.View
         key={goal.id}
-        entering={FadeInDown.delay(index * 80).duration(250)}
-        style={[
-          styles.goalCard,
-          {
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: radius.lg,
-            borderColor: colors.border,
-          },
-          shadows.sm,
-        ]}
-      >
+        entering={FadeInDown.delay(index * 80).duration(250)}>
+        <Pressable
+          accessibilityHint="Opens goal details"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('GoalDetail', {goalId: goal.id})}
+          style={({pressed}) => [
+            styles.goalCard,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.lg,
+              borderColor: colors.border,
+              opacity: pressed ? 0.92 : 1,
+            },
+            shadows.sm,
+          ]}>
         <View style={styles.cardHeader}>
           <View style={[styles.iconWrap, {backgroundColor: goal.color + '18', borderRadius: radius.md}]}>
             <AppIcon name={resolveIconName(goal.icon)} size={22} color={goal.color} />
@@ -114,6 +118,7 @@ export default function GoalsListScreen() {
             {formatDeadline(goal.deadline, now)}
           </Text>
         )}
+        </Pressable>
       </Animated.View>
     );
   }
