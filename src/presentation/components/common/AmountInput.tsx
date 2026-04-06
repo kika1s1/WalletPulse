@@ -84,19 +84,6 @@ export function AmountInput({
     [onChangeValue],
   );
 
-  const removeLastDigit = useCallback(() => {
-    setDigits((prev) => {
-      const next = prev.slice(0, -1);
-      onChangeValue(digitsToCents(next));
-      return next;
-    });
-  }, [onChangeValue]);
-
-  const clearAll = useCallback(() => {
-    setDigits('');
-    onChangeValue(0);
-  }, [onChangeValue]);
-
   const cents = digitsToCents(digits);
   const {major, minor} = centsToParts(cents);
   const minorStr = minor.toString().padStart(2, '0');
@@ -150,9 +137,11 @@ export function AmountInput({
             autoFocus={autoFocus}
             caretHidden
             contextMenuHidden
+            cursorColor="transparent"
             keyboardType="number-pad"
             maxLength={MAX_DIGIT_LEN}
             onChangeText={commitDigits}
+            selectionColor="transparent"
             style={styles.hiddenInput}
             testID={testID ? `${testID}-input` : undefined}
             value={digits}
@@ -173,18 +162,8 @@ export function AmountInput({
         </View>
       </Pressable>
 
-      <Pressable
-        accessibilityHint="Long press to clear amount"
-        accessibilityLabel="Delete last digit"
-        accessibilityRole="button"
-        delayLongPress={420}
-        hitSlop={8}
-        onLongPress={clearAll}
-        onPress={removeLastDigit}
-        style={({pressed}) => [styles.backspaceBtn, {opacity: pressed ? 0.6 : 1}]}
-        testID={testID ? `${testID}-backspace` : undefined}>
-        <Text style={[styles.backspaceGlyph, {color: colors.textSecondary}]}>⌫</Text>
-      </Pressable>
+
+
     </View>
   );
 }
@@ -226,7 +205,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     color: 'transparent',
     fontSize: 1,
-    opacity: 0.01,
+    height: 1,
+    opacity: 0,
+    width: '100%',
     zIndex: 2,
   },
   amountDisplayWrap: {
@@ -241,17 +222,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
     textAlign: 'right',
-  },
-  backspaceBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-    minHeight: 48,
-    minWidth: 44,
-    paddingHorizontal: 4,
-  },
-  backspaceGlyph: {
-    fontSize: 22,
-    fontWeight: '600',
   },
 });

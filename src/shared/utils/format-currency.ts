@@ -9,6 +9,13 @@ export function formatAmount(amountInCents: number, currency: string): string {
   return `${sign}${currency} ${major.toFixed(2)}`;
 }
 
+const MASKED = '••••••';
+
+export function formatAmountMasked(amountInCents: number, currency: string, hidden: boolean): string {
+  if (hidden) return `${MASKED} ${currency}`;
+  return formatAmount(amountInCents, currency);
+}
+
 export function formatCompactAmount(amountInCents: number): string {
   const abs = Math.abs(amountInCents);
   const sign = amountInCents < 0 ? '-' : '';

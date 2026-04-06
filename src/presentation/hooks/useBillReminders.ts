@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import database from '@data/database';
 import BillReminderModel from '@data/database/models/BillReminderModel';
 import {Q} from '@nozbe/watermelondb';
@@ -37,6 +37,7 @@ export function useBillReminders(): UseBillRemindersReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -46,11 +47,12 @@ export function useBillReminders(): UseBillRemindersReturn {
     const collection = database.get<BillReminderModel>('bill_reminders');
     const query = collection.query(Q.sortBy('due_date', Q.asc));
 
-    setIsLoading(true);
+    if (!hasData.current) setIsLoading(true);
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasData.current = true;
         setBills(models.map(modelToDomain));
         setIsLoading(false);
       },

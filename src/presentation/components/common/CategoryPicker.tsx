@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -45,6 +45,7 @@ export function CategoryPicker({
 }: CategoryPickerProps) {
   const {colors, radius, spacing, typography} = useTheme();
   const {categories: dbCategories} = useCategories();
+  const sheetRef = useRef<BottomSheet>(null);
   const [tab, setTab] = useState<'expense' | 'income'>('expense');
 
   const lockedTab: 'expense' | 'income' | null =
@@ -68,6 +69,14 @@ export function CategoryPicker({
   const showTabs = type === undefined || type === 'both';
 
   const sheetIndex = visible ? 0 : -1;
+
+  useEffect(() => {
+    if (visible) {
+      sheetRef.current?.snapToIndex(0);
+    } else {
+      sheetRef.current?.close();
+    }
+  }, [visible]);
 
   const handleSheetChange = useCallback(
     (index: number) => {
@@ -96,6 +105,7 @@ export function CategoryPicker({
 
   return (
     <BottomSheet
+      ref={sheetRef}
       backdropComponent={renderBackdrop}
       enableDynamicSizing={false}
       enablePanDownToClose
@@ -182,7 +192,7 @@ export function CategoryPicker({
                   key={cat.id}
                   onPress={() => {
                     onSelect(cat.id);
-                    onClose();
+                    sheetRef.current?.close();
                   }}
                   style={[styles.cell, {width: cellWidth}]}
                   testID={testID ? `${testID}-cat-${cat.id}` : undefined}>

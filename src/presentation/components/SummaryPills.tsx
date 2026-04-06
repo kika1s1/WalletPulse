@@ -2,7 +2,8 @@ import React, {useMemo} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {Skeleton} from './feedback/Skeleton';
 
 export type SummaryPillsProps = {
@@ -22,9 +23,10 @@ export function SummaryPills({
   isLoading = false,
 }: SummaryPillsProps) {
   const {colors, radius} = useTheme();
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
-  const incomeLabel = useMemo(() => formatAmount(income, currency), [currency, income]);
-  const expenseLabel = useMemo(() => formatAmount(expenses, currency), [currency, expenses]);
+  const incomeLabel = useMemo(() => formatAmountMasked(income, currency, hide), [currency, income, hide]);
+  const expenseLabel = useMemo(() => formatAmountMasked(expenses, currency, hide), [currency, expenses, hide]);
 
   if (isLoading) {
     return (

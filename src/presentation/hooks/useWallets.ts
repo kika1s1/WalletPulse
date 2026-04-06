@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import database from '@data/database';
 import WalletModel from '@data/database/models/WalletModel';
 import {Q} from '@nozbe/watermelondb';
@@ -32,6 +32,7 @@ export function useWallets(): UseWalletsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -41,11 +42,12 @@ export function useWallets(): UseWalletsReturn {
     const collection = database.get<WalletModel>('wallets');
     const query = collection.query(Q.sortBy('sort_order', Q.asc));
 
-    setIsLoading(true);
+    if (!hasData.current) setIsLoading(true);
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasData.current = true;
         setWallets(models.map(walletModelToDomain));
         setIsLoading(false);
         setError(null);

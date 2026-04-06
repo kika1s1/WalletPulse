@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import type {ListRenderItemInfo} from '@shopify/flash-list';
 import BottomSheet, {
@@ -78,6 +78,7 @@ export function CurrencyPicker({
   testID,
 }: CurrencyPickerProps) {
   const {colors, radius, spacing, typography} = useTheme();
+  const sheetRef = useRef<BottomSheet>(null);
   const [search, setSearch] = useState('');
 
   const allOptions = useMemo(() => getCurrencyOptions(), []);
@@ -94,6 +95,14 @@ export function CurrencyPicker({
   }, [visible]);
 
   const sheetIndex = visible ? 0 : -1;
+
+  useEffect(() => {
+    if (visible) {
+      sheetRef.current?.snapToIndex(0);
+    } else {
+      sheetRef.current?.close();
+    }
+  }, [visible]);
 
   const handleSheetChange = useCallback(
     (index: number) => {
@@ -139,7 +148,7 @@ export function CurrencyPicker({
             accessibilityState={{selected}}
             onPress={() => {
               onSelect(option.code);
-              onClose();
+              sheetRef.current?.close();
             }}
             style={({pressed}) => [
               styles.row,
@@ -199,6 +208,7 @@ export function CurrencyPicker({
 
   return (
     <BottomSheet
+      ref={sheetRef}
       backdropComponent={renderBackdrop}
       enableDynamicSizing={false}
       enablePanDownToClose

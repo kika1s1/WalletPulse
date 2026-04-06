@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useMemo} from 'react';
+import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import database from '@data/database';
 import TransactionModel from '@data/database/models/TransactionModel';
 import {Q} from '@nozbe/watermelondb';
@@ -180,6 +180,7 @@ export function useTransactions(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasReceivedData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -197,11 +198,14 @@ export function useTransactions(
           )
         : collection.query(Q.sortBy('transaction_date', Q.desc));
 
-    setIsLoading(true);
+    if (!hasReceivedData.current) {
+      setIsLoading(true);
+    }
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasReceivedData.current = true;
         setTransactions(models.map(transactionModelToDomain));
         setIsLoading(false);
         setError(null);

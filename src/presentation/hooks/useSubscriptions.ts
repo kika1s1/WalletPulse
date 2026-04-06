@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import database from '@data/database';
 import SubscriptionModel from '@data/database/models/SubscriptionModel';
 import {Q} from '@nozbe/watermelondb';
@@ -38,6 +38,7 @@ export function useSubscriptions(): UseSubscriptionsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -47,11 +48,12 @@ export function useSubscriptions(): UseSubscriptionsReturn {
     const collection = database.get<SubscriptionModel>('subscriptions');
     const query = collection.query(Q.sortBy('next_due_date', Q.asc));
 
-    setIsLoading(true);
+    if (!hasData.current) setIsLoading(true);
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasData.current = true;
         setSubscriptions(models.map(modelToDomain));
         setIsLoading(false);
       },

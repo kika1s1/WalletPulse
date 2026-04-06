@@ -13,7 +13,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress, type BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
 import {BudgetCard} from '@presentation/components/BudgetCard';
@@ -27,11 +28,13 @@ function OverviewCard({
   totalSpent,
   count,
   currency,
+  hide,
 }: {
   totalBudget: number;
   totalSpent: number;
   count: number;
   currency: string;
+  hide: boolean;
 }) {
   const {colors, spacing, radius, shadows} = useTheme();
   const pct = totalBudget > 0 ? totalSpent / totalBudget : 0;
@@ -64,7 +67,7 @@ function OverviewCard({
             TOTAL SPENT
           </Text>
           <Text style={[styles.overviewValue, {color: barColor}]}>
-            {formatAmount(totalSpent, currency)}
+            {formatAmountMasked(totalSpent, currency, hide)}
           </Text>
         </View>
         <View style={styles.overviewRight}>
@@ -72,7 +75,7 @@ function OverviewCard({
             TOTAL BUDGET
           </Text>
           <Text style={[styles.overviewValue, {color: colors.text}]}>
-            {formatAmount(totalBudget, currency)}
+            {formatAmountMasked(totalBudget, currency, hide)}
           </Text>
         </View>
       </View>
@@ -98,6 +101,7 @@ export default function BudgetsScreen() {
   const {activeBudgets, isLoading, error, refetch} = useBudgets();
   const {items, overallItem, totalBudget, totalSpent, isLoading: progressLoading, refetch: refreshProgress} =
     useBudgetProgress(activeBudgets);
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const currency = activeBudgets.length > 0 ? activeBudgets[0].currency : 'USD';
   const loading = isLoading || progressLoading;
@@ -144,11 +148,12 @@ export default function BudgetsScreen() {
       <OverviewCard
         count={items.length}
         currency={currency}
+        hide={hide}
         totalBudget={totalBudget}
         totalSpent={totalSpent}
       />
     );
-  }, [currency, items.length, totalBudget, totalSpent]);
+  }, [currency, hide, items.length, totalBudget, totalSpent]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>

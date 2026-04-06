@@ -7,7 +7,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import type {BudgetProgressStatus} from '@domain/usecases/calculate-budget-progress';
 
@@ -81,6 +82,7 @@ export function BudgetCard({
   testID,
 }: BudgetCardProps) {
   const {colors, spacing, radius, shadows} = useTheme();
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -176,7 +178,7 @@ export function BudgetCard({
               Spent
             </Text>
             <Text style={[styles.amountValue, {color: barColor}]}>
-              {formatAmount(spent, currency)}
+              {formatAmountMasked(spent, currency, hide)}
             </Text>
           </View>
 
@@ -191,7 +193,7 @@ export function BudgetCard({
               Budget
             </Text>
             <Text style={[styles.amountValue, {color: colors.text}]}>
-              {formatAmount(amount, currency)}
+              {formatAmountMasked(amount, currency, hide)}
             </Text>
           </View>
         </View>
@@ -208,7 +210,7 @@ export function BudgetCard({
               },
             ]}>
             <Text style={[styles.exceededText, {color: colors.danger}]}>
-              Over by {formatAmount(Math.abs(remaining), currency)}
+              Over by {formatAmountMasked(Math.abs(remaining), currency, hide)}
             </Text>
           </View>
         )}

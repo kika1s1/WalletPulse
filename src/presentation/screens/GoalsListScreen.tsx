@@ -8,7 +8,8 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {getProgress} from '@domain/entities/Goal';
 import {
   sortGoalsByPriority,
@@ -27,6 +28,7 @@ export default function GoalsListScreen() {
   const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {goals, isLoading, error} = useGoals();
   const now = Date.now();
@@ -98,11 +100,11 @@ export default function GoalsListScreen() {
           </View>
           <View style={styles.progressLabels}>
             <Text style={[styles.progressAmount, {color: colors.text}]}>
-              {formatAmount(goal.currentAmount, goal.currency)}
+              {formatAmountMasked(goal.currentAmount, goal.currency, hide)}
             </Text>
             <Text style={[styles.progressPct, {color: goal.color}]}>{pct}%</Text>
             <Text style={[styles.progressTarget, {color: colors.textTertiary}]}>
-              of {formatAmount(goal.targetAmount, goal.currency)}
+              of {formatAmountMasked(goal.targetAmount, goal.currency, hide)}
             </Text>
           </View>
         </View>
@@ -168,7 +170,7 @@ export default function GoalsListScreen() {
                   ]}
                 >
                   <Text style={styles.overviewLabel}>Total Saved</Text>
-                  <Text style={styles.overviewAmount}>{formatAmount(totalSaved, baseCurrency)}</Text>
+                  <Text style={styles.overviewAmount}>{formatAmountMasked(totalSaved, baseCurrency, hide)}</Text>
                   <View style={[styles.overviewProgressTrack, {backgroundColor: '#FFFFFF30', borderRadius: 3}]}>
                     <View
                       style={[
@@ -183,7 +185,7 @@ export default function GoalsListScreen() {
                   </View>
                   <View style={styles.overviewRow}>
                     <Text style={styles.overviewSub}>
-                      {Math.round(totalProgress * 100)}% of {formatAmount(totalTarget, baseCurrency)} target
+                      {Math.round(totalProgress * 100)}% of {formatAmountMasked(totalTarget, baseCurrency, hide)} target
                     </Text>
                     <Text style={styles.overviewSub}>
                       {goals.length} goal{goals.length !== 1 ? 's' : ''}

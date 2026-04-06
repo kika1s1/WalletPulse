@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useMemo} from 'react';
+import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import database from '@data/database';
 import BudgetModel from '@data/database/models/BudgetModel';
 import {Q} from '@nozbe/watermelondb';
@@ -34,6 +34,7 @@ export function useBudgets(): UseBudgetsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -43,11 +44,12 @@ export function useBudgets(): UseBudgetsReturn {
     const collection = database.get<BudgetModel>('budgets');
     const query = collection.query(Q.sortBy('created_at', Q.desc));
 
-    setIsLoading(true);
+    if (!hasData.current) setIsLoading(true);
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasData.current = true;
         setBudgets(models.map(modelToDomain));
         setIsLoading(false);
         setError(null);

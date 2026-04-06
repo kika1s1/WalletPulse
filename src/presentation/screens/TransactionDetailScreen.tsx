@@ -9,6 +9,7 @@ import {useTheme} from '@shared/theme';
 import {Button, Card} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmount} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import type {TabParamList, HomeStackParamList} from '@presentation/navigation/types';
 import type {RouteProp} from '@react-navigation/native';
 import type {Category} from '@domain/entities/Category';

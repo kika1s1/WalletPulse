@@ -8,7 +8,8 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {
   groupSubscriptionsByStatus,
   calculateTotalMonthlyCost,
@@ -35,6 +36,7 @@ export default function SubscriptionsListScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('active');
   const {subscriptions, isLoading, error} = useSubscriptions();
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const now = Date.now();
 
   const groups = useMemo(() => groupSubscriptionsByStatus(subscriptions), [subscriptions]);
@@ -82,7 +84,7 @@ export default function SubscriptionsListScreen() {
           </View>
           <View style={{alignItems: 'flex-end'}}>
             <Text style={[styles.subAmount, {color: sub.isActive ? colors.text : colors.textTertiary}]}>
-              {formatAmount(sub.amount, sub.currency)}
+              {formatAmountMasked(sub.amount, sub.currency, hide)}
             </Text>
             {sub.isActive ? (
               <Text style={[styles.subDue, {color: colors.textSecondary}]}>
@@ -149,12 +151,12 @@ export default function SubscriptionsListScreen() {
                   <View style={styles.costRow}>
                     <View style={{flex: 1}}>
                       <Text style={styles.costLabel}>Monthly</Text>
-                      <Text style={styles.costValue}>{formatAmount(Math.round(monthlyCost), baseCurrency)}</Text>
+                      <Text style={styles.costValue}>{formatAmountMasked(Math.round(monthlyCost), baseCurrency, hide)}</Text>
                     </View>
                     <View style={[styles.costDivider, {backgroundColor: '#FFFFFF30'}]} />
                     <View style={{flex: 1, alignItems: 'flex-end'}}>
                       <Text style={styles.costLabel}>Yearly</Text>
-                      <Text style={styles.costValue}>{formatAmount(yearlyCost, baseCurrency)}</Text>
+                      <Text style={styles.costValue}>{formatAmountMasked(yearlyCost, baseCurrency, hide)}</Text>
                     </View>
                   </View>
                   <View style={styles.costStats}>
@@ -183,7 +185,7 @@ export default function SubscriptionsListScreen() {
                           {b.categoryId}
                         </Text>
                         <Text style={[styles.breakdownValue, {color: colors.text}]}>
-                          {formatAmount(b.monthlyTotal, baseCurrency)}/mo
+                          {formatAmountMasked(b.monthlyTotal, baseCurrency, hide)}/mo
                         </Text>
                         <Text style={[styles.breakdownCount, {color: colors.textTertiary}]}>
                           ({b.count})

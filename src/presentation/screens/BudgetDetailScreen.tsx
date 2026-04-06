@@ -15,7 +15,8 @@ import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useTransactions} from '@presentation/hooks/useTransactions';
@@ -99,6 +100,8 @@ export default function BudgetDetailScreen() {
     filter,
     syncWithFilterStore: false,
   });
+
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -257,10 +260,10 @@ export default function BudgetDetailScreen() {
                   Spent
                 </Text>
                 <Text style={[styles.heroSpent, {color: barColor}]}>
-                  {formatAmount(progress.spent, budget.currency)}
+                  {formatAmountMasked(progress.spent, budget.currency, hide)}
                 </Text>
                 <Text style={[styles.heroOf, {color: colors.textSecondary}]}>
-                  of {formatAmount(budget.amount, budget.currency)}
+                  of {formatAmountMasked(budget.amount, budget.currency, hide)}
                 </Text>
               </View>
 
@@ -300,7 +303,7 @@ export default function BudgetDetailScreen() {
                     styles.statValue,
                     {color: progress.remaining >= 0 ? colors.success : colors.danger},
                   ]}>
-                  {formatAmount(Math.abs(progress.remaining), budget.currency)}
+                  {formatAmountMasked(Math.abs(progress.remaining), budget.currency, hide)}
                 </Text>
               </View>
 
@@ -337,7 +340,7 @@ export default function BudgetDetailScreen() {
                 </Text>
                 <Text style={[styles.statValue, {color: colors.text}]}>
                   {dailyRemaining > 0
-                    ? formatAmount(dailyRemaining, budget.currency)
+                    ? formatAmountMasked(dailyRemaining, budget.currency, hide)
                     : '--'}
                 </Text>
               </View>

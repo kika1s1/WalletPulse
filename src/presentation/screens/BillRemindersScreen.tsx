@@ -8,7 +8,8 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {
   getUpcomingBills,
@@ -32,6 +33,7 @@ export default function BillRemindersScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('upcoming');
   const {bills, isLoading, error} = useBillReminders();
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const now = Date.now();
 
   const upcoming = useMemo(() => getUpcomingBills(bills, now, 30), [bills, now]);
@@ -84,7 +86,7 @@ export default function BillRemindersScreen() {
             </Text>
           </View>
           <Text style={[styles.billAmount, {color: colors.text}]}>
-            {formatAmount(bill.amount, bill.currency)}
+            {formatAmountMasked(bill.amount, bill.currency, hide)}
           </Text>
         </View>
 
@@ -168,7 +170,7 @@ export default function BillRemindersScreen() {
                 >
                   <Text style={styles.summaryLabel}>Estimated Monthly Bills</Text>
                   <Text style={styles.summaryAmount}>
-                    {formatAmount(monthlyTotal, baseCurrency)}
+                    {formatAmountMasked(monthlyTotal, baseCurrency, hide)}
                   </Text>
                   <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>

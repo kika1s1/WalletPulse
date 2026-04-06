@@ -14,6 +14,7 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {usePinStore} from '@presentation/stores/usePinStore';
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -128,6 +129,8 @@ export default function SettingsScreen() {
   const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const settings = useSettingsStore();
+  const isPinEnabled = usePinStore((s) => s.isPinEnabled);
+  const removePin = usePinStore((s) => s.removePin);
   const {
     isEnabled,
     isActive,
@@ -242,6 +245,61 @@ export default function SettingsScreen() {
             onPress={weekCycle}
             value={settings.firstDayOfWeek === 'monday' ? 'Monday' : 'Sunday'}
           />
+        </View>
+
+        <SectionHeader title="PRIVACY" />
+        <View style={{gap: spacing.sm}}>
+          <SettingsRow
+            description={settings.hideAmounts ? 'All amounts are hidden' : 'Amounts are visible'}
+            icon={settings.hideAmounts ? 'eye-off-outline' : 'eye-outline'}
+            label="Hide Amounts"
+            trailing={
+              <Switch
+                onValueChange={() => settings.toggleHideAmounts()}
+                thumbColor={settings.hideAmounts ? colors.primary : colors.border}
+                trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                value={settings.hideAmounts}
+              />
+            }
+          />
+        </View>
+
+        <SectionHeader title="SECURITY" />
+        <View style={{gap: spacing.sm}}>
+          <SettingsRow
+            description={isPinEnabled ? 'PIN is active — your app is protected' : 'Add a PIN to protect your app'}
+            icon="lock-outline"
+            label="App PIN Lock"
+            trailing={
+              <Switch
+                onValueChange={(val) => {
+                  if (val) {
+                    navigation.navigate('SetPin');
+                  } else {
+                    Alert.alert(
+                      'Remove PIN?',
+                      'Anyone will be able to open the app without a PIN.',
+                      [
+                        {text: 'Cancel', style: 'cancel'},
+                        {text: 'Remove', style: 'destructive', onPress: removePin},
+                      ],
+                    );
+                  }
+                }}
+                thumbColor={isPinEnabled ? colors.primary : colors.border}
+                trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                value={isPinEnabled}
+              />
+            }
+          />
+          {isPinEnabled && (
+            <SettingsRow
+              description="Set a new 4-digit PIN"
+              icon="key-variant"
+              label="Change PIN"
+              onPress={() => navigation.navigate('SetPin')}
+            />
+          )}
         </View>
 
         <SectionHeader title="NOTIFICATION TRACKING" />

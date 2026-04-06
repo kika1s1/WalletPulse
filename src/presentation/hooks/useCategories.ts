@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import database from '@data/database';
 import CategoryModel from '@data/database/models/CategoryModel';
 import {Q} from '@nozbe/watermelondb';
@@ -33,6 +33,7 @@ export function useCategories(): UseCategoriesReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -45,11 +46,12 @@ export function useCategories(): UseCategoriesReturn {
       Q.sortBy('sort_order', Q.asc),
     );
 
-    setIsLoading(true);
+    if (!hasData.current) setIsLoading(true);
     setError(null);
 
     const subscription = query.observe().subscribe({
       next: (models) => {
+        hasData.current = true;
         setCategories(models.map(modelToDomain));
         setIsLoading(false);
       },

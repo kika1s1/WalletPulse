@@ -5,7 +5,8 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {SectionHeader} from '@presentation/components/layout/SectionHeader';
 import {Spacer} from '@presentation/components/layout/Spacer';
@@ -40,6 +41,8 @@ export default function AnalyticsScreen() {
     isLoading,
     refetch,
   } = useAnalytics();
+
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);

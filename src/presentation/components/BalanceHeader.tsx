@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {
   runOnJS,
   useAnimatedReaction,
@@ -10,6 +10,8 @@ import {
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmount} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {AppIcon} from './common/AppIcon';
 import {Skeleton} from './feedback/Skeleton';
 
 export type BalanceHeaderProps = {
@@ -54,6 +56,8 @@ export function BalanceHeader({
   isLoading = false,
 }: BalanceHeaderProps) {
   const {colors, typography, radius, spacing} = useTheme();
+  const hideAmounts = useSettingsStore((s) => s.hideAmounts);
+  const toggleHideAmounts = useSettingsStore((s) => s.toggleHideAmounts);
   const reduceMotion = useReducedMotion();
   const isFirstMount = useRef(true);
   const balanceSv = useSharedValue(totalBalance);
@@ -182,13 +186,27 @@ export function BalanceHeader({
       >
         {dateLine}
       </Text>
-      <Text
-        style={[styles.balance, {color: colors.text}]}
-        importantForAccessibility="no"
-        maxFontSizeMultiplier={1.3}
-      >
-        {balanceLabel}
-      </Text>
+      <View style={styles.balanceRow}>
+        <Text
+          style={[styles.balance, {color: colors.text}]}
+          importantForAccessibility="no"
+          maxFontSizeMultiplier={1.3}
+        >
+          {hideAmounts ? `•••••• ${currency}` : balanceLabel}
+        </Text>
+        <Pressable
+          accessibilityLabel={hideAmounts ? 'Show amounts' : 'Hide amounts'}
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={toggleHideAmounts}
+          style={styles.eyeBtn}>
+          <AppIcon
+            name={hideAmounts ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      </View>
       <View
         style={[
           styles.changePill,
@@ -222,11 +240,19 @@ const styles = StyleSheet.create({
   dateLine: {
     marginTop: 4,
   },
-  balance: {
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 12,
+  },
+  balance: {
     fontSize: 36,
     fontWeight: '700',
     letterSpacing: -0.5,
+  },
+  eyeBtn: {
+    padding: 4,
   },
   changePill: {
     marginTop: 10,

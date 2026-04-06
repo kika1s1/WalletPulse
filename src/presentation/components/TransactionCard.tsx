@@ -9,6 +9,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatRelativeDate} from '@shared/utils/date-helpers';
 import {formatAmount} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {SwipeableRow, type SwipeAction} from './common/SwipeableRow';
 import {AppIcon, resolveIconName} from './common/AppIcon';
 
@@ -132,9 +133,10 @@ export function TransactionCard({
     return actions;
   }, [colors.danger, colors.primary, id, onDelete, onEdit]);
 
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const titleText = description.trim() || merchant.trim() || 'Transaction';
   const subtitleText = `${categoryName} · ${formatRelativeDate(transactionDate)}`;
-  const signedAmount = formatSignedAmount(type, amount, currency);
+  const signedAmount = hide ? '••••' : formatSignedAmount(type, amount, currency);
   const amountColor =
     type === 'income'
       ? colors.income

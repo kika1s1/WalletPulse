@@ -2,7 +2,8 @@ import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import type {BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
 
@@ -78,6 +79,7 @@ export function BudgetSummaryWidget({
   onPress,
 }: BudgetSummaryWidgetProps) {
   const {colors, spacing, radius, shadows} = useTheme();
+  const hide = useSettingsStore((s) => s.hideAmounts);
 
   if (items.length === 0) {
     return null;
@@ -112,10 +114,10 @@ export function BudgetSummaryWidget({
 
       <View style={[styles.amountRow, {marginTop: spacing.sm}]}>
         <Text style={[styles.amountText, {color: overallBarColor}]}>
-          {formatAmount(totalSpent, currency)}
+          {formatAmountMasked(totalSpent, currency, hide)}
         </Text>
         <Text style={[styles.ofText, {color: colors.textTertiary}]}>
-          of {formatAmount(totalBudget, currency)}
+          of {formatAmountMasked(totalBudget, currency, hide)}
         </Text>
       </View>
 

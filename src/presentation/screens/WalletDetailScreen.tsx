@@ -4,7 +4,8 @@ import {useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {SectionHeader} from '@presentation/components/layout/SectionHeader';
 import {Spacer} from '@presentation/components/layout/Spacer';
@@ -83,6 +84,8 @@ export default function WalletDetailScreen() {
     [transactions],
   );
 
+  const hide = useSettingsStore((s) => s.hideAmounts);
+
   if (!wallet && !isLoading) {
     return (
       <ScreenContainer>
@@ -139,7 +142,7 @@ export default function WalletDetailScreen() {
                   marginTop: spacing.sm,
                 },
               ]}>
-              {formatAmount(wallet.balance, wallet.currency)}
+              {formatAmountMasked(wallet.balance, wallet.currency, hide)}
             </Text>
           </>
         ) : null}
@@ -156,7 +159,7 @@ export default function WalletDetailScreen() {
                 styles.statValue,
                 {color: colors.income},
               ]}>
-              {formatAmount(income, currency)}
+              {formatAmountMasked(income, currency, hide)}
             </Text>
           </Card>
           <View style={{width: 12}} />
@@ -169,7 +172,7 @@ export default function WalletDetailScreen() {
                 styles.statValue,
                 {color: colors.expense},
               ]}>
-              {formatAmount(expenses, currency)}
+              {formatAmountMasked(expenses, currency, hide)}
             </Text>
           </Card>
         </View>

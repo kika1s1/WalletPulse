@@ -7,7 +7,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmount} from '@shared/utils/format-currency';
+import {formatAmountMasked} from '@shared/utils/format-currency';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 export type WalletCardProps = {
@@ -65,9 +66,10 @@ export function WalletCard({
     onPress?.(id);
   }, [id, onPress]);
 
+  const hide = useSettingsStore((s) => s.hideAmounts);
   const balanceLabel = useMemo(
-    () => formatAmount(balance, currency),
-    [balance, currency],
+    () => formatAmountMasked(balance, currency, hide),
+    [balance, currency, hide],
   );
 
   const isNegative = balance < 0;
