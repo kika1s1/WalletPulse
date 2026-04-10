@@ -373,10 +373,11 @@ export default function OnboardingScreen() {
       // Non-blocking: wallet or categories may already exist
     }
 
+    useSettingsStore.getState().setNotificationEnabled(enableNotifications);
     setBaseCurrency(currency);
     setOnboardingCompleted(true);
     navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
-  }, [currentStep, steps, state, walletName, currency, setBaseCurrency, setOnboardingCompleted, navigation]);
+  }, [currentStep, steps, state, walletName, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted, navigation]);
 
   const handleSkip = useCallback(async () => {
     try {
@@ -399,6 +400,7 @@ export default function OnboardingScreen() {
     } catch {
       // Categories or wallet may already exist
     }
+    useSettingsStore.getState().setNotificationEnabled(false);
     setBaseCurrency('USD');
     setOnboardingCompleted(true);
     navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});

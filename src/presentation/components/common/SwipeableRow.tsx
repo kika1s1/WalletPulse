@@ -111,8 +111,6 @@ export function SwipeableRow({
         mass: 1,
       }}
       enableTrackpadTwoFingerGesture
-      friction={2}
-      overshootFriction={8}
       overshootLeft={false}
       overshootRight={false}
       renderLeftActions={leftActions?.length ? renderLeftActions : undefined}

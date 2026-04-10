@@ -1,9 +1,20 @@
+jest.mock('@data/datasources/LocalDataSource', () => ({
+  getLocalDataSource: () => ({
+    settings: {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+    },
+  }),
+}));
+
 import {
   createSavedFilter,
   addRecentSearch,
   getRecentSearches,
   clearRecentSearches,
-  type SavedFilter,
+  addSavedFilter,
+  getSavedFilters,
+  removeSavedFilter,
 } from '@domain/usecases/saved-filters';
 
 describe('SavedFilter', () => {
@@ -66,5 +77,28 @@ describe('Recent searches', () => {
     addRecentSearch('test');
     clearRecentSearches();
     expect(getRecentSearches()).toEqual([]);
+  });
+});
+
+describe('Saved filter presets', () => {
+  beforeEach(() => {
+    for (const f of getSavedFilters()) {
+      removeSavedFilter(f.id);
+    }
+  });
+
+  it('adds, lists, and removes saved filter presets', () => {
+    const a = addSavedFilter('Work', {type: 'expense'});
+    expect(a.name).toBe('Work');
+    expect(getSavedFilters().length).toBe(1);
+    expect(getSavedFilters()[0].id).toBe(a.id);
+
+    const b = addSavedFilter('Travel', {currency: 'EUR'});
+    expect(getSavedFilters().length).toBe(2);
+    expect(getSavedFilters()[0].name).toBe('Travel');
+
+    removeSavedFilter(b.id);
+    expect(getSavedFilters().length).toBe(1);
+    expect(getSavedFilters()[0].id).toBe(a.id);
   });
 });

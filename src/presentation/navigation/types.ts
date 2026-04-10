@@ -44,10 +44,13 @@ export type SettingsStackParamList = {
   CategoryManagement: undefined;
   CreateCategory: {editCategoryId?: string} | undefined;
   NotificationLog: undefined;
+  ParsingRules: undefined;
+  CreateParsingRule: {ruleId?: string} | undefined;
   BudgetList: undefined;
   CreateBudget: {editBudgetId?: string} | undefined;
   BudgetDetail: {budgetId: string};
   TemplateManagement: undefined;
+  CreateTemplate: undefined;
   Export: undefined;
   BillReminders: undefined;
   CreateBillReminder: {editBillId?: string} | undefined;

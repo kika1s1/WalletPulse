@@ -4,10 +4,12 @@ import {
   Alert,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
@@ -281,38 +283,109 @@ export default function GoalDetailScreen() {
       </ScreenContainer>
 
       <Modal
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setContribModalOpen(false)}
         transparent
         visible={contribModalOpen}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setContribModalOpen(false)}
-          style={styles.modalBackdrop}>
-          <Pressable onPress={() => {}} style={styles.modalCardOuter}>
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderRadius: radius.lg,
-                  padding: spacing.lg,
-                },
-                shadows.md,
-              ]}>
-              <Text style={[styles.modalTitle, {color: colors.text}]}>Add contribution</Text>
-              <Text style={[styles.modalHint, {color: colors.textTertiary}]}>
-                Amount to add to your saved total
-              </Text>
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setContribModalOpen(false)}
+            style={styles.modalBackdropTouch}
+          />
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderTopLeftRadius: radius.xl,
+                borderTopRightRadius: radius.xl,
+              },
+              shadows.lg,
+            ]}>
+            <View style={[styles.modalHandle, {backgroundColor: colors.border}]} />
+
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing['2xl'],
+              }}>
+              <View style={styles.modalHeaderRow}>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.modalTitle, {color: colors.text}]}>
+                    Add Contribution
+                  </Text>
+                  <Text style={[styles.modalSubtitle, {color: colors.textTertiary}]}>
+                    {goal.name}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="Close"
+                  hitSlop={12}
+                  onPress={() => setContribModalOpen(false)}
+                  style={[styles.modalCloseBtn, {backgroundColor: colors.border + '44'}]}>
+                  <MaterialCommunityIcons color={colors.textSecondary} name="close" size={18} />
+                </Pressable>
+              </View>
+
               <View
                 style={[
-                  styles.amountWrap,
+                  styles.modalProgressRow,
                   {
                     backgroundColor: colors.card,
                     borderColor: colors.borderLight,
-                    borderRadius: radius.md,
-                    marginTop: spacing.md,
+                    borderRadius: radius.lg,
                     padding: spacing.md,
+                  },
+                ]}>
+                <View style={styles.modalProgressInfo}>
+                  <Text style={[styles.modalProgressLabel, {color: colors.textTertiary}]}>
+                    Current
+                  </Text>
+                  <Text style={[styles.modalProgressValue, {color: colors.text}]}>
+                    {formatAmountMasked(goal.currentAmount, goal.currency, hide)}
+                  </Text>
+                </View>
+                <View style={[styles.modalProgressDivider, {backgroundColor: colors.border}]} />
+                <View style={styles.modalProgressInfo}>
+                  <Text style={[styles.modalProgressLabel, {color: colors.textTertiary}]}>
+                    Target
+                  </Text>
+                  <Text style={[styles.modalProgressValue, {color: colors.textSecondary}]}>
+                    {formatAmountMasked(goal.targetAmount, goal.currency, hide)}
+                  </Text>
+                </View>
+                <View style={[styles.modalProgressDivider, {backgroundColor: colors.border}]} />
+                <View style={styles.modalProgressInfo}>
+                  <Text style={[styles.modalProgressLabel, {color: colors.textTertiary}]}>
+                    Left
+                  </Text>
+                  <Text style={[styles.modalProgressValue, {color: goal.color}]}>
+                    {formatAmountMasked(
+                      Math.max(0, goal.targetAmount - goal.currentAmount),
+                      goal.currency,
+                      hide,
+                    )}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={[styles.modalInputLabel, {color: colors.textSecondary, marginTop: spacing.lg}]}>
+                CONTRIBUTION AMOUNT
+              </Text>
+              <Pressable
+                onPress={() => {}}
+                style={[
+                  styles.modalAmountBox,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: contribCents > 0 ? colors.primary : colors.border,
+                    borderWidth: contribCents > 0 ? 2 : 1,
+                    borderRadius: radius.lg,
+                    padding: spacing.lg,
+                    marginTop: spacing.sm,
                   },
                 ]}>
                 <AmountInput
@@ -321,29 +394,83 @@ export default function GoalDetailScreen() {
                   onChangeValue={setContribCents}
                   value={contribCents}
                 />
+              </Pressable>
+
+              <View style={[styles.quickAmountRow, {marginTop: spacing.md}]}>
+                {[1000, 5000, 10000, 50000].map((cents) => (
+                  <Pressable
+                    key={cents}
+                    accessibilityLabel={`Add ${cents / 100}`}
+                    onPress={() => setContribCents(cents)}
+                    style={({pressed}) => [
+                      styles.quickAmountChip,
+                      {
+                        backgroundColor: contribCents === cents
+                          ? colors.primary + '20'
+                          : colors.card,
+                        borderColor: contribCents === cents
+                          ? colors.primary
+                          : colors.border,
+                        borderRadius: radius.md,
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.quickAmountText,
+                        {color: contribCents === cents ? colors.primary : colors.text},
+                      ]}>
+                      {formatAmountMasked(cents, goal.currency, false)}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-              <View style={{flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg}}>
-                <View style={{flex: 1}}>
-                  <Button
-                    fullWidth
-                    onPress={() => setContribModalOpen(false)}
-                    title="Cancel"
-                    variant="ghost"
-                  />
-                </View>
-                <View style={{flex: 1}}>
-                  <Button
-                    disabled={contribCents <= 0}
-                    fullWidth
-                    loading={isSubmitting}
-                    onPress={handleAddContribution}
-                    title="Add"
-                  />
-                </View>
-              </View>
-            </View>
-          </Pressable>
-        </Pressable>
+
+              <Pressable
+                accessibilityLabel="Add contribution"
+                accessibilityRole="button"
+                disabled={contribCents <= 0 || isSubmitting}
+                onPress={handleAddContribution}
+                style={({pressed}) => [
+                  styles.modalAddBtn,
+                  {
+                    backgroundColor: contribCents > 0 ? colors.primary : colors.border,
+                    borderRadius: radius.lg,
+                    marginTop: spacing.xl,
+                    opacity: pressed && contribCents > 0 ? 0.85 : 1,
+                  },
+                ]}>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons color="#FFFFFF" name="plus-circle" size={22} />
+                    <Text style={styles.modalAddBtnText}>
+                      {contribCents > 0
+                        ? `Add ${formatAmountMasked(contribCents, goal.currency, false)}`
+                        : 'Enter an amount'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                accessibilityLabel="Cancel"
+                onPress={() => setContribModalOpen(false)}
+                style={({pressed}) => [
+                  styles.modalCancelBtn,
+                  {
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                    marginTop: spacing.sm,
+                    opacity: pressed ? 0.6 : 1,
+                  },
+                ]}>
+                <Text style={[styles.modalCancelText, {color: colors.textSecondary}]}>Cancel</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -381,13 +508,101 @@ const styles = StyleSheet.create({
   pctLine: {fontSize: 14, textAlign: 'center'},
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  modalCardOuter: {maxWidth: '100%'},
-  modalCard: {borderWidth: StyleSheet.hairlineWidth, borderColor: 'transparent'},
-  modalTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
-  modalHint: {fontSize: 13, marginTop: 4},
-  amountWrap: {borderWidth: StyleSheet.hairlineWidth},
+  modalBackdropTouch: {
+    flex: 1,
+  },
+  modalSheet: {
+    maxHeight: '85%',
+    paddingTop: 12,
+  },
+  modalHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalTitle: {fontSize: 22, fontWeight: fontWeight.bold},
+  modalSubtitle: {fontSize: 14, marginTop: 4},
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalProgressInfo: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  modalProgressDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 32,
+  },
+  modalProgressLabel: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  modalProgressValue: {
+    fontSize: 14,
+    fontWeight: fontWeight.bold,
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: fontWeight.semibold,
+    letterSpacing: 0.6,
+  },
+  modalAmountBox: {},
+  quickAmountRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickAmountChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  quickAmountText: {
+    fontSize: 13,
+    fontWeight: fontWeight.semibold,
+  },
+  modalAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    gap: 8,
+  },
+  modalAddBtnText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: fontWeight.bold,
+  },
+  modalCancelBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderWidth: 1,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+  },
 });

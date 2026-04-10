@@ -19,6 +19,7 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeArchiveCategory} from '@domain/usecases/archive-category';
 import type {Category} from '@domain/entities/Category';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackButton} from '@presentation/components/common';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
@@ -89,24 +90,36 @@ function CategoryRow({
         <Pressable
           accessibilityLabel={`Edit ${cat.name}`}
           accessibilityRole="button"
-          hitSlop={12}
+          hitSlop={8}
           onPress={() => onEdit(cat.id)}
-          style={[styles.actionBtn, {backgroundColor: colors.background}]}>
-          <Text style={[styles.actionIcon, {color: colors.primary}]}>
-            Edit
-          </Text>
+          style={({pressed}) => [
+            styles.actionBtn,
+            {
+              backgroundColor: colors.primaryLight + '20',
+              borderRadius: 10,
+              opacity: pressed ? 0.6 : 1,
+            },
+          ]}>
+          <MaterialCommunityIcons color={colors.primary} name="pencil-outline" size={18} />
+          <Text style={[styles.actionLabel, {color: colors.primary}]}>Edit</Text>
         </Pressable>
 
         {!cat.isDefault && (
           <Pressable
             accessibilityLabel={`Archive ${cat.name}`}
             accessibilityRole="button"
-            hitSlop={12}
+            hitSlop={8}
             onPress={() => onArchive(cat.id, cat.name)}
-            style={[styles.actionBtn, {backgroundColor: colors.dangerLight}]}>
-            <Text style={[styles.actionIcon, {color: colors.danger}]}>
-              Archive
-            </Text>
+            style={({pressed}) => [
+              styles.actionBtn,
+              {
+                backgroundColor: colors.dangerLight,
+                borderRadius: 10,
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}>
+            <MaterialCommunityIcons color={colors.danger} name="archive-outline" size={18} />
+            <Text style={[styles.actionLabel, {color: colors.danger}]}>Archive</Text>
           </Pressable>
         )}
       </View>
@@ -347,9 +360,16 @@ const styles = StyleSheet.create({
   typeBadge: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8},
   typeBadgeText: {fontSize: 11, fontWeight: fontWeight.semibold, textTransform: 'capitalize'},
   defaultLabel: {fontSize: 11},
-  catActions: {flexDirection: 'row', gap: 6},
-  actionBtn: {minHeight: 44, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8},
-  actionIcon: {fontSize: 12, fontWeight: fontWeight.semibold},
+  catActions: {flexDirection: 'row', gap: 8},
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  actionLabel: {fontSize: 13, fontWeight: fontWeight.semibold},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32},
   loadingText: {fontSize: 14, marginTop: 12},
   errorEmoji: {fontSize: 40},

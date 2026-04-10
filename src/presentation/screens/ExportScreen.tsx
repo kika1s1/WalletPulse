@@ -24,8 +24,10 @@ import {
   formatTransactionsAsPdfHtml,
   buildExportFilename,
   type ExportFormat,
+  type ExportOptions,
 } from '@domain/usecases/export-transactions';
 import {useTransactions} from '@presentation/hooks/useTransactions';
+import {useCategories} from '@presentation/hooks/useCategories';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
@@ -42,8 +44,9 @@ async function writePdfToDirectory(
   directory: string,
   fileBaseName: string,
   transactions: Parameters<typeof formatTransactionsAsPdfHtml>[0],
+  options?: ExportOptions,
 ): Promise<string> {
-  const html = formatTransactionsAsPdfHtml(transactions);
+  const html = formatTransactionsAsPdfHtml(transactions, options);
   const result = await generatePDF({
     html,
     fileName: fileBaseName,
@@ -95,6 +98,15 @@ export default function ExportScreen() {
   const isExporting = exportBusy !== null;
 
   const {transactions, isLoading, error} = useTransactions({syncWithFilterStore: false});
+  const {categories} = useCategories();
+
+  const exportOptions: ExportOptions = useMemo(() => {
+    const categoryMap: Record<string, string> = {};
+    for (const c of categories) {
+      categoryMap[c.id] = c.name;
+    }
+    return {categoryMap};
+  }, [categories]);
 
   const dateRange = useMemo(
     () => DATE_PRESETS[selectedPreset].getRange(),
@@ -136,8 +148,8 @@ export default function ExportScreen() {
       if (format === 'csv' || format === 'json') {
         const content =
           format === 'csv'
-            ? formatTransactionsAsCsv(filteredTransactions)
-            : formatTransactionsAsJson(filteredTransactions);
+            ? formatTransactionsAsCsv(filteredTransactions, exportOptions)
+            : formatTransactionsAsJson(filteredTransactions, exportOptions);
         await Share.share({
           message: content,
           title: filename,
@@ -145,7 +157,7 @@ export default function ExportScreen() {
       } else {
         const dir = exportTargetDirectory();
         const baseName = filename.replace(/\.pdf$/i, '');
-        const filePath = await writePdfToDirectory(dir, baseName, filteredTransactions);
+        const filePath = await writePdfToDirectory(dir, baseName, filteredTransactions, exportOptions);
         await Share.share({
           title: filename,
           message: `WalletPulse PDF export (${filteredTransactions.length} transactions).\n\nSaved on this device:\n${filePath}\n\nTip: open your Files app, Downloads, to attach or share the PDF.`,
@@ -181,12 +193,12 @@ export default function ExportScreen() {
 
       if (format === 'pdf') {
         const baseName = filename.replace(/\.pdf$/i, '');
-        savedPath = await writePdfToDirectory(dir, baseName, filteredTransactions);
+        savedPath = await writePdfToDirectory(dir, baseName, filteredTransactions, exportOptions);
       } else {
         const content =
           format === 'csv'
-            ? formatTransactionsAsCsv(filteredTransactions)
-            : formatTransactionsAsJson(filteredTransactions);
+            ? formatTransactionsAsCsv(filteredTransactions, exportOptions)
+            : formatTransactionsAsJson(filteredTransactions, exportOptions);
         savedPath = `${dir}/${filename}`;
         await RNFS.writeFile(savedPath, content, 'utf8');
       }

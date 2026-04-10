@@ -12,6 +12,10 @@ export default class TransactionTemplateModel extends Model {
   @field('description') description!: string;
   @field('merchant') merchant!: string;
   @field('usage_count') usageCount!: number;
+  @field('icon') icon!: string;
+  @field('color') color!: string;
+  @field('tags') tags!: string;
+  @field('sort_order') sortOrder!: number;
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 }

@@ -5,6 +5,7 @@ import {useAppStore} from '@presentation/stores/useAppStore';
 import {startOfDay, endOfDay, daysAgo, getWeekDayLabels} from '@shared/utils/date-helpers';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {makeGenerateInsights} from '@domain/usecases/generate-insight';
 import {makeGetConversionRate} from '@infrastructure/fx-service';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
@@ -101,52 +102,6 @@ function computePercentChange(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-function generateInsights(
-  wallets: Wallet[],
-  monthExpenses: number,
-  prevMonthExpenses: number,
-  totalBalance: number,
-  currency: string,
-): InsightCardProps[] {
-  const list: InsightCardProps[] = [];
-
-  const changePercent = computePercentChange(monthExpenses, prevMonthExpenses);
-  if (Math.abs(changePercent) >= 10) {
-    const direction = changePercent > 0 ? 'increased' : 'decreased';
-    list.push({
-      type: 'spending_change',
-      title: 'Spending Trend',
-      message: `Your spending has ${direction} by ${Math.abs(changePercent).toFixed(1)}% compared to last month.`,
-      severity: changePercent > 20 ? 'warning' : 'info',
-    });
-  }
-
-  const lowBalanceWallets = wallets.filter(
-    (w) => w.isActive && w.balance < 100_00,
-  );
-  if (lowBalanceWallets.length > 0) {
-    const names = lowBalanceWallets.map((w) => w.name).join(', ');
-    list.push({
-      type: 'low_balance',
-      title: 'Low Balance Alert',
-      message: `${names} ${lowBalanceWallets.length === 1 ? 'has' : 'have'} a balance under ${currency} 100.`,
-      severity: 'alert',
-    });
-  }
-
-  if (totalBalance < 0) {
-    list.push({
-      type: 'low_balance',
-      title: 'Negative Total Balance',
-      message:
-        'Your combined wallet balance is negative. Consider reviewing recent expenses.',
-      severity: 'alert',
-    });
-  }
-
-  return list;
-}
-
 type RateMap = Record<string, number>;
 
 function useConversionRates(
@@ -207,6 +162,15 @@ function convertToBase(
 export function useDashboard(): DashboardData {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  const [insights, setInsights] = useState<InsightCardProps[]>([]);
+
+  const generateInsightsApi = useMemo(() => {
+    const ds = getLocalDataSource();
+    return makeGenerateInsights({
+      transactionRepo: ds.transactions,
+      walletRepo: ds.wallets,
+    });
+  }, []);
 
   const {
     transactions: allTransactions,
@@ -342,17 +306,30 @@ export function useDashboard(): DashboardData {
     [transactions],
   );
 
-  const insights = useMemo(
-    () =>
-      generateInsights(
-        wallets,
-        monthExpenses,
-        prevMonthExpenses,
-        totalBalance,
-        baseCurrency,
-      ),
-    [wallets, monthExpenses, prevMonthExpenses, totalBalance, baseCurrency],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    if (walletLoading || txLoading) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    void generateInsightsApi.execute(Date.now()).then((list) => {
+      if (cancelled) {
+        return;
+      }
+      setInsights(
+        list.map(({type, title, message, severity}) => ({
+          type,
+          title,
+          message,
+          severity,
+        })),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [generateInsightsApi, walletLoading, txLoading, wallets, allTransactions]);
 
   const isLoading = txLoading || walletLoading;
   const error = txError ?? walletError;

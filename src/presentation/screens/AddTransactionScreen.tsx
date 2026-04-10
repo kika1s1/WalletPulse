@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -58,6 +59,15 @@ function resolveCategory(
   return found ? {name: found.name, color: found.color} : null;
 }
 
+const RECURRENCE_OPTIONS = [
+  {label: 'Daily', value: 'DAILY'},
+  {label: 'Weekly', value: 'WEEKLY'},
+  {label: 'Biweekly', value: 'BIWEEKLY'},
+  {label: 'Monthly', value: 'MONTHLY'},
+  {label: 'Quarterly', value: 'QUARTERLY'},
+  {label: 'Yearly', value: 'YEARLY'},
+] as const;
+
 function formatDisplayDate(ts: number): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -78,6 +88,8 @@ export type AddTransactionFormState = {
   tags: string[];
   transactionDate: number;
   receiptUri: string;
+  isRecurring: boolean;
+  recurrenceRule: string;
 };
 
 export function buildCreateTransactionInputFromForm(
@@ -99,6 +111,8 @@ export function buildCreateTransactionInputFromForm(
     tags: state.tags,
     notes: state.notes.trim(),
     receiptUri: state.receiptUri.trim(),
+    isRecurring: state.isRecurring,
+    recurrenceRule: state.recurrenceRule,
     transactionDate: state.transactionDate,
     createdAt: now,
     updatedAt: now,
@@ -130,6 +144,8 @@ export default function AddTransactionScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [transactionDate, setTransactionDate] = useState(() => Date.now());
   const [receiptUri, setReceiptUri] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState('');
   const [newTransactionId] = useState(() => generateId());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -278,6 +294,8 @@ export default function AddTransactionScreen() {
     setTags([]);
     setTransactionDate(Date.now());
     setReceiptUri('');
+    setIsRecurring(false);
+    setRecurrenceRule('');
     setCategoryError(undefined);
     setFromWalletId('');
     setToWalletId('');
@@ -370,6 +388,8 @@ export default function AddTransactionScreen() {
         tags,
         transactionDate,
         receiptUri,
+        isRecurring,
+        recurrenceRule,
       },
       firstActiveWalletId,
       newTransactionId,
@@ -599,6 +619,42 @@ export default function AddTransactionScreen() {
             />
           )}
 
+          {type !== 'transfer' && (
+            <Card padding="md">
+              <View style={styles.recurrenceHeader}>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Recurring</Text>
+                  <Text style={[typography.caption, {color: colors.textTertiary}]}>
+                    Repeat this transaction automatically
+                  </Text>
+                </View>
+                <Switch
+                  value={isRecurring}
+                  onValueChange={(v) => {
+                    setIsRecurring(v);
+                    if (!v) setRecurrenceRule('');
+                    else if (!recurrenceRule) setRecurrenceRule('MONTHLY');
+                  }}
+                  thumbColor={isRecurring ? colors.primary : colors.border}
+                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                />
+              </View>
+              {isRecurring && (
+                <View style={styles.recurrenceChips}>
+                  {RECURRENCE_OPTIONS.map((opt) => (
+                    <Chip
+                      key={opt.value}
+                      label={opt.label}
+                      onPress={() => setRecurrenceRule(opt.value)}
+                      selected={recurrenceRule === opt.value}
+                      size="sm"
+                    />
+                  ))}
+                </View>
+              )}
+            </Card>
+          )}
+
           <NotesEditor
             value={notes}
             onChangeText={setNotes}
@@ -714,6 +770,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     marginTop: 4,
+  },
+  recurrenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  recurrenceChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
   },
   inlineError: {
     fontSize: 12,

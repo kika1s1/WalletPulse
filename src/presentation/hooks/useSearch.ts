@@ -1,3 +1,9 @@
+/**
+ * Intentionally queries WatermelonDB directly: observable-friendly queries and
+ * multi-column OR search (description, merchant, notes). `makeSearchTransactions`
+ * maps search to description-only via ITransactionRepository; keeping this hook
+ * aligned with the use case would narrow search behavior or add extra round trips.
+ */
 import {useState, useEffect, useRef, useCallback, useMemo} from 'react';
 import database from '@data/database';
 import TransactionModel from '@data/database/models/TransactionModel';

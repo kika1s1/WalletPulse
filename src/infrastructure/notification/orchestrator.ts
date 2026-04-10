@@ -4,7 +4,7 @@ import type {ITransactionRepository} from '@domain/repositories/ITransactionRepo
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
 import type {ICategoryRepository} from '@domain/repositories/ICategoryRepository';
-import {getParserForPackage} from './parser-registry';
+import {applyCustomRules, getParserForPackage} from './parser-registry';
 import {categorizeByMerchant} from './auto-categorize';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
 import type {Transaction, TransactionSource} from '@domain/entities/Transaction';
@@ -72,37 +72,32 @@ export function makeNotificationOrchestrator(deps: OrchestratorDeps) {
     const logId = generateId();
 
     const parser = getParserForPackage(raw.packageName);
-    if (!parser) {
-      await logNotification(deps.notificationLogRepo, {
-        id: logId,
-        packageName: raw.packageName,
-        title: raw.title,
-        body: raw.body,
-        receivedAt: raw.receivedAt,
-        parsedSuccessfully: false,
-        parseResult: JSON.stringify({reason: 'no_parser'}),
-      });
-      return {status: 'no_parser'};
-    }
+    let parsed: ParsedNotification | null = null;
 
-    let parsed: ParsedNotification | null;
-    try {
-      parsed = parser(raw);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await logNotification(deps.notificationLogRepo, {
-        id: logId,
-        packageName: raw.packageName,
-        title: raw.title,
-        body: raw.body,
-        receivedAt: raw.receivedAt,
-        parsedSuccessfully: false,
-        parseResult: JSON.stringify({reason: 'parse_error', error: msg}),
-      });
-      return {status: 'parse_failed', error: msg};
+    if (parser) {
+      try {
+        parsed = parser(raw);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await logNotification(deps.notificationLogRepo, {
+          id: logId,
+          packageName: raw.packageName,
+          title: raw.title,
+          body: raw.body,
+          receivedAt: raw.receivedAt,
+          parsedSuccessfully: false,
+          parseResult: JSON.stringify({reason: 'parse_error', error: msg}),
+        });
+        return {status: 'parse_failed', error: msg};
+      }
     }
 
     if (!parsed) {
+      parsed = await applyCustomRules(raw.packageName, raw.title, raw.body);
+    }
+
+    if (!parsed) {
+      const reason = parser ? 'no_match' : 'no_parser';
       await logNotification(deps.notificationLogRepo, {
         id: logId,
         packageName: raw.packageName,
@@ -110,9 +105,9 @@ export function makeNotificationOrchestrator(deps: OrchestratorDeps) {
         body: raw.body,
         receivedAt: raw.receivedAt,
         parsedSuccessfully: false,
-        parseResult: JSON.stringify({reason: 'no_match'}),
+        parseResult: JSON.stringify({reason}),
       });
-      return {status: 'parse_failed'};
+      return {status: parser ? 'parse_failed' : 'no_parser'};
     }
 
     const dedupResult = await deps.dedupService.isDuplicate(

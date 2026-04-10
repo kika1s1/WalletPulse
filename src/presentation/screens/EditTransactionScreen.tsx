@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -40,6 +41,15 @@ function categoryIdFromName(name: string): string {
     .replace(/^-+|-+$/g, '');
   return slug || 'category';
 }
+
+const RECURRENCE_OPTIONS = [
+  {label: 'Daily', value: 'DAILY'},
+  {label: 'Weekly', value: 'WEEKLY'},
+  {label: 'Biweekly', value: 'BIWEEKLY'},
+  {label: 'Monthly', value: 'MONTHLY'},
+  {label: 'Quarterly', value: 'QUARTERLY'},
+  {label: 'Yearly', value: 'YEARLY'},
+] as const;
 
 function resolveCategory(
   categoryId: string,
@@ -85,6 +95,8 @@ export default function EditTransactionScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [transactionDate, setTransactionDate] = useState(Date.now());
   const [receiptUri, setReceiptUri] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState('');
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
@@ -105,6 +117,8 @@ export default function EditTransactionScreen() {
     setTags([...existing.tags]);
     setTransactionDate(existing.transactionDate);
     setReceiptUri(existing.receiptUri?.trim() ?? '');
+    setIsRecurring(existing.isRecurring);
+    setRecurrenceRule(existing.recurrenceRule);
   }, [existing]);
 
   const categoryMeta = useMemo(
@@ -123,6 +137,8 @@ export default function EditTransactionScreen() {
       notes !== existing.notes ||
       transactionDate !== existing.transactionDate ||
       receiptUri !== (existing.receiptUri?.trim() ?? '') ||
+      isRecurring !== existing.isRecurring ||
+      recurrenceRule !== existing.recurrenceRule ||
       JSON.stringify(tags) !== JSON.stringify(existing.tags)
     : false;
 
@@ -140,6 +156,8 @@ export default function EditTransactionScreen() {
     setTags([...existing.tags]);
     setTransactionDate(existing.transactionDate);
     setReceiptUri(existing.receiptUri?.trim() ?? '');
+    setIsRecurring(existing.isRecurring);
+    setRecurrenceRule(existing.recurrenceRule);
     setCategoryError(undefined);
   }, [existing]);
 
@@ -170,6 +188,8 @@ export default function EditTransactionScreen() {
         tags,
         transactionDate,
         receiptUri,
+        isRecurring,
+        recurrenceRule,
       },
       existing.walletId,
       existing.id,
@@ -188,6 +208,8 @@ export default function EditTransactionScreen() {
         tags: draft.tags,
         transactionDate: draft.transactionDate,
         receiptUri: draft.receiptUri,
+        isRecurring: draft.isRecurring,
+        recurrenceRule: draft.recurrenceRule,
         updatedAt: Date.now(),
       });
       navigation.goBack();
@@ -377,6 +399,42 @@ export default function EditTransactionScreen() {
             />
           )}
 
+          {type !== 'transfer' && (
+            <Card padding="md">
+              <View style={styles.recurrenceHeader}>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Recurring</Text>
+                  <Text style={[typography.caption, {color: colors.textTertiary}]}>
+                    Repeat this transaction automatically
+                  </Text>
+                </View>
+                <Switch
+                  value={isRecurring}
+                  onValueChange={(v) => {
+                    setIsRecurring(v);
+                    if (!v) setRecurrenceRule('');
+                    else if (!recurrenceRule) setRecurrenceRule('MONTHLY');
+                  }}
+                  thumbColor={isRecurring ? colors.primary : colors.border}
+                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                />
+              </View>
+              {isRecurring && (
+                <View style={styles.recurrenceChips}>
+                  {RECURRENCE_OPTIONS.map((opt) => (
+                    <Chip
+                      key={opt.value}
+                      label={opt.label}
+                      onPress={() => setRecurrenceRule(opt.value)}
+                      selected={recurrenceRule === opt.value}
+                      size="sm"
+                    />
+                  ))}
+                </View>
+              )}
+            </Card>
+          )}
+
           <NotesEditor
             value={notes}
             onChangeText={setNotes}
@@ -471,6 +529,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     marginTop: 4,
+  },
+  recurrenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  recurrenceChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
   },
   inlineError: {
     fontSize: 12,

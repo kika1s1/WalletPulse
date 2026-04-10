@@ -40,7 +40,21 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
-export function formatTransactionsAsCsv(transactions: Transaction[]): string {
+export type ExportOptions = {
+  categoryMap?: Record<string, string>;
+};
+
+function resolveCategoryName(
+  categoryId: string,
+  categoryMap?: Record<string, string>,
+): string {
+  return categoryMap?.[categoryId] ?? categoryId;
+}
+
+export function formatTransactionsAsCsv(
+  transactions: Transaction[],
+  options?: ExportOptions,
+): string {
   const rows: string[] = [CSV_HEADERS.join(',')];
 
   for (const t of transactions) {
@@ -49,7 +63,7 @@ export function formatTransactionsAsCsv(transactions: Transaction[]): string {
       toMajor(t.amount),
       t.currency,
       t.type,
-      escapeCsvField(t.categoryId),
+      escapeCsvField(resolveCategoryName(t.categoryId, options?.categoryMap)),
       escapeCsvField(t.description),
       escapeCsvField(t.merchant),
       t.source,
@@ -77,13 +91,16 @@ type ExportRow = {
   recurring: boolean;
 };
 
-export function formatTransactionsAsJson(transactions: Transaction[]): string {
+export function formatTransactionsAsJson(
+  transactions: Transaction[],
+  options?: ExportOptions,
+): string {
   const rows: ExportRow[] = transactions.map((t) => ({
     date: formatDate(t.transactionDate),
     amount: parseFloat(toMajor(t.amount)),
     currency: t.currency,
     type: t.type,
-    category: t.categoryId,
+    category: resolveCategoryName(t.categoryId, options?.categoryMap),
     description: t.description,
     merchant: t.merchant,
     source: t.source,
@@ -104,7 +121,10 @@ export function buildExportFilename(format: ExportFormat): string {
 /**
  * Full HTML document suitable for PDF conversion or opening in a browser.
  */
-export function formatTransactionsAsPdfHtml(transactions: Transaction[]): string {
+export function formatTransactionsAsPdfHtml(
+  transactions: Transaction[],
+  options?: ExportOptions,
+): string {
   const generatedAt = new Date().toISOString();
   const headerCells = CSV_HEADERS.map(
     (h) => `<th>${escapeHtml(h)}</th>`,
@@ -117,7 +137,7 @@ export function formatTransactionsAsPdfHtml(transactions: Transaction[]): string
         toMajor(t.amount),
         t.currency,
         t.type,
-        t.categoryId,
+        resolveCategoryName(t.categoryId, options?.categoryMap),
         t.description,
         t.merchant,
         t.source,

@@ -11,11 +11,14 @@ import type GoalModel from '@data/database/models/GoalModel';
 import type SubscriptionModel from '@data/database/models/SubscriptionModel';
 import type TagModel from '@data/database/models/TagModel';
 import type TransactionModel from '@data/database/models/TransactionModel';
+import type FxRateModel from '@data/database/models/FxRateModel';
+import type NotificationLogModel from '@data/database/models/NotificationLogModel';
+import type ParsingRuleModel from '@data/database/models/ParsingRuleModel';
+import type TransactionTemplateModel from '@data/database/models/TransactionTemplateModel';
 import type WalletModel from '@data/database/models/WalletModel';
 import {APP_NAME, APP_VERSION} from '@shared/constants/app';
 
-/** Increment when the JSON shape changes. */
-export const WALLET_PULSE_BACKUP_FORMAT_VERSION = 1;
+export const WALLET_PULSE_BACKUP_FORMAT_VERSION = 2;
 
 const BACKUP_FILE_PREFIX = 'WalletPulse-backup-';
 const BATCH_CHUNK_SIZE = 200;
@@ -47,6 +50,10 @@ export type WalletPulseBackupPayload = {
   bill_reminders: UnknownRecord[];
   tags: UnknownRecord[];
   app_settings: UnknownRecord[];
+  fx_rates: UnknownRecord[];
+  notification_logs: UnknownRecord[];
+  parsing_rules: UnknownRecord[];
+  transaction_templates: UnknownRecord[];
 };
 
 function isRecord(v: unknown): v is UnknownRecord {
@@ -106,9 +113,10 @@ function parseBackupPayload(jsonText: string): WalletPulseBackupPayload {
   if (!isRecord(parsed)) {
     throw new Error('Backup root must be an object');
   }
-  if (parsed.formatVersion !== WALLET_PULSE_BACKUP_FORMAT_VERSION) {
+  const fv = parsed.formatVersion;
+  if (typeof fv !== 'number' || fv < 1 || fv > WALLET_PULSE_BACKUP_FORMAT_VERSION) {
     throw new Error(
-      `Unsupported backup format version: ${String(parsed.formatVersion)}`,
+      `Unsupported backup format version: ${String(fv)}`,
     );
   }
   if (typeof parsed.schemaVersion !== 'number') {
@@ -133,6 +141,10 @@ function parseBackupPayload(jsonText: string): WalletPulseBackupPayload {
     bill_reminders: reqStringArrayKey(parsed, 'bill_reminders'),
     tags: reqStringArrayKey(parsed, 'tags'),
     app_settings: reqStringArrayKey(parsed, 'app_settings'),
+    fx_rates: reqStringArrayKey(parsed, 'fx_rates'),
+    notification_logs: reqStringArrayKey(parsed, 'notification_logs'),
+    parsing_rules: reqStringArrayKey(parsed, 'parsing_rules'),
+    transaction_templates: reqStringArrayKey(parsed, 'transaction_templates'),
   };
 }
 
@@ -206,6 +218,22 @@ async function fetchAllRows(): Promise<WalletPulseBackupPayload> {
   const tags = await database.get<TagModel>('tags').query().fetch();
   const appSettings = await database
     .get<AppSettingsModel>('app_settings')
+    .query()
+    .fetch();
+  const fxRates = await database
+    .get<FxRateModel>('fx_rates')
+    .query()
+    .fetch();
+  const notificationLogs = await database
+    .get<NotificationLogModel>('notification_logs')
+    .query()
+    .fetch();
+  const parsingRules = await database
+    .get<ParsingRuleModel>('parsing_rules')
+    .query()
+    .fetch();
+  const transactionTemplates = await database
+    .get<TransactionTemplateModel>('transaction_templates')
     .query()
     .fetch();
 
@@ -336,6 +364,52 @@ async function fetchAllRows(): Promise<WalletPulseBackupPayload> {
       value: a.value,
       created_at: a.createdAt.getTime(),
       updated_at: a.updatedAt.getTime(),
+    })),
+    fx_rates: fxRates.map((f) => ({
+      id: f.id,
+      base_currency: f.baseCurrency,
+      target_currency: f.targetCurrency,
+      rate: f.rate,
+      fetched_at: f.fetchedAt,
+      created_at: f.createdAt.getTime(),
+      updated_at: f.updatedAt.getTime(),
+    })),
+    notification_logs: notificationLogs.map((n) => ({
+      id: n.id,
+      package_name: n.packageName,
+      title: n.title,
+      body: n.body,
+      parsed_successfully: n.parsedSuccessfully,
+      parse_result: n.parseResult,
+      transaction_id: n.transactionId,
+      received_at: n.receivedAt,
+      created_at: n.createdAt.getTime(),
+      updated_at: n.updatedAt.getTime(),
+    })),
+    parsing_rules: parsingRules.map((p) => ({
+      id: p.id,
+      source_app: p.sourceApp,
+      package_name: p.packageName,
+      rule_name: p.ruleName,
+      pattern: p.pattern,
+      transaction_type: p.transactionType,
+      is_active: p.isActive,
+      priority: p.priority,
+      created_at: p.createdAt.getTime(),
+      updated_at: p.updatedAt.getTime(),
+    })),
+    transaction_templates: transactionTemplates.map((tt) => ({
+      id: tt.id,
+      name: tt.name,
+      amount: tt.amount,
+      currency: tt.currency,
+      type: tt.type,
+      category_id: tt.categoryId,
+      description: tt.description,
+      merchant: tt.merchant,
+      usage_count: tt.usageCount,
+      created_at: tt.createdAt.getTime(),
+      updated_at: tt.updatedAt.getTime(),
     })),
   };
 }
@@ -567,6 +641,78 @@ async function insertRestoredData(
       }),
     ),
   );
+
+  const fxRatesCol = db.get<FxRateModel>('fx_rates');
+  await runBatched(db, payload.fx_rates, (chunk) =>
+    chunk.map((row) =>
+      fxRatesCol.prepareCreate((rec) => {
+        rec._raw.id = reqString(row, 'id');
+        rec.baseCurrency = reqString(row, 'base_currency');
+        rec.targetCurrency = reqString(row, 'target_currency');
+        rec.rate = reqNumber(row, 'rate');
+        rec.fetchedAt = reqNumber(row, 'fetched_at');
+        rec._setRaw('created_at', reqNumber(row, 'created_at'));
+        rec._setRaw('updated_at', reqNumber(row, 'updated_at'));
+      }),
+    ),
+  );
+
+  const notifLogsCol = db.get<NotificationLogModel>('notification_logs');
+  await runBatched(db, payload.notification_logs, (chunk) =>
+    chunk.map((row) =>
+      notifLogsCol.prepareCreate((rec) => {
+        rec._raw.id = reqString(row, 'id');
+        rec.packageName = reqString(row, 'package_name');
+        rec.title = reqString(row, 'title');
+        rec.body = reqString(row, 'body');
+        rec.parsedSuccessfully = reqBool(row, 'parsed_successfully');
+        rec.parseResult = reqString(row, 'parse_result');
+        const tid = row.transaction_id;
+        rec.transactionId =
+          tid === null || tid === undefined ? '' : typeof tid === 'string' ? tid : '';
+        rec.receivedAt = reqNumber(row, 'received_at');
+        rec._setRaw('created_at', reqNumber(row, 'created_at'));
+        rec._setRaw('updated_at', reqNumber(row, 'updated_at'));
+      }),
+    ),
+  );
+
+  const parsingRulesCol = db.get<ParsingRuleModel>('parsing_rules');
+  await runBatched(db, payload.parsing_rules, (chunk) =>
+    chunk.map((row) =>
+      parsingRulesCol.prepareCreate((rec) => {
+        rec._raw.id = reqString(row, 'id');
+        rec.sourceApp = reqString(row, 'source_app');
+        rec.packageName = reqString(row, 'package_name');
+        rec.ruleName = reqString(row, 'rule_name');
+        rec.pattern = reqString(row, 'pattern');
+        rec.transactionType = reqString(row, 'transaction_type');
+        rec.isActive = reqBool(row, 'is_active');
+        rec.priority = reqNumber(row, 'priority');
+        rec._setRaw('created_at', reqNumber(row, 'created_at'));
+        rec._setRaw('updated_at', reqNumber(row, 'updated_at'));
+      }),
+    ),
+  );
+
+  const templatesCol = db.get<TransactionTemplateModel>('transaction_templates');
+  await runBatched(db, payload.transaction_templates, (chunk) =>
+    chunk.map((row) =>
+      templatesCol.prepareCreate((rec) => {
+        rec._raw.id = reqString(row, 'id');
+        rec.name = reqString(row, 'name');
+        rec.amount = reqNumber(row, 'amount');
+        rec.currency = reqString(row, 'currency');
+        rec.type = reqString(row, 'type');
+        rec.categoryId = reqString(row, 'category_id');
+        rec.description = reqString(row, 'description');
+        rec.merchant = reqString(row, 'merchant');
+        rec.usageCount = reqNumber(row, 'usage_count');
+        rec._setRaw('created_at', reqNumber(row, 'created_at'));
+        rec._setRaw('updated_at', reqNumber(row, 'updated_at'));
+      }),
+    ),
+  );
 }
 
 /**
@@ -595,6 +741,10 @@ export async function createBackup(): Promise<string> {
       bill_reminders: payload.bill_reminders,
       tags: payload.tags,
       app_settings: payload.app_settings,
+      fx_rates: payload.fx_rates,
+      notification_logs: payload.notification_logs,
+      parsing_rules: payload.parsing_rules,
+      transaction_templates: payload.transaction_templates,
     },
     null,
     2,

@@ -1,8 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -36,8 +38,14 @@ import {
   addRecentSearch,
   getRecentSearches,
   clearRecentSearches,
+  loadSavedData,
+  getSavedFilters,
+  addSavedFilter,
+  removeSavedFilter,
+  type SavedFilter,
 } from '@domain/usecases/saved-filters';
 import type {Transaction} from '@domain/entities/Transaction';
+import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
 
 type SearchNav = CompositeNavigationProp<
@@ -176,9 +184,24 @@ export default function SearchScreen() {
   );
 
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
+  const [savedFiltersList, setSavedFiltersList] = useState<SavedFilter[]>([]);
   const [showSort, setShowSort] = useState(false);
 
   const searchBarFocus = useSharedValue(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await loadSavedData();
+      if (!cancelled) {
+        setRecentSearches(getRecentSearches());
+        setSavedFiltersList(getSavedFilters());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 350);
@@ -210,6 +233,77 @@ export default function SearchScreen() {
   const openFilters = useCallback(() => {
     Keyboard.dismiss();
     filterRef.current?.expand();
+  }, []);
+
+  const searchFiltersToTransactionFilter = useCallback(
+    (f: SearchFilters): TransactionFilter => ({
+      type: f.type,
+      source: f.source,
+      categoryId: f.categoryId,
+      walletId: f.walletId,
+      currency: f.currency,
+      minAmount: f.minAmount,
+      maxAmount: f.maxAmount,
+      dateRange: f.dateRange,
+      tags: f.tags,
+    }),
+    [],
+  );
+
+  const handleSaveFilters = useCallback(() => {
+    const payload = searchFiltersToTransactionFilter(filters);
+    const applyNameAndRefresh = (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return;
+      }
+      try {
+        addSavedFilter(trimmed, payload);
+        setSavedFiltersList(getSavedFilters());
+      } catch {
+        Alert.alert('Could not save', 'Please enter a valid name.');
+      }
+    };
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Save filters',
+        'Name this filter preset',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Save',
+            onPress: (text?: string) => {
+              applyNameAndRefresh(text ?? '');
+            },
+          },
+        ],
+        'plain-text',
+      );
+    } else {
+      applyNameAndRefresh(`Filter ${Date.now()}`);
+    }
+  }, [filters, searchFiltersToTransactionFilter]);
+
+  const handleApplySavedFilter = useCallback(
+    (preset: SavedFilter) => {
+      setFilters({
+        type: preset.filter.type,
+        source: preset.filter.source,
+        categoryId: preset.filter.categoryId,
+        walletId: preset.filter.walletId,
+        currency: preset.filter.currency,
+        minAmount: preset.filter.minAmount,
+        maxAmount: preset.filter.maxAmount,
+        dateRange: preset.filter.dateRange,
+        tags: preset.filter.tags,
+      });
+    },
+    [setFilters],
+  );
+
+  const handleRemoveSavedFilter = useCallback((id: string) => {
+    removeSavedFilter(id);
+    setSavedFiltersList(getSavedFilters());
   }, []);
 
   const handleApplyFilters = useCallback((f: SearchFilters) => {
@@ -316,8 +410,12 @@ export default function SearchScreen() {
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
 
   const showRecentSearches = !hasActiveSearch && recentSearches.length > 0;
+  const showSavedFiltersSection = !hasActiveSearch && savedFiltersList.length > 0;
   const showEmptyResults = hasActiveSearch && !isSearching && resultCount === 0;
-  const showInitialHint = !hasActiveSearch && recentSearches.length === 0;
+  const showInitialHint =
+    !hasActiveSearch &&
+    recentSearches.length === 0 &&
+    savedFiltersList.length === 0;
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -403,6 +501,26 @@ export default function SearchScreen() {
           </Text>
         </Pressable>
 
+        {activeFilterCount > 0 && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save current filters as a preset"
+            onPress={handleSaveFilters}
+            style={[
+              styles.toolBtn,
+              {
+                borderColor: colors.primary,
+                borderRadius: radius.sm,
+                backgroundColor: colors.primaryLight + '22',
+              },
+            ]}
+          >
+            <Text style={{color: colors.primary, fontSize: 13, fontWeight: fontWeight.semibold}}>
+              Save
+            </Text>
+          </Pressable>
+        )}
+
         <Pressable
           accessibilityRole="button"
           onPress={() => setShowSort(!showSort)}
@@ -462,16 +580,7 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* Content area */}
-      {showInitialHint && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.hintContainer}>
-          <EmptyState
-            title="Search your transactions"
-            message="Type a merchant name, description, or note. Use filters to narrow results by date, amount, category, and more."
-          />
-        </Animated.View>
-      )}
-
+      {/* Content area: recent, then saved presets, then empty hint */}
       {showRecentSearches && (
         <Animated.View entering={FadeIn.duration(300)} style={[styles.recentContainer, {paddingHorizontal: spacing.base}]}>
           <View style={styles.recentHeader}>
@@ -499,6 +608,64 @@ export default function SearchScreen() {
               </Text>
             </Pressable>
           ))}
+        </Animated.View>
+      )}
+
+      {showSavedFiltersSection && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={[styles.savedFiltersContainer, {paddingHorizontal: spacing.base}]}
+        >
+          <Text style={[styles.savedFiltersTitle, {color: colors.text}]}>Saved filters</Text>
+          {savedFiltersList.map((preset) => (
+            <View
+              key={preset.id}
+              style={[
+                styles.savedFilterCard,
+                {
+                  borderColor: colors.border,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.surfaceElevated,
+                },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Apply saved filter ${preset.name}`}
+                onPress={() => handleApplySavedFilter(preset)}
+                onLongPress={() => handleRemoveSavedFilter(preset.id)}
+                style={({pressed}) => [
+                  styles.savedFilterMain,
+                  {opacity: pressed ? 0.75 : 1},
+                ]}
+              >
+                <Text style={[styles.savedFilterName, {color: colors.text}]} numberOfLines={1}>
+                  {preset.name}
+                </Text>
+                <Text style={[styles.savedFilterHint, {color: colors.textTertiary}]} numberOfLines={1}>
+                  Tap to apply, long-press or x to remove
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove saved filter ${preset.name}`}
+                onPress={() => handleRemoveSavedFilter(preset.id)}
+                hitSlop={12}
+                style={styles.savedFilterRemove}
+              >
+                <Text style={[styles.savedFilterRemoveLabel, {color: colors.textTertiary}]}>x</Text>
+              </Pressable>
+            </View>
+          ))}
+        </Animated.View>
+      )}
+
+      {showInitialHint && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.hintContainer}>
+          <EmptyState
+            title="Search your transactions"
+            message="Type a merchant name, description, or note. Use filters to narrow results by date, amount, category, and more."
+          />
         </Animated.View>
       )}
 
@@ -666,6 +833,44 @@ const styles = StyleSheet.create({
   recentLabel: {
     flex: 1,
     fontSize: 15,
+  },
+  savedFiltersContainer: {
+    paddingTop: 16,
+    gap: 8,
+  },
+  savedFiltersTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  savedFilterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  savedFilterMain: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 2,
+  },
+  savedFilterName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  savedFilterHint: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  savedFilterRemove: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  savedFilterRemoveLabel: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   highlight: {
     fontWeight: '700',

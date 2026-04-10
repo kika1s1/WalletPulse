@@ -2,6 +2,7 @@ import {useMemo, useState, useEffect, useRef} from 'react';
 import {useTransactions} from './useTransactions';
 import {useCategories} from './useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {startOfDay, endOfDay, formatDateLong} from '@shared/utils/date-helpers';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeGetConversionRate} from '@infrastructure/fx-service';
@@ -64,8 +65,23 @@ function inclusiveCalendarDays(startMs: number, endMs: number): number {
   return Math.max(1, Math.floor((e - s) / MS_PER_DAY) + 1);
 }
 
-function formatRangeSubtitle(startMs: number, endMs: number): string {
-  return `${formatDateLong(startMs, 'US')} – ${formatDateLong(endMs, 'US')}`;
+type DateFormat = 'US' | 'EU' | 'ISO';
+
+function formatRangeSubtitle(startMs: number, endMs: number, dateFormat: DateFormat = 'US'): string {
+  return `${formatDateLong(startMs, dateFormat)} – ${formatDateLong(endMs, dateFormat)}`;
+}
+
+function formatDayLabel(d: Date, dateFormat: DateFormat): string {
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  switch (dateFormat) {
+    case 'EU':
+      return `${day}/${month}`;
+    case 'ISO':
+      return `${d.getFullYear()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    default:
+      return `${month}/${day}`;
+  }
 }
 
 type RateMap = Record<string, number>;
@@ -171,6 +187,7 @@ function buildDailyTrend(
   range: AnalyticsDateRange,
   baseCurrency: string,
   rates: RateMap,
+  dateFormat: DateFormat = 'US',
 ): DailyTrend[] {
   const dayTotals = new Map<
     number,
@@ -206,7 +223,7 @@ function buildDailyTrend(
   while (cursor <= rangeEnd) {
     const d = new Date(cursor);
     const dow = DAY_SHORT[d.getDay()];
-    const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+    const dateStr = formatDayLabel(d, dateFormat);
     const bucket = dayTotals.get(cursor) ?? {income: 0, expense: 0};
     result.push({
       label: preferDowLabels ? dow : dateStr,
@@ -254,6 +271,7 @@ export type UseAnalyticsOptions = {
 
 export function useAnalytics(options?: UseAnalyticsOptions): AnalyticsData {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
+  const dateFormat = useSettingsStore((s) => s.dateFormat);
   const {categories} = useCategories();
 
   const {
@@ -328,8 +346,8 @@ export function useAnalytics(options?: UseAnalyticsOptions): AnalyticsData {
   );
 
   const dailyTrend = useMemo(
-    () => buildDailyTrend(transactions, effectiveRange, baseCurrency, fxRates),
-    [transactions, effectiveRange, baseCurrency, fxRates],
+    () => buildDailyTrend(transactions, effectiveRange, baseCurrency, fxRates, dateFormat),
+    [transactions, effectiveRange, baseCurrency, fxRates, dateFormat],
   );
 
   const topMerchants = useMemo(
@@ -349,8 +367,8 @@ export function useAnalytics(options?: UseAnalyticsOptions): AnalyticsData {
   );
 
   const rangeSubtitle = useMemo(
-    () => formatRangeSubtitle(effectiveRange.startMs, effectiveRange.endMs),
-    [effectiveRange.startMs, effectiveRange.endMs],
+    () => formatRangeSubtitle(effectiveRange.startMs, effectiveRange.endMs, dateFormat),
+    [effectiveRange.startMs, effectiveRange.endMs, dateFormat],
   );
 
   return {

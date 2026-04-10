@@ -403,6 +403,12 @@ export default function SettingsScreen() {
             label="Notification Log"
             onPress={() => navigation.navigate('NotificationLog')}
           />
+          <SettingsRow
+            description="Regex rules for apps without a built-in parser"
+            icon="code-tags"
+            label="Parsing Rules"
+            onPress={() => navigation.navigate('ParsingRules')}
+          />
           {!isEnabled && (
             <Pressable
               accessibilityRole="button"

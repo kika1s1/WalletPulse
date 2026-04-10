@@ -1,7 +1,7 @@
 import {appSchema, tableSchema} from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 1,
+  version: 2,
   tables: [
     tableSchema({
       name: 'wallets',
@@ -185,6 +185,10 @@ export default appSchema({
         {name: 'description', type: 'string'},
         {name: 'merchant', type: 'string'},
         {name: 'usage_count', type: 'number'},
+        {name: 'icon', type: 'string'},
+        {name: 'color', type: 'string'},
+        {name: 'tags', type: 'string'},
+        {name: 'sort_order', type: 'number'},
         {name: 'created_at', type: 'number'},
         {name: 'updated_at', type: 'number'},
       ],

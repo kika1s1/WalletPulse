@@ -214,6 +214,7 @@ export default function WalletDetailScreen() {
               </View>
             </View>
 
+            {/* Balance from wallet record; use `makeCalculateWalletBalance` when a ledger-derived total is required (e.g. reconciliation). */}
             <Text
               style={[
                 styles.balanceAmount,

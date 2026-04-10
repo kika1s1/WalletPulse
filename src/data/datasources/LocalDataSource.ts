@@ -10,6 +10,8 @@ import {FxRateRepository} from '@data/repositories/FxRateRepository';
 import {NotificationLogRepository} from '@data/repositories/NotificationLogRepository';
 import {SettingsRepository} from '@data/repositories/SettingsRepository';
 import {TagRepository} from '@data/repositories/TagRepository';
+import {ParsingRuleRepository} from '@data/repositories/ParsingRuleRepository';
+import {TransactionTemplateRepository} from '@data/repositories/TransactionTemplateRepository';
 
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
@@ -22,6 +24,8 @@ import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
 import type {ISettingsRepository} from '@domain/repositories/ISettingsRepository';
 import type {ITagRepository} from '@domain/repositories/ITagRepository';
+import type {IParsingRuleRepository} from '@domain/repositories/IParsingRuleRepository';
+import type {ITransactionTemplateRepository} from '@domain/repositories/ITransactionTemplateRepository';
 
 export type LocalDataSource = {
   transactions: ITransactionRepository;
@@ -35,6 +39,8 @@ export type LocalDataSource = {
   notificationLogs: INotificationLogRepository;
   settings: ISettingsRepository;
   tags: ITagRepository;
+  parsingRules: IParsingRuleRepository;
+  templates: ITransactionTemplateRepository;
 };
 
 let instance: LocalDataSource | null = null;
@@ -53,6 +59,8 @@ export function getLocalDataSource(): LocalDataSource {
       notificationLogs: new NotificationLogRepository(database),
       settings: new SettingsRepository(database),
       tags: new TagRepository(database),
+      parsingRules: new ParsingRuleRepository(database),
+      templates: new TransactionTemplateRepository(database),
     };
   }
   return instance;
