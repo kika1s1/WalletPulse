@@ -38,7 +38,7 @@
 <table>
   <tr>
     <td align="center" width="33%" bgcolor="#111111">
-      <img src="assets/readme/grey-logo.svg" alt="Grey logo" width="140" />
+      <img src="assets/readme/grey-logo.png" alt="Grey logo" width="140" />
     </td>
     <td align="center" width="33%">
       <img src="assets/readme/payoneer-logo.svg" alt="Payoneer logo" width="180" />
