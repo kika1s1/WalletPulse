@@ -22,7 +22,6 @@ import {
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
-import {scheduleTestSubscriptionNotification} from '@infrastructure/notification/subscription-notifications';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useStableNow} from '@presentation/hooks/useStableNow';
@@ -49,7 +48,6 @@ type SubCardItemProps = {
   onEdit: (id: string) => void;
   onCancel: (sub: Subscription) => void;
   onDelete: (sub: Subscription) => void;
-  onTestNotification: (sub: Subscription) => void;
 };
 
 const SubCardItem = React.memo(function SubCardItem({
@@ -60,7 +58,6 @@ const SubCardItem = React.memo(function SubCardItem({
   onEdit,
   onCancel,
   onDelete,
-  onTestNotification,
 }: SubCardItemProps) {
   const {colors, radius, shadows} = useTheme();
 
@@ -78,10 +75,9 @@ const SubCardItem = React.memo(function SubCardItem({
   return (
     <SwipeableRow rightActions={rightActions}>
       <Pressable
-        accessibilityLabel={`Edit ${sub.name}, long press to test notification`}
+        accessibilityLabel={`Edit ${sub.name}`}
         accessibilityRole="button"
         onPress={() => onEdit(sub.id)}
-        onLongPress={() => onTestNotification(sub)}
         style={[
           styles.subCard,
           {
@@ -168,19 +164,6 @@ export default function SubscriptionsListScreen() {
     [deleteSubscription],
   );
 
-  const handleTestNotification = useCallback(
-    (sub: Subscription) => {
-      void scheduleTestSubscriptionNotification(sub, 10).then((delay) => {
-        Alert.alert(
-          'Notification Scheduled',
-          `A notification for "${sub.name}" will appear in ${delay} seconds.\n\nClose the app now to see it!`,
-        );
-      }).catch((e) => {
-        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to schedule notification');
-      });
-    },
-    [],
-  );
 
   const handleCancelSubscription = useCallback(
     (sub: Subscription) => {
@@ -333,7 +316,6 @@ export default function SubscriptionsListScreen() {
                         onEdit={navigateToEditSub}
                         onCancel={handleCancelSubscription}
                         onDelete={confirmDeleteSubscription}
-                        onTestNotification={handleTestNotification}
                       />
                     ))}
                   </View>
