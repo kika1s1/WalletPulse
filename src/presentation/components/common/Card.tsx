@@ -19,7 +19,7 @@ export type CardProps = {
 const PRESS_SCALE = 0.985;
 const TIMING = {duration: 120};
 
-export function Card({
+export const Card = React.memo(function Card({
   children,
   onPress,
   style,
@@ -89,7 +89,7 @@ export function Card({
       {children}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

@@ -62,16 +62,16 @@ export class TransactionTemplateRepository implements ITransactionTemplateReposi
       .find(id);
     await this.db.write(async () => {
       await record.update((rec) => {
-        if (input.name !== undefined) rec.name = input.name;
-        if (input.icon !== undefined) rec.icon = input.icon;
-        if (input.color !== undefined) rec.color = input.color;
-        if (input.type !== undefined) rec.type = input.type;
-        if (input.amount !== undefined) rec.amount = input.amount;
-        if (input.currency !== undefined) rec.currency = input.currency;
-        if (input.description !== undefined) rec.description = input.description;
-        if (input.merchant !== undefined) rec.merchant = input.merchant;
-        if (input.tags !== undefined) rec.tags = JSON.stringify(input.tags);
-        if (input.categoryId !== undefined) rec.categoryId = input.categoryId;
+        if (input.name !== undefined) {rec.name = input.name;}
+        if (input.icon !== undefined) {rec.icon = input.icon;}
+        if (input.color !== undefined) {rec.color = input.color;}
+        if (input.type !== undefined) {rec.type = input.type;}
+        if (input.amount !== undefined) {rec.amount = input.amount;}
+        if (input.currency !== undefined) {rec.currency = input.currency;}
+        if (input.description !== undefined) {rec.description = input.description;}
+        if (input.merchant !== undefined) {rec.merchant = input.merchant;}
+        if (input.tags !== undefined) {rec.tags = JSON.stringify(input.tags);}
+        if (input.categoryId !== undefined) {rec.categoryId = input.categoryId;}
       });
     });
   }

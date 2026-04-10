@@ -18,6 +18,7 @@ import {WalletPulseLogo} from '@presentation/components/WalletPulseLogo';
 import {WalletSwitcher} from '@presentation/components/WalletSwitcher';
 import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
 import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
 import {useCategories} from '@presentation/hooks/useCategories';
@@ -31,6 +32,7 @@ export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const [refreshing, setRefreshing] = useState(false);
   const {categories} = useCategories();
+  const hideAmounts = useSettingsStore((s) => s.hideAmounts);
 
   const resolveCategory = useCallback(
     (categoryId: string) => {
@@ -276,6 +278,7 @@ export default function DashboardScreen() {
                   notes={tx.notes}
                   transactionDate={tx.transactionDate}
                   source={tx.source}
+                  hideAmounts={hideAmounts}
                   onPress={handleTransactionPress}
                 />
               </View>

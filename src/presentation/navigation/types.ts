@@ -8,7 +8,7 @@ export type HomeStackParamList = {
 };
 
 export type TransactionsStackParamList = {
-  TransactionsList: undefined;
+  TransactionsList: {filterCategoryId?: string} | undefined;
   AddTransaction:
     | {
         type?: 'income' | 'expense' | 'transfer';

@@ -161,16 +161,17 @@ export function useTransactions(
     if (!syncWithFilterStore && explicitFilter === undefined) {
       return undefined;
     }
-    const merged = syncWithFilterStore
-      ? mergeFiltersFromStore(
-          typeFilter,
-          searchQuery,
-          selectedWalletId,
-          selectedCategoryId,
-          dateRange,
-          explicitFilter,
-        )
-      : {...(explicitFilter ?? {})};
+    if (!syncWithFilterStore) {
+      return explicitFilter;
+    }
+    const merged = mergeFiltersFromStore(
+      typeFilter,
+      searchQuery,
+      selectedWalletId,
+      selectedCategoryId,
+      dateRange,
+      explicitFilter,
+    );
     return Object.keys(merged).length > 0 ? merged : undefined;
   }, [
     syncWithFilterStore,

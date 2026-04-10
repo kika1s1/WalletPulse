@@ -10,11 +10,13 @@ type Props = {
   children: React.ReactNode;
 };
 
+const ROOT_STYLE = {flex: 1} as const;
+
 export function Providers({children}: Props) {
   const themeMode = useSettingsStore(s => s.themeMode);
 
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
+    <GestureHandlerRootView style={ROOT_STYLE}>
       <SafeAreaProvider>
         <DatabaseProvider database={database}>
           <ThemeProvider themeMode={themeMode}>{children}</ThemeProvider>

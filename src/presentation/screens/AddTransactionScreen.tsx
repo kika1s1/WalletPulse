@@ -180,6 +180,15 @@ export default function AddTransactionScreen() {
     [selectedWalletId, wallets],
   );
 
+  const paramType = route.params?.type;
+  const paramWalletId = route.params?.walletId;
+  const templateAmount = route.params?.templateAmount;
+  const templateCategoryId = route.params?.templateCategoryId;
+  const templateDescription = route.params?.templateDescription;
+  const templateMerchant = route.params?.templateMerchant;
+  const templateCurrency = route.params?.templateCurrency;
+  const templateTags = route.params?.templateTags;
+
   const didInitWalletRef = useRef(false);
   useEffect(() => {
     if (didInitWalletRef.current || wallets.length === 0) {
@@ -252,15 +261,6 @@ export default function AddTransactionScreen() {
       cancelled = true;
     };
   }, [amount, convert, fromWallet, toWallet, type]);
-
-  const paramType = route.params?.type;
-  const paramWalletId = route.params?.walletId;
-  const templateAmount = route.params?.templateAmount;
-  const templateCategoryId = route.params?.templateCategoryId;
-  const templateDescription = route.params?.templateDescription;
-  const templateMerchant = route.params?.templateMerchant;
-  const templateCurrency = route.params?.templateCurrency;
-  const templateTags = route.params?.templateTags;
 
   useEffect(() => {
     if (paramType === 'expense' || paramType === 'income' || paramType === 'transfer') {
@@ -453,11 +453,13 @@ export default function AddTransactionScreen() {
     navigation,
     notes,
     receiptUri,
+    recurrenceRule,
     tags,
     toWallet,
     transactionDate,
     transferCategoryId,
     type,
+    isRecurring,
   ]);
 
 
@@ -691,8 +693,8 @@ export default function AddTransactionScreen() {
                   value={isRecurring}
                   onValueChange={(v) => {
                     setIsRecurring(v);
-                    if (!v) setRecurrenceRule('');
-                    else if (!recurrenceRule) setRecurrenceRule('MONTHLY');
+                    if (!v) {setRecurrenceRule('');}
+                    else if (!recurrenceRule) {setRecurrenceRule('MONTHLY');}
                   }}
                   thumbColor={isRecurring ? colors.primary : colors.border}
                   trackColor={{false: colors.borderLight, true: colors.primaryLight}}

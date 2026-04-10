@@ -12,7 +12,7 @@ export type AppIconProps = {
   family?: IconFamily;
 };
 
-export function AppIcon({name, size = 20, color = '#000', family = 'material'}: AppIconProps) {
+export const AppIcon = React.memo(function AppIcon({name, size = 20, color = '#000', family = 'material'}: AppIconProps) {
   if (isBrandIcon(name)) {
     return <BrandIcon name={name} size={size} color={color} />;
   }
@@ -20,7 +20,7 @@ export function AppIcon({name, size = 20, color = '#000', family = 'material'}: 
     return <Ionicons name={name} size={size} color={color} />;
   }
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
-}
+});
 
 export const ICON_MAP = {
   'fork-knife': 'silverware-fork-knife',

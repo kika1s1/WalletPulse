@@ -53,6 +53,7 @@ export default function WalletDetailScreen() {
     [wallets, walletId],
   );
 
+  const txFilter = useMemo(() => ({walletId}), [walletId]);
   const {
     transactions,
     isLoading: txLoading,
@@ -60,7 +61,7 @@ export default function WalletDetailScreen() {
     refetch: txRefetch,
   } = useTransactions({
     syncWithFilterStore: false,
-    filter: {walletId},
+    filter: txFilter,
   });
 
   const {deleteTransaction} = useTransactionActions();
@@ -122,17 +123,6 @@ export default function WalletDetailScreen() {
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
-  if (!wallet && !isLoading) {
-    return (
-      <ScreenContainer>
-        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
-          <Spacer size={spacing.xl} />
-          <ErrorState message="Wallet not found" />
-        </View>
-      </ScreenContainer>
-    );
-  }
-
   const handleDeleteWallet = useCallback(() => {
     Alert.alert(
       'Delete Wallet',
@@ -154,6 +144,17 @@ export default function WalletDetailScreen() {
       ],
     );
   }, [deleteWallet, walletId, navigation]);
+
+  if (!wallet && !isLoading) {
+    return (
+      <ScreenContainer>
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.xl} />
+          <ErrorState message="Wallet not found" />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   const currency = wallet?.currency ?? 'USD';
 
@@ -292,6 +293,7 @@ export default function WalletDetailScreen() {
                   notes={tx.notes}
                   transactionDate={tx.transactionDate}
                   source={tx.source}
+                  hideAmounts={hide}
                   onPress={openTxDetail}
                   onEdit={openTxEdit}
                   onDelete={confirmTxDelete}

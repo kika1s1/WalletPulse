@@ -9,7 +9,7 @@ export function getPendingBillNav(): string | null {
 }
 
 function handleNotificationPress(data: Record<string, unknown> | undefined): void {
-  if (!data || data.type !== 'bill_reminder') return;
+  if (!data || data.type !== 'bill_reminder') {return;}
 
   if (navigationRef.isReady()) {
     navigationRef.navigate('MainTabs', {

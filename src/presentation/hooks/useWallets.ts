@@ -58,7 +58,7 @@ export function useWallets(): UseWalletsReturn {
     const collection = database.get<WalletModel>('wallets');
     const query = collection.query(Q.sortBy('sort_order', Q.asc));
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({

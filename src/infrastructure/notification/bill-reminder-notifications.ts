@@ -25,7 +25,7 @@ function getConstants(): {AndroidImportance: {HIGH: number}; TriggerType: {TIMES
 
 export async function ensureBillReminderChannel(): Promise<void> {
   const notifee = getNotifee();
-  if (!notifee) return;
+  if (!notifee) {return;}
   const {AndroidImportance} = getConstants();
   await notifee.createChannel({
     id: CHANNEL_ID,
@@ -41,8 +41,8 @@ function buildNotificationId(billId: string): string {
 
 function formatDueLabel(dueDate: number, nowMs: number): string {
   const diffDays = Math.ceil((dueDate - nowMs) / MS_PER_DAY);
-  if (diffDays <= 0) return 'due today';
-  if (diffDays === 1) return 'due tomorrow';
+  if (diffDays <= 0) {return 'due today';}
+  if (diffDays === 1) {return 'due tomorrow';}
   return `due in ${diffDays} days`;
 }
 
@@ -61,12 +61,12 @@ export function computeBillNotifications(
   const results: BillNotificationPayload[] = [];
 
   for (const bill of bills) {
-    if (bill.isPaid) continue;
-    if (bill.remindDaysBefore <= 0) continue;
+    if (bill.isPaid) {continue;}
+    if (bill.remindDaysBefore <= 0) {continue;}
 
     const triggerMs = bill.dueDate - bill.remindDaysBefore * MS_PER_DAY;
 
-    if (triggerMs < nowMs - MS_PER_DAY) continue;
+    if (triggerMs < nowMs - MS_PER_DAY) {continue;}
 
     const effectiveTrigger = Math.max(triggerMs, nowMs + 5000);
 
@@ -86,7 +86,7 @@ export async function scheduleBillNotifications(
   bills: BillReminder[],
 ): Promise<number> {
   const notifee = getNotifee();
-  if (!notifee) return 0;
+  if (!notifee) {return 0;}
 
   const {AndroidImportance, TriggerType} = getConstants();
 
@@ -134,7 +134,7 @@ export async function scheduleBillNotifications(
 
 export async function cancelAllBillNotifications(): Promise<void> {
   const notifee = getNotifee();
-  if (!notifee) return;
+  if (!notifee) {return;}
 
   const existing = await notifee.getTriggerNotificationIds();
   const billNotifIds = existing.filter((id: string) => id.startsWith(NOTIFICATION_ID_PREFIX));
@@ -147,7 +147,7 @@ export async function showImmediateBillNotification(
   bill: BillReminder,
 ): Promise<void> {
   const notifee = getNotifee();
-  if (!notifee) return;
+  if (!notifee) {return;}
 
   const {AndroidImportance} = getConstants();
 

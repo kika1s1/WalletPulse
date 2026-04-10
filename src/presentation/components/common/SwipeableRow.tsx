@@ -83,7 +83,7 @@ function renderActionPanel(
   );
 }
 
-export function SwipeableRow({
+export const SwipeableRow = React.memo(function SwipeableRow({
   children,
   leftActions,
   rightActions,
@@ -116,7 +116,7 @@ export function SwipeableRow({
       {children}
     </Swipeable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   childrenContainer: {

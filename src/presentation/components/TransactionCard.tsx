@@ -10,7 +10,6 @@ import {fontWeight} from '@shared/theme/typography';
 import {formatRelativeDate} from '@shared/utils/date-helpers';
 import {formatAmount} from '@shared/utils/format-currency';
 import {parseWalletTransferMeta} from '@domain/value-objects/WalletTransferNotes';
-import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {SwipeableRow, type SwipeAction} from './common/SwipeableRow';
 import {AppIcon, resolveIconName} from './common/AppIcon';
 
@@ -34,6 +33,7 @@ export type TransactionCardProps = {
   onPress?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  hideAmounts?: boolean;
   testID?: string;
 };
 
@@ -75,7 +75,7 @@ function hexToRgba15(hex: string): string {
   return hex;
 }
 
-export function TransactionCard({
+export const TransactionCard = React.memo(function TransactionCard({
   id,
   amount,
   currency,
@@ -92,6 +92,7 @@ export function TransactionCard({
   onPress,
   onEdit,
   onDelete,
+  hideAmounts = false,
   testID,
 }: TransactionCardProps) {
   const {colors, spacing, radius, typography} = useTheme();
@@ -135,10 +136,9 @@ export function TransactionCard({
     return actions;
   }, [colors.danger, colors.primary, id, onDelete, onEdit]);
 
-  const hide = useSettingsStore((s) => s.hideAmounts);
   const titleText = description.trim() || merchant.trim() || 'Transaction';
   const subtitleText = `${categoryName} · ${formatRelativeDate(transactionDate)}`;
-  const signedAmount = hide ? '••••' : formatSignedAmount(type, amount, currency, notes);
+  const signedAmount = hideAmounts ? '••••' : formatSignedAmount(type, amount, currency, notes);
   const amountColor =
     type === 'income'
       ? colors.income
@@ -250,7 +250,7 @@ export function TransactionCard({
       {body}
     </SwipeableRow>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {

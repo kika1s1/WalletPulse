@@ -37,7 +37,7 @@ export function createSubscription(input: CreateSubscriptionInput): Subscription
 }
 
 export function isCancelled(s: Subscription): boolean {
-  return s.cancelledAt != null;
+  return s.cancelledAt !== null && s.cancelledAt !== undefined;
 }
 
 export function isDueSoon(s: Subscription, nowMs: number, daysThreshold: number): boolean {

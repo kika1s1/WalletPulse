@@ -70,7 +70,7 @@ export function MiniBarChart({data, currency, isLoading}: MiniBarChartProps) {
         </View>
       );
     },
-    [colors.border, colors.surfaceElevated, colors.text, currency, data, radius.sm],
+    [colors.border, colors.surfaceElevated, colors.text, currency, data, hide, radius.sm],
   );
 
   if (isLoading) {

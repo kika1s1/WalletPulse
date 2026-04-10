@@ -99,7 +99,7 @@ export default function ParsingRulesScreen() {
         />
       </Pressable>
     ),
-    [colors, navigation, radius, shadows, toggleRule],
+    [colors, navigation, radius, shadows, spacing.base, toggleRule],
   );
 
   const keyExtractor = useCallback((item: ParsingRule) => item.id, []);

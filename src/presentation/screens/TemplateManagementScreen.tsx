@@ -29,6 +29,7 @@ import {
 import {buildAddTransactionParamsFromApplied} from '@presentation/navigation/build-add-transaction-params';
 import type {SettingsStackParamList, TabParamList} from '@presentation/navigation/types';
 import {useTemplates} from '@presentation/hooks/useTemplates';
+import {useCategories} from '@presentation/hooks/useCategories';
 
 type TemplateManagementNav = CompositeNavigationProp<
   NativeStackNavigationProp<SettingsStackParamList, 'TemplateManagement'>,
@@ -59,6 +60,12 @@ export default function TemplateManagementScreen() {
     incrementUsage,
     refetch,
   } = useTemplates();
+  const {categories} = useCategories();
+  const categoryMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of categories) {m.set(c.id, c.name);}
+    return m;
+  }, [categories]);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,7 +73,7 @@ export default function TemplateManagementScreen() {
     }, [refetch]),
   );
 
-  const useTemplate = useCallback(
+  const handleUseTemplate = useCallback(
     (item: TransactionTemplate) => {
       if (!isBuiltInTemplate(item)) {
         void incrementUsage(item.id);
@@ -151,7 +158,7 @@ export default function TemplateManagementScreen() {
             <Pressable
               accessibilityLabel={`Use template ${item.name}`}
               accessibilityRole="button"
-              onPress={() => useTemplate(item)}
+              onPress={() => handleUseTemplate(item)}
               style={[styles.cardMain, {flex: 1}]}>
               <View
                 style={[
@@ -170,7 +177,7 @@ export default function TemplateManagementScreen() {
                     <Text
                       style={[styles.metaChip, {color: colors.textTertiary}]}
                       numberOfLines={1}>
-                      {item.categoryId.replace(/-/g, ' ')}
+                      {categoryMap.get(item.categoryId) ?? item.categoryId.replace(/-/g, ' ')}
                     </Text>
                   )}
                   {item.amount !== undefined && item.amount > 0 && (
@@ -261,12 +268,13 @@ export default function TemplateManagementScreen() {
       return <React.Fragment key={item.id}>{cardInner}</React.Fragment>;
     },
     [
+      categoryMap,
       colors,
       confirmDelete,
+      handleUseTemplate,
       radius,
       shadows,
       swipeDeleteAction,
-      useTemplate,
     ],
   );
 

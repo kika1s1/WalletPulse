@@ -22,6 +22,7 @@ import type {Goal} from '@domain/entities/Goal';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {useGoals} from '@presentation/hooks/useGoals';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useStableNow} from '@presentation/hooks/useStableNow';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'GoalsList'>;
 
@@ -32,7 +33,7 @@ export default function GoalsListScreen() {
   const hide = useSettingsStore((s) => s.hideAmounts);
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {goals, isLoading, error} = useGoals();
-  const now = Date.now();
+  const now = useStableNow();
 
   const sorted = useMemo(() => sortGoalsByPriority(goals, now), [goals, now]);
   const totalProgress = useMemo(() => calculateTotalProgress(goals), [goals]);
@@ -58,9 +59,8 @@ export default function GoalsListScreen() {
           : colors.primary;
 
     return (
-      <Animated.View
-        key={goal.id}
-        entering={FadeInDown.delay(index * 80).duration(250)}>
+      <View
+        key={goal.id}>
         <Pressable
           accessibilityHint="Opens goal details"
           accessibilityRole="button"
@@ -120,7 +120,7 @@ export default function GoalsListScreen() {
           </Text>
         )}
         </Pressable>
-      </Animated.View>
+      </View>
     );
   }
 

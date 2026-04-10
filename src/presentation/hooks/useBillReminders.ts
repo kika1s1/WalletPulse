@@ -52,7 +52,7 @@ export function useBillReminders(): UseBillRemindersReturn {
     const collection = database.get<BillReminderModel>('bill_reminders');
     const query = collection.query(Q.sortBy('due_date', Q.asc));
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({
@@ -84,7 +84,7 @@ export type UseBillReminderActionsReturn = {
 
 async function refreshBillNotifications(): Promise<void> {
   const enabled = useSettingsStore.getState().billReminderNotificationsEnabled;
-  if (!enabled) return;
+  if (!enabled) {return;}
   try {
     const ds = getLocalDataSource();
     const unpaid = await ds.billReminders.findUnpaid();

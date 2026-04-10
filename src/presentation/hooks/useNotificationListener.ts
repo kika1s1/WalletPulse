@@ -81,7 +81,7 @@ export function useNotificationListener(): UseNotificationListenerReturn {
 
     async function init() {
       await checkPermission();
-      if (cancelled) return;
+      if (cancelled) {return;}
 
       const enabled = await isListenerEnabled();
       if (enabled && notificationEnabled && !stopRef.current) {
@@ -92,7 +92,7 @@ export function useNotificationListener(): UseNotificationListenerReturn {
             }
           },
         });
-        if (mountedRef.current) setIsActive(true);
+        if (mountedRef.current) {setIsActive(true);}
       }
     }
 

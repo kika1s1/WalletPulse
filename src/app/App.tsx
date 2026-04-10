@@ -54,7 +54,7 @@ function useGlobalNotificationListener() {
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android') {return;}
 
     if (notificationEnabled) {
       if (!stopRef.current) {
@@ -77,46 +77,46 @@ function useGlobalNotificationListener() {
   }, [notificationEnabled]);
 }
 
+const BILL_SCHEDULE_THROTTLE_MS = 60_000;
+
 function useBillReminderNotifications(splashDone: boolean) {
   const billNotifEnabled = useSettingsStore((s) => s.billReminderNotificationsEnabled);
+  const lastScheduleRef = useRef(0);
+
+  const scheduleBills = useCallback(async () => {
+    const elapsed = Date.now() - lastScheduleRef.current;
+    if (elapsed < BILL_SCHEDULE_THROTTLE_MS) {return;}
+    lastScheduleRef.current = Date.now();
+    try {
+      const ds = getLocalDataSource();
+      const unpaid = await ds.billReminders.findUnpaid();
+      await scheduleBillNotifications(unpaid);
+    } catch {
+      /* offline-first: non-fatal */
+    }
+  }, []);
 
   useEffect(() => {
-    if (!splashDone) return;
+    if (!splashDone) {return;}
 
     if (!billNotifEnabled) {
       void cancelAllBillNotifications();
       return;
     }
 
-    void (async () => {
-      try {
-        const ds = getLocalDataSource();
-        const unpaid = await ds.billReminders.findUnpaid();
-        await scheduleBillNotifications(unpaid);
-      } catch {
-        /* offline-first: non-fatal */
-      }
-    })();
-  }, [splashDone, billNotifEnabled]);
+    void scheduleBills();
+  }, [splashDone, billNotifEnabled, scheduleBills]);
 
   useEffect(() => {
-    if (!splashDone || !billNotifEnabled) return;
+    if (!splashDone || !billNotifEnabled) {return;}
 
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        void (async () => {
-          try {
-            const ds = getLocalDataSource();
-            const unpaid = await ds.billReminders.findUnpaid();
-            await scheduleBillNotifications(unpaid);
-          } catch {
-            /* non-fatal */
-          }
-        })();
+        void scheduleBills();
       }
     });
     return () => sub.remove();
-  }, [splashDone, billNotifEnabled]);
+  }, [splashDone, billNotifEnabled, scheduleBills]);
 }
 
 function AppContent() {

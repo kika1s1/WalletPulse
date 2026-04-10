@@ -113,7 +113,7 @@ function useConversionRates(
 
   useEffect(() => {
     const key = [...currencies].sort().join(',') + ':' + baseCurrency;
-    if (key === fetchedRef.current) return;
+    if (key === fetchedRef.current) {return;}
     fetchedRef.current = key;
 
     const uniqueNonBase = currencies.filter(
@@ -132,12 +132,12 @@ function useConversionRates(
       for (const c of uniqueNonBase) {
         try {
           const r = await getRate(c, baseCurrency);
-          if (r !== null) result[c.toUpperCase()] = r;
+          if (r !== null) {result[c.toUpperCase()] = r;}
         } catch {
           // Skip currencies without rate data
         }
       }
-      if (!cancelled) setRates(result);
+      if (!cancelled) {setRates(result);}
     })();
     return () => {
       cancelled = true;
@@ -153,9 +153,9 @@ function convertToBase(
   baseCurrency: string,
   rates: RateMap,
 ): number {
-  if (currency.toUpperCase() === baseCurrency.toUpperCase()) return amount;
+  if (currency.toUpperCase() === baseCurrency.toUpperCase()) {return amount;}
   const rate = rates[currency.toUpperCase()];
-  if (!rate) return amount;
+  if (!rate) {return amount;}
   return Math.round(amount * rate);
 }
 
@@ -203,8 +203,8 @@ export function useDashboard(): DashboardData {
 
   const allCurrencies = useMemo(() => {
     const set = new Set<string>();
-    for (const w of wallets) set.add(w.currency.toUpperCase());
-    for (const t of allTransactions) set.add(t.currency.toUpperCase());
+    for (const w of wallets) {set.add(w.currency.toUpperCase());}
+    for (const t of allTransactions) {set.add(t.currency.toUpperCase());}
     return Array.from(set);
   }, [wallets, allTransactions]);
 
@@ -306,6 +306,11 @@ export function useDashboard(): DashboardData {
     [transactions],
   );
 
+  const txFingerprint = useMemo(
+    () => `${allTransactions.length}:${allTransactions.reduce((s, t) => s + t.amount, 0)}`,
+    [allTransactions],
+  );
+
   useEffect(() => {
     let cancelled = false;
     if (walletLoading || txLoading) {
@@ -329,7 +334,7 @@ export function useDashboard(): DashboardData {
     return () => {
       cancelled = true;
     };
-  }, [generateInsightsApi, walletLoading, txLoading, wallets, allTransactions]);
+  }, [generateInsightsApi, walletLoading, txLoading, wallets, txFingerprint]);
 
   const isLoading = txLoading || walletLoading;
   const error = txError ?? walletError;

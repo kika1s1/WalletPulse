@@ -23,6 +23,7 @@ import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
+import {useStableNow} from '@presentation/hooks/useStableNow';
 import type {Budget} from '@domain/entities/Budget';
 import {isOverallBudget} from '@domain/entities/Budget';
 import type {CalculateBudgetProgressResult, BudgetProgressStatus} from '@domain/usecases/calculate-budget-progress';
@@ -69,8 +70,8 @@ function formatDateRange(start: number, end: number): string {
   return `${s.toLocaleDateString(undefined, opts)} - ${e.toLocaleDateString(undefined, opts)}`;
 }
 
-function daysRemaining(endDate: number): number {
-  const diff = endDate - Date.now();
+function daysRemaining(endDate: number, nowMs: number): number {
+  const diff = endDate - nowMs;
   return Math.max(0, Math.ceil(diff / 86_400_000));
 }
 
@@ -80,6 +81,7 @@ export default function BudgetDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const {budgetId} = route.params;
+  const stableNow = useStableNow();
 
   const [budget, setBudget] = useState<Budget | null>(null);
   const [progress, setProgress] = useState<CalculateBudgetProgressResult | null>(null);
@@ -221,7 +223,7 @@ export default function BudgetDetailScreen() {
   const pct = progress.percentage.value;
   const catName = category?.name ?? 'Overall';
   const catColor = category?.color ?? colors.primary;
-  const days = daysRemaining(budget.endDate);
+  const days = daysRemaining(budget.endDate, stableNow);
   const dailyRemaining = days > 0 && progress.remaining > 0
     ? Math.round(progress.remaining / days)
     : 0;
@@ -450,6 +452,7 @@ export default function BudgetDetailScreen() {
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}
+            hideAmounts={hide}
             onPress={openTxDetail}
             onEdit={openTxEdit}
             onDelete={confirmTxDelete}

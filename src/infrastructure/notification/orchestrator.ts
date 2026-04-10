@@ -155,7 +155,7 @@ export function makeNotificationOrchestrator(deps: OrchestratorDeps) {
         const fallback = allCats.find(
           (c) => c.name.toLowerCase() === 'other',
         );
-        if (fallback) categoryId = fallback.id;
+        if (fallback) {categoryId = fallback.id;}
       }
     } catch {
       // Category resolution failures are non-critical

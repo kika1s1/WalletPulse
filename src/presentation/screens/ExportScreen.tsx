@@ -31,6 +31,7 @@ import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {useAppStore} from '@presentation/stores/useAppStore';
 
 const MS_PER_DAY = 86400000;
 
@@ -41,19 +42,28 @@ function exportTargetDirectory(): string {
   return RNFS.DocumentDirectoryPath;
 }
 
-async function writePdfToDirectory(
-  directory: string,
+type PdfResult = {
+  filePath: string;
+  base64?: string;
+};
+
+async function generatePdfFile(
   fileBaseName: string,
   transactions: Parameters<typeof formatTransactionsAsPdfHtml>[0],
   options?: ExportOptions,
-): Promise<string> {
+): Promise<PdfResult> {
   const html = formatTransactionsAsPdfHtml(transactions, options);
   const result = await generatePDF({
     html,
     fileName: fileBaseName,
-    directory,
+    base64: true,
   });
-  return result.filePath;
+  
+  if (!result || !result.filePath) {
+    throw new Error('PDF generation failed');
+  }
+  
+  return result;
 }
 
 type DatePreset = {
@@ -90,6 +100,7 @@ const DATE_PRESETS: DatePreset[] = [
 export default function ExportScreen() {
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const baseCurrency = useAppStore((s) => s.baseCurrency);
   const insets = useSafeAreaInsets();
 
   const [format, setFormat] = useState<ExportFormat>('csv');
@@ -156,16 +167,20 @@ export default function ExportScreen() {
           title: filename,
         });
       } else {
-        const dir = exportTargetDirectory();
         const baseName = filename.replace(/\.pdf$/i, '');
-        const filePath = await writePdfToDirectory(dir, baseName, filteredTransactions, exportOptions);
-        const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        const result = await generatePdfFile(baseName, filteredTransactions, exportOptions);
+        
+        const cachePath = `${RNFS.CachesDirectoryPath}/${filename}`;
+        if (result.base64) {
+          await RNFS.writeFile(cachePath, result.base64, 'base64');
+        } else if (result.filePath) {
+          await RNFS.copyFile(result.filePath, cachePath);
+        }
+        
         await RNShare.open({
-          url: fileUri,
+          url: `file://${cachePath}`,
           type: 'application/pdf',
-          filename: filename,
-          title: 'Share PDF Export',
-          subject: `WalletPulse Export - ${filteredTransactions.length} transactions`,
+          failOnCancel: false,
         });
       }
 
@@ -174,8 +189,13 @@ export default function ExportScreen() {
       );
     } catch (err) {
       const errorMessage = (err as Error)?.message || '';
-      if (!errorMessage.includes('User did not share') && !errorMessage.includes('dismissedAction')) {
-        Alert.alert('Share failed', 'Something went wrong while sharing.');
+      console.log('Share error:', errorMessage);
+      if (
+        !errorMessage.includes('User did not share') &&
+        !errorMessage.includes('dismissedAction') &&
+        !errorMessage.includes('cancel')
+      ) {
+        Alert.alert('Share failed', errorMessage || 'Something went wrong while sharing.');
       }
     } finally {
       setExportBusy(null);
@@ -199,7 +219,15 @@ export default function ExportScreen() {
 
       if (format === 'pdf') {
         const baseName = filename.replace(/\.pdf$/i, '');
-        savedPath = await writePdfToDirectory(dir, baseName, filteredTransactions, exportOptions);
+        const result = await generatePdfFile(baseName, filteredTransactions, exportOptions);
+        
+        const targetPath = `${dir}/${filename}`;
+        if (result.base64) {
+          await RNFS.writeFile(targetPath, result.base64, 'base64');
+        } else {
+          await RNFS.copyFile(result.filePath, targetPath);
+        }
+        savedPath = targetPath;
       } else {
         const content =
           format === 'csv'
@@ -222,7 +250,7 @@ export default function ExportScreen() {
     } finally {
       setExportBusy(null);
     }
-  }, [filteredTransactions, format, isLoading]);
+  }, [exportOptions, filteredTransactions, format, isLoading]);
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -380,13 +408,13 @@ export default function ExportScreen() {
                   </View>
                   <View style={styles.statItem}>
                     <Text style={[styles.statValue, {color: colors.danger}]}>
-                      {formatAmountMasked(stats.totalExpense, 'USD', hide)}
+                      {formatAmountMasked(stats.totalExpense, baseCurrency, hide)}
                     </Text>
                     <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Expenses</Text>
                   </View>
                   <View style={styles.statItem}>
                     <Text style={[styles.statValue, {color: colors.success}]}>
-                      {formatAmountMasked(stats.totalIncome, 'USD', hide)}
+                      {formatAmountMasked(stats.totalIncome, baseCurrency, hide)}
                     </Text>
                     <Text style={[styles.statLabel, {color: colors.textTertiary}]}>Income</Text>
                   </View>

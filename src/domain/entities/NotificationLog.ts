@@ -28,7 +28,7 @@ export function createNotificationLog(input: CreateNotificationLogInput): Notifi
 }
 
 export function wasCreatedAsTransaction(n: NotificationLog): boolean {
-  return n.parsedSuccessfully && n.transactionId != null && n.transactionId !== '';
+  return n.parsedSuccessfully && n.transactionId !== null && n.transactionId !== undefined && n.transactionId !== '';
 }
 
 export function getParseResultObject(n: NotificationLog): unknown {

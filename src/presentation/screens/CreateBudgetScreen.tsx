@@ -156,7 +156,7 @@ export default function CreateBudgetScreen() {
           id: generateId(),
           categoryId: isOverall ? null : selectedCategoryId,
           amount,
-          currency: 'USD',
+          currency: budgetCurrency,
           period,
           startDate: range.start,
           endDate: range.end,

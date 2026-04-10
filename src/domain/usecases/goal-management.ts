@@ -41,12 +41,12 @@ export function groupGoalsByStatus(goals: Goal[], nowMs: number): GoalGroups {
 }
 
 export function calculateTotalProgress(goals: Goal[]): number {
-  if (goals.length === 0) return 0;
+  if (goals.length === 0) {return 0;}
 
   const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
   const totalCurrent = goals.reduce((s, g) => s + g.currentAmount, 0);
 
-  if (totalTarget <= 0) return 0;
+  if (totalTarget <= 0) {return 0;}
   return Math.min(totalCurrent / totalTarget, 1);
 }
 
@@ -57,13 +57,13 @@ export function formatDeadline(deadlineMs: number, nowMs: number): string {
   if (days < 0) {
     return `${Math.abs(days)} days overdue`;
   }
-  if (days === 0) return 'Due today';
-  if (days === 1) return '1 day left';
+  if (days === 0) {return 'Due today';}
+  if (days === 1) {return '1 day left';}
   return `${days} days left`;
 }
 
 export function getGoalStatusLabel(goal: Goal, nowMs: number): string {
-  if (goal.isCompleted) return 'Completed';
-  if (goal.deadline < nowMs) return 'Overdue';
+  if (goal.isCompleted) {return 'Completed';}
+  if (goal.deadline < nowMs) {return 'Overdue';}
   return 'In Progress';
 }

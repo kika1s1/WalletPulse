@@ -118,12 +118,12 @@ export default function CreateSubscriptionScreen() {
     setColor(sub.color);
   }, [editSubscriptionId, subscriptions]);
 
-  const isEditing = baseline != null;
+  const isEditing = baseline !== null;
   const selectedMdi = SUB_ICONS.find((i) => i.key === icon)?.mdi ?? 'play-circle-outline';
   const canSave = name.trim().length > 0 && amount > 0;
 
   const handleSave = useCallback(async () => {
-    if (!canSave || isSubmitting) return;
+    if (!canSave || isSubmitting) {return;}
     const now = Date.now();
     try {
       if (baseline) {
@@ -272,8 +272,8 @@ export default function CreateSubscriptionScreen() {
             minimumDate={isEditing ? undefined : new Date()}
             mode="date"
             onChange={(_e, selected) => {
-              if (Platform.OS === 'android') setShowDatePicker(false);
-              if (selected) setNextDueDate(selected.getTime());
+              if (Platform.OS === 'android') {setShowDatePicker(false);}
+              if (selected) {setNextDueDate(selected.getTime());}
             }}
             value={new Date(nextDueDate)}
           />

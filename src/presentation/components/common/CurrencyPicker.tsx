@@ -190,7 +190,6 @@ export function CurrencyPicker({
       colors.text,
       colors.textSecondary,
       colors.textTertiary,
-      onClose,
       onSelect,
       radius.md,
       selectedCode,

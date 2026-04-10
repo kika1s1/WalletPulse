@@ -15,7 +15,7 @@ export default function PinLockScreen() {
   const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
-    if (pin.length < PIN_LENGTH) return;
+    if (pin.length < PIN_LENGTH) {return;}
 
     if (verifyPin(pin)) {
       unlock();
@@ -39,7 +39,7 @@ export default function PinLockScreen() {
   const locked = attempts >= MAX_ATTEMPTS;
 
   useEffect(() => {
-    if (!locked) return;
+    if (!locked) {return;}
     const timer = setTimeout(() => {
       setAttempts(0);
       setError(null);

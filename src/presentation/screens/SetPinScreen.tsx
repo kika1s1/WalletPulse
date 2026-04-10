@@ -21,7 +21,7 @@ export default function SetPinScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentPin.length < PIN_LENGTH) return;
+    if (currentPin.length < PIN_LENGTH) {return;}
 
     if (step === 'enter') {
       setFirstPin(currentPin);

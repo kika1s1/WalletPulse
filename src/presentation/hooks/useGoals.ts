@@ -46,7 +46,7 @@ export function useGoals(): UseGoalsReturn {
     const collection = database.get<GoalModel>('goals');
     const query = collection.query(Q.sortBy('created_at', Q.desc));
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({

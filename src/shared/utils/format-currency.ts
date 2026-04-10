@@ -12,7 +12,7 @@ export function formatAmount(amountInCents: number, currency: string): string {
 const MASKED = '••••••';
 
 export function formatAmountMasked(amountInCents: number, currency: string, hidden: boolean): string {
-  if (hidden) return `${MASKED} ${currency}`;
+  if (hidden) {return `${MASKED} ${currency}`;}
   return formatAmount(amountInCents, currency);
 }
 

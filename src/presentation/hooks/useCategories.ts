@@ -46,7 +46,7 @@ export function useCategories(): UseCategoriesReturn {
       Q.sortBy('sort_order', Q.asc),
     );
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({

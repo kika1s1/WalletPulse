@@ -34,6 +34,7 @@ import {FilterSheet} from '@presentation/components/FilterSheet';
 import {useSearch, SORT_OPTIONS, type SortOption, type SearchFilters} from '@presentation/hooks/useSearch';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useWallets} from '@presentation/hooks/useWallets';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {
   addRecentSearch,
   getRecentSearches,
@@ -166,6 +167,7 @@ export default function SearchScreen() {
 
   const {categories} = useCategories();
   const {wallets} = useWallets();
+  const hideAmounts = useSettingsStore((s) => s.hideAmounts);
 
   const getCategoryDisplay = useCallback(
     (categoryId: string): {name: string; icon: string; color: string} => {
@@ -398,13 +400,14 @@ export default function SearchScreen() {
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}
+            hideAmounts={hideAmounts}
             onEdit={openEdit}
             onPress={openDetail}
           />
         </View>
       );
     },
-    [query, openDetail, openEdit, getCategoryDisplay, spacing.base, spacing.sm],
+    [query, openDetail, openEdit, getCategoryDisplay, hideAmounts, spacing.base, spacing.sm],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);

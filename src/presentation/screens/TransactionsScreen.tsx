@@ -1,7 +1,7 @@
 import React, {useCallback, useMemo} from 'react';
 import {Alert, Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
-import type {CompositeNavigationProp} from '@react-navigation/native';
-import {useNavigation} from '@react-navigation/native';
+import type {CompositeNavigationProp, RouteProp} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import type {TabParamList, TransactionsStackParamList} from '@presentation/navig
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
 
 const MS_PER_DAY = 86400000;
@@ -70,15 +71,23 @@ function groupTransactionsByDate(transactions: Transaction[], refMs: number = Da
 
 export default function TransactionsScreen() {
   const navigation = useNavigation<TransactionsNav>();
+  const route = useRoute<RouteProp<TransactionsStackParamList, 'TransactionsList'>>();
+  const filterCategoryId = route.params?.filterCategoryId;
   const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
 
   const typeFilter = useFilterStore((s) => s.typeFilter);
   const setTypeFilter = useFilterStore((s) => s.setTypeFilter);
 
-  const {transactions, isLoading, error, refetch} = useTransactions();
+  const {transactions: allTransactions, isLoading, error, refetch} = useTransactions();
   const {deleteTransaction} = useTransactionActions();
   const {categories} = useCategories();
+  const hideAmounts = useSettingsStore((s) => s.hideAmounts);
+
+  const transactions = useMemo(() => {
+    if (!filterCategoryId) {return allTransactions;}
+    return allTransactions.filter((t) => t.categoryId === filterCategoryId);
+  }, [allTransactions, filterCategoryId]);
 
   const categoryById = useMemo(() => {
     const map = new Map<string, {name: string; icon: string; color: string}>();
@@ -175,6 +184,7 @@ export default function TransactionsScreen() {
             source={item.source}
             transactionDate={item.transactionDate}
             type={item.type}
+            hideAmounts={hideAmounts}
             onDelete={confirmDelete}
             onEdit={openEdit}
             onPress={openDetail}
@@ -182,7 +192,7 @@ export default function TransactionsScreen() {
         </View>
       );
     },
-    [categoryById, confirmDelete, openDetail, openEdit, spacing.base, spacing.sm],
+    [categoryById, confirmDelete, hideAmounts, openDetail, openEdit, spacing.base, spacing.sm],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
@@ -246,6 +256,16 @@ export default function TransactionsScreen() {
               selected={typeFilter === 'transfer'}
             />
           </ScrollView>
+          {filterCategoryId ? (
+            <View style={[styles.filterBanner, {backgroundColor: `${colors.primary}12`, borderRadius: radius.md, marginHorizontal: spacing.base, marginTop: spacing.xs, padding: spacing.sm}]}>
+              <Text style={{color: colors.primary, fontSize: 13, flex: 1}} numberOfLines={1}>
+                Filtered: {categoryById.get(filterCategoryId)?.name ?? filterCategoryId}
+              </Text>
+              <Pressable hitSlop={8} onPress={() => navigation.setParams({filterCategoryId: undefined})}>
+                <Text style={{color: colors.primary, fontSize: 13, fontWeight: '600'}}>Clear</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {showFatalError ? (
@@ -271,6 +291,10 @@ export default function TransactionsScreen() {
             renderItem={renderItem}
             renderSectionHeader={renderSectionHeader}
             stickySectionHeadersEnabled
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews
             contentContainerStyle={{
               flexGrow: 1,
               paddingBottom: insets.bottom + 88,
@@ -309,6 +333,10 @@ const styles = StyleSheet.create({
   searchBtnIcon: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  filterBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   filterRow: {
     alignItems: 'center',

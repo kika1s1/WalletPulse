@@ -23,10 +23,10 @@ export type CreateParsingRuleInput = {
 };
 
 export function validateParsingRule(input: CreateParsingRuleInput): string | null {
-  if (!input.sourceApp.trim()) return 'Source app name is required';
-  if (!input.packageName.trim()) return 'Package name is required';
-  if (!input.ruleName.trim()) return 'Rule name is required';
-  if (!input.pattern.trim()) return 'Pattern is required';
+  if (!input.sourceApp.trim()) {return 'Source app name is required';}
+  if (!input.packageName.trim()) {return 'Package name is required';}
+  if (!input.ruleName.trim()) {return 'Rule name is required';}
+  if (!input.pattern.trim()) {return 'Pattern is required';}
   try {
     new RegExp(input.pattern);
   } catch {
@@ -42,11 +42,11 @@ export function testPattern(
   try {
     const regex = new RegExp(pattern);
     const match = regex.exec(text);
-    if (!match) return {matched: false, groups: {}};
+    if (!match) {return {matched: false, groups: {}};}
     const groups: Record<string, string> = {};
     if (match.groups) {
       for (const [key, val] of Object.entries(match.groups)) {
-        if (val !== undefined) groups[key] = val;
+        if (val !== undefined) {groups[key] = val;}
       }
     }
     return {matched: true, groups};

@@ -32,9 +32,9 @@ type WalletFormRoute = RouteProp<WalletsStackParamList, 'CreateWallet' | 'EditWa
 
 function iconKeyFromStored(stored: string): string {
   const byMdi = WALLET_ICONS.find((i) => i.mdi === stored);
-  if (byMdi) return byMdi.key;
+  if (byMdi) {return byMdi.key;}
   const byKey = WALLET_ICONS.find((i) => i.key === stored);
-  if (byKey) return byKey.key;
+  if (byKey) {return byKey.key;}
   return 'wallet';
 }
 
@@ -73,7 +73,7 @@ export default function CreateWalletScreen() {
 
   const p = route.params;
   const editWalletId: string | undefined =
-    p == null ? undefined : 'walletId' in p ? p.walletId : p.editWalletId;
+    p === undefined || p === null ? undefined : 'walletId' in p ? p.walletId : p.editWalletId;
   const isEditing = Boolean(editWalletId);
 
   const [name, setName] = useState('');
@@ -89,8 +89,8 @@ export default function CreateWalletScreen() {
       hydratedForId.current = null;
       return;
     }
-    if (hydratedForId.current === editWalletId) return;
-    if (walletsLoading) return;
+    if (hydratedForId.current === editWalletId) {return;}
+    if (walletsLoading) {return;}
     const w = wallets.find((x) => x.id === editWalletId);
     if (!w) {
       Alert.alert('Error', 'Wallet not found');
@@ -108,7 +108,7 @@ export default function CreateWalletScreen() {
   const canSave = name.trim().length > 0 && currency.length === 3;
 
   const handleSave = useCallback(async () => {
-    if (!canSave || isSaving) return;
+    if (!canSave || isSaving) {return;}
     setIsSaving(true);
 
     try {

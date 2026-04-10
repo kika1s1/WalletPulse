@@ -22,14 +22,101 @@ import {
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
+import {useCategories} from '@presentation/hooks/useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useStableNow} from '@presentation/hooks/useStableNow';
 import {SwipeableRow, type SwipeAction} from '@presentation/components/common/SwipeableRow';
 
 const DAY = 86400000;
 
+function formatDueInLabel(ms: number, now: number): string {
+  const days = Math.ceil((ms - now) / DAY);
+  if (days <= 0) {return 'Due today';}
+  if (days === 1) {return 'Tomorrow';}
+  return `In ${days}d`;
+}
+
 type Tab = 'active' | 'cancelled';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SubscriptionsList'>;
+
+type SubCardItemProps = {
+  sub: Subscription;
+  now: number;
+  hide: boolean;
+  categoryLabel: string;
+  onEdit: (id: string) => void;
+  onCancel: (sub: Subscription) => void;
+  onDelete: (sub: Subscription) => void;
+};
+
+const SubCardItem = React.memo(function SubCardItem({
+  sub,
+  now,
+  hide,
+  categoryLabel,
+  onEdit,
+  onCancel,
+  onDelete,
+}: SubCardItemProps) {
+  const {colors, radius, shadows} = useTheme();
+
+  const rightActions = useMemo((): SwipeAction[] => {
+    const actions: SwipeAction[] = [
+      {label: 'Edit', color: colors.primary, onPress: () => onEdit(sub.id)},
+    ];
+    if (sub.isActive) {
+      actions.push({label: 'Cancel', color: colors.warning, onPress: () => onCancel(sub)});
+    }
+    actions.push({label: 'Delete', color: colors.danger, onPress: () => onDelete(sub)});
+    return actions;
+  }, [sub, colors.primary, colors.warning, colors.danger, onEdit, onCancel, onDelete]);
+
+  return (
+    <SwipeableRow rightActions={rightActions}>
+      <Pressable
+        accessibilityLabel={`Edit ${sub.name}`}
+        accessibilityRole="button"
+        onPress={() => onEdit(sub.id)}
+        style={[
+          styles.subCard,
+          {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: radius.lg,
+            borderColor: colors.border,
+          },
+          shadows.sm,
+        ]}
+      >
+        <View style={styles.subRow}>
+          <View style={[styles.subIconWrap, {backgroundColor: sub.color + '18', borderRadius: radius.md}]}>
+            <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
+          </View>
+          <View style={{flex: 1}}>
+            <Text numberOfLines={1} style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
+            <Text style={[styles.subCycle, {color: colors.textTertiary}]}>
+              {sub.billingCycle} / {categoryLabel}
+            </Text>
+          </View>
+          <View style={{alignItems: 'flex-end'}}>
+            <Text style={[styles.subAmount, {color: sub.isActive ? colors.text : colors.textTertiary}]}>
+              {formatAmountMasked(sub.amount, sub.currency, hide)}
+            </Text>
+            {sub.isActive ? (
+              <Text style={[styles.subDue, {color: colors.textSecondary}]}>
+                {formatDueInLabel(sub.nextDueDate, now)}
+              </Text>
+            ) : (
+              <View style={[styles.cancelledBadge, {backgroundColor: colors.danger + '15', borderRadius: radius.xs}]}>
+                <Text style={[styles.cancelledText, {color: colors.danger}]}>Cancelled</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Pressable>
+    </SwipeableRow>
+  );
+});
 
 export default function SubscriptionsListScreen() {
   const navigation = useNavigation<Nav>();
@@ -39,8 +126,14 @@ export default function SubscriptionsListScreen() {
   const [tab, setTab] = useState<Tab>('active');
   const {subscriptions, isLoading, error} = useSubscriptions();
   const {cancelSubscription, deleteSubscription} = useSubscriptionActions();
+  const {categories} = useCategories();
+  const categoryMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of categories) {m.set(c.id, c.name);}
+    return m;
+  }, [categories]);
   const hide = useSettingsStore((s) => s.hideAmounts);
-  const now = Date.now();
+  const now = useStableNow();
 
   const groups = useMemo(() => groupSubscriptionsByStatus(subscriptions), [subscriptions]);
   const monthlyCost = useMemo(() => calculateTotalMonthlyCost(subscriptions), [subscriptions]);
@@ -52,13 +145,6 @@ export default function SubscriptionsListScreen() {
     const list = tab === 'active' ? groups.active : groups.cancelled;
     return sortSubscriptionsByNextDue(list);
   }, [tab, groups]);
-
-  function formatDueIn(ms: number): string {
-    const days = Math.ceil((ms - now) / DAY);
-    if (days <= 0) return 'Due today';
-    if (days === 1) return 'Tomorrow';
-    return `In ${days}d`;
-  }
 
   const confirmDeleteSubscription = useCallback(
     (sub: Subscription) => {
@@ -87,74 +173,10 @@ export default function SubscriptionsListScreen() {
     [cancelSubscription],
   );
 
-  function renderSubCard(sub: Subscription, index: number) {
-    const rightActions: SwipeAction[] = [
-      {
-        label: 'Edit',
-        color: colors.primary,
-        onPress: () => navigation.navigate('CreateSubscription', {editSubscriptionId: sub.id}),
-      },
-    ];
-    if (sub.isActive) {
-      rightActions.push({
-        label: 'Cancel',
-        color: colors.warning,
-        onPress: () => handleCancelSubscription(sub),
-      });
-    }
-    rightActions.push({
-      label: 'Delete',
-      color: colors.danger,
-      onPress: () => confirmDeleteSubscription(sub),
-    });
-
-    return (
-      <SwipeableRow key={sub.id} rightActions={rightActions}>
-        <Animated.View entering={FadeInDown.delay(index * 60).duration(250)}>
-          <Pressable
-            accessibilityLabel={`Edit ${sub.name}`}
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('CreateSubscription', {editSubscriptionId: sub.id})}
-            style={[
-              styles.subCard,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderRadius: radius.lg,
-                borderColor: colors.border,
-              },
-              shadows.sm,
-            ]}
-          >
-            <View style={styles.subRow}>
-              <View style={[styles.subIconWrap, {backgroundColor: sub.color + '18', borderRadius: radius.md}]}>
-                <AppIcon name={resolveIconName(sub.icon)} size={22} color={sub.color} />
-              </View>
-              <View style={{flex: 1}}>
-                <Text numberOfLines={1} style={[styles.subName, {color: colors.text}]}>{sub.name}</Text>
-                <Text style={[styles.subCycle, {color: colors.textTertiary}]}>
-                  {sub.billingCycle} / {sub.categoryId}
-                </Text>
-              </View>
-              <View style={{alignItems: 'flex-end'}}>
-                <Text style={[styles.subAmount, {color: sub.isActive ? colors.text : colors.textTertiary}]}>
-                  {formatAmountMasked(sub.amount, sub.currency, hide)}
-                </Text>
-                {sub.isActive ? (
-                  <Text style={[styles.subDue, {color: colors.textSecondary}]}>
-                    {formatDueIn(sub.nextDueDate)}
-                  </Text>
-                ) : (
-                  <View style={[styles.cancelledBadge, {backgroundColor: colors.danger + '15', borderRadius: radius.xs}]}>
-                    <Text style={[styles.cancelledText, {color: colors.danger}]}>Cancelled</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </Pressable>
-        </Animated.View>
-      </SwipeableRow>
-    );
-  }
+  const navigateToEditSub = useCallback(
+    (id: string) => navigation.navigate('CreateSubscription', {editSubscriptionId: id}),
+    [navigation],
+  );
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -283,7 +305,18 @@ export default function SubscriptionsListScreen() {
                   </View>
                 ) : (
                   <View style={{gap: 10}}>
-                    {displayed.map((sub, idx) => renderSubCard(sub, idx))}
+                    {displayed.map((sub) => (
+                      <SubCardItem
+                        key={sub.id}
+                        sub={sub}
+                        now={now}
+                        hide={hide}
+                        categoryLabel={categoryMap.get(sub.categoryId) ?? sub.categoryId}
+                        onEdit={navigateToEditSub}
+                        onCancel={handleCancelSubscription}
+                        onDelete={confirmDeleteSubscription}
+                      />
+                    ))}
                   </View>
                 )}
               </>

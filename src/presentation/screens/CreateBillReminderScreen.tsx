@@ -155,7 +155,7 @@ export default function CreateBillReminderScreen() {
   const canSave = name.trim().length > 0 && amount > 0;
 
   const handleSave = useCallback(async () => {
-    if (!canSave || isSubmitting) return;
+    if (!canSave || isSubmitting) {return;}
     const now = Date.now();
     try {
       if (isEditing && baseline) {
@@ -289,8 +289,8 @@ export default function CreateBillReminderScreen() {
             minimumDate={isEditing ? undefined : new Date()}
             mode="date"
             onChange={(_e, selected) => {
-              if (Platform.OS === 'android') setShowDatePicker(false);
-              if (selected) setDueDate(selected.getTime());
+              if (Platform.OS === 'android') {setShowDatePicker(false);}
+              if (selected) {setDueDate(selected.getTime());}
             }}
             value={new Date(dueDate)}
           />
@@ -405,7 +405,8 @@ export default function CreateBillReminderScreen() {
             setCurrency(w.currency);
           }
         }}
-        selectedId={walletId || undefined}
+        wallets={activeWallets}
+        selectedWalletId={walletId || undefined}
         visible={walletPickerOpen}
       />
     </View>

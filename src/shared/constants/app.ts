@@ -1,5 +1,5 @@
 export const APP_NAME = 'WalletPulse';
-export const APP_VERSION = '0.0.1';
+export const APP_VERSION = '1.1.1';
 
 export const FX_RATE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const FX_RATE_FETCH_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12 hours

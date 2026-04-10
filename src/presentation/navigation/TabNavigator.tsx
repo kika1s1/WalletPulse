@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {StyleSheet, View, Platform} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -38,27 +38,28 @@ export default function TabNavigator() {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 8);
 
+  const screenOptions = useMemo(() => ({
+    headerShown: false as const,
+    tabBarActiveTintColor: colors.primary,
+    tabBarInactiveTintColor: colors.textTertiary,
+    tabBarStyle: {
+      backgroundColor: colors.surface,
+      borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      height: 56 + bottomPadding,
+      paddingBottom: bottomPadding,
+      paddingTop: 6,
+      ...shadows.sm,
+    },
+    tabBarLabelStyle: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      marginTop: 2,
+    },
+  }), [colors, shadows, bottomPadding]);
+
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          height: 56 + bottomPadding,
-          paddingBottom: bottomPadding,
-          paddingTop: 6,
-          ...shadows.sm,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 2,
-        },
-      }}>
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}

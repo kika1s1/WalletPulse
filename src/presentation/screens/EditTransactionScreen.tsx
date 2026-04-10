@@ -248,10 +248,13 @@ export default function EditTransactionScreen() {
     navigation,
     notes,
     receiptUri,
+    recurrenceRule,
     tags,
     transactionDate,
     type,
     updateTransaction,
+    walletId,
+    isRecurring,
   ]);
 
   if (isLoading) {
@@ -453,8 +456,8 @@ export default function EditTransactionScreen() {
                   value={isRecurring}
                   onValueChange={(v) => {
                     setIsRecurring(v);
-                    if (!v) setRecurrenceRule('');
-                    else if (!recurrenceRule) setRecurrenceRule('MONTHLY');
+                    if (!v) {setRecurrenceRule('');}
+                    else if (!recurrenceRule) {setRecurrenceRule('MONTHLY');}
                   }}
                   thumbColor={isRecurring ? colors.primary : colors.border}
                   trackColor={{false: colors.borderLight, true: colors.primaryLight}}

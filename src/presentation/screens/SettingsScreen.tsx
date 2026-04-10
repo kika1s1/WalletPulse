@@ -568,7 +568,7 @@ export default function SettingsScreen() {
               WalletPulse
             </Text>
             <Text style={[styles.aboutVersion, {color: colors.textSecondary}]}>
-              Version 1.0.0
+              Version 1.1.1
             </Text>
             <Text style={[styles.aboutDesc, {color: colors.textTertiary}]}>
               Smart, offline-first expense tracker

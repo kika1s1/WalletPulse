@@ -48,15 +48,15 @@ export function PinPad({title, subtitle, pin, onPinChange, error}: Props) {
         onPinChange(pin.slice(0, -1));
         return;
       }
-      if (key === '') return;
-      if (pin.length >= PIN_LENGTH) return;
+      if (key === '') {return;}
+      if (pin.length >= PIN_LENGTH) {return;}
       onPinChange(pin + key);
     },
     [onPinChange, pin],
   );
 
   React.useEffect(() => {
-    if (error) triggerShake();
+    if (error) {triggerShake();}
   }, [error, triggerShake]);
 
   return (

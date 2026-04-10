@@ -64,13 +64,13 @@ export class ParsingRuleRepository implements IParsingRuleRepository {
       .find(id);
     await this.db.write(async () => {
       await record.update((rec) => {
-        if (input.sourceApp !== undefined) rec.sourceApp = input.sourceApp.trim();
-        if (input.packageName !== undefined) rec.packageName = input.packageName.trim();
-        if (input.ruleName !== undefined) rec.ruleName = input.ruleName.trim();
-        if (input.pattern !== undefined) rec.pattern = input.pattern;
-        if (input.transactionType !== undefined) rec.transactionType = input.transactionType;
-        if (input.isActive !== undefined) rec.isActive = input.isActive;
-        if (input.priority !== undefined) rec.priority = input.priority;
+        if (input.sourceApp !== undefined) {rec.sourceApp = input.sourceApp.trim();}
+        if (input.packageName !== undefined) {rec.packageName = input.packageName.trim();}
+        if (input.ruleName !== undefined) {rec.ruleName = input.ruleName.trim();}
+        if (input.pattern !== undefined) {rec.pattern = input.pattern;}
+        if (input.transactionType !== undefined) {rec.transactionType = input.transactionType;}
+        if (input.isActive !== undefined) {rec.isActive = input.isActive;}
+        if (input.priority !== undefined) {rec.priority = input.priority;}
       });
     });
   }

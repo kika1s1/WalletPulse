@@ -27,6 +27,7 @@ import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {getProgress} from '@domain/entities/Goal';
 import {formatDeadline, getGoalStatusLabel} from '@domain/usecases/goal-management';
 import {useGoals, useGoalActions} from '@presentation/hooks/useGoals';
+import {useStableNow} from '@presentation/hooks/useStableNow';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'GoalDetail'>;
 type Route = RouteProp<SettingsStackParamList, 'GoalDetail'>;
@@ -51,7 +52,7 @@ export default function GoalDetailScreen() {
   const {updateProgress, markCompleted, deleteGoal, isSubmitting} = useGoalActions();
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
-  const now = Date.now();
+  const now = useStableNow();
 
   const [contribModalOpen, setContribModalOpen] = useState(false);
   const [contribCents, setContribCents] = useState(0);

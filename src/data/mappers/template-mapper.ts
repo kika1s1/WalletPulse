@@ -20,7 +20,7 @@ export type TemplateRaw = {
 };
 
 function parseTagsJson(tagsJson: string): string[] {
-  if (!tagsJson) return [];
+  if (!tagsJson) {return [];}
   try {
     const parsed = JSON.parse(tagsJson);
     return Array.isArray(parsed) ? parsed.map(String) : [];

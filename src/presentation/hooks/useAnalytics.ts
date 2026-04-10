@@ -107,9 +107,9 @@ function convertToBase(
   baseCurrency: string,
   rates: RateMap,
 ): number {
-  if (currency.toUpperCase() === baseCurrency.toUpperCase()) return amount;
+  if (currency.toUpperCase() === baseCurrency.toUpperCase()) {return amount;}
   const rate = rates[currency.toUpperCase()];
-  if (!rate) return amount;
+  if (!rate) {return amount;}
   return Math.round(amount * rate);
 }
 
@@ -122,7 +122,7 @@ function useConversionRates(
 
   useEffect(() => {
     const key = [...currencies].sort().join(',') + ':' + baseCurrency;
-    if (key === fetchedRef.current) return;
+    if (key === fetchedRef.current) {return;}
     fetchedRef.current = key;
 
     const uniqueNonBase = currencies.filter(
@@ -141,12 +141,12 @@ function useConversionRates(
       for (const c of uniqueNonBase) {
         try {
           const r = await getRate(c, baseCurrency);
-          if (r !== null) result[c.toUpperCase()] = r;
+          if (r !== null) {result[c.toUpperCase()] = r;}
         } catch {
           // Skip currencies without rate data
         }
       }
-      if (!cancelled) setRates(result);
+      if (!cancelled) {setRates(result);}
     })();
     return () => {
       cancelled = true;
@@ -324,7 +324,7 @@ export function useAnalytics(options?: UseAnalyticsOptions): AnalyticsData {
 
   const allCurrencies = useMemo(() => {
     const set = new Set<string>();
-    for (const t of transactions) set.add(t.currency.toUpperCase());
+    for (const t of transactions) {set.add(t.currency.toUpperCase());}
     return Array.from(set);
   }, [transactions]);
 

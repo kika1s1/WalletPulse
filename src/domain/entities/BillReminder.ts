@@ -60,5 +60,5 @@ export function shouldRemind(b: BillReminder, nowMs: number): boolean {
 }
 
 export function isPaidWithTransaction(b: BillReminder): boolean {
-  return b.isPaid && b.paidTransactionId != null && b.paidTransactionId !== '';
+  return b.isPaid && b.paidTransactionId !== null && b.paidTransactionId !== undefined && b.paidTransactionId !== '';
 }

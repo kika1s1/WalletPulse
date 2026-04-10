@@ -67,7 +67,7 @@ async function processDueSubscriptions(
 ): Promise<void> {
   const subs = await deps.subscriptions.findActive();
   for (const sub of subs) {
-    if (sub.cancelledAt != null) {
+    if (sub.cancelledAt !== null && sub.cancelledAt !== undefined) {
       continue;
     }
     let current = sub;

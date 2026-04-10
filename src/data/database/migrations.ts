@@ -3,6 +3,10 @@ import {schemaMigrations, addColumns} from '@nozbe/watermelondb/Schema/migration
 export default schemaMigrations({
   migrations: [
     {
+      toVersion: 4,
+      steps: [],
+    },
+    {
       toVersion: 3,
       steps: [
         addColumns({

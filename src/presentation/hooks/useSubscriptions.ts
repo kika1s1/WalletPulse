@@ -48,7 +48,7 @@ export function useSubscriptions(): UseSubscriptionsReturn {
     const collection = database.get<SubscriptionModel>('subscriptions');
     const query = collection.query(Q.sortBy('next_due_date', Q.asc));
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({

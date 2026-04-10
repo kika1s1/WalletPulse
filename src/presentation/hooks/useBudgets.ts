@@ -44,7 +44,7 @@ export function useBudgets(): UseBudgetsReturn {
     const collection = database.get<BudgetModel>('budgets');
     const query = collection.query(Q.sortBy('created_at', Q.desc));
 
-    if (!hasData.current) setIsLoading(true);
+    if (!hasData.current) {setIsLoading(true);}
     setError(null);
 
     const subscription = query.observe().subscribe({
