@@ -10,6 +10,7 @@ import OnboardingScreen from '@presentation/screens/OnboardingScreen';
 import TabNavigator from './TabNavigator';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useTheme} from '@shared/theme';
+import {navigationRef} from './navigationRef';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -34,7 +35,7 @@ export default function AppNavigator() {
   }, [colors, isDark]);
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         {onboardingCompleted ? (
           <Stack.Screen name="MainTabs" component={TabNavigator} />

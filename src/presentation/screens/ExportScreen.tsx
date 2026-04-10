@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
+import RNShare from 'react-native-share';
 import {generatePDF} from 'react-native-html-to-pdf';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -158,9 +159,13 @@ export default function ExportScreen() {
         const dir = exportTargetDirectory();
         const baseName = filename.replace(/\.pdf$/i, '');
         const filePath = await writePdfToDirectory(dir, baseName, filteredTransactions, exportOptions);
-        await Share.share({
-          title: filename,
-          message: `WalletPulse PDF export (${filteredTransactions.length} transactions).\n\nSaved on this device:\n${filePath}\n\nTip: open your Files app, Downloads, to attach or share the PDF.`,
+        const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        await RNShare.open({
+          url: fileUri,
+          type: 'application/pdf',
+          filename: filename,
+          title: 'Share PDF Export',
+          subject: `WalletPulse Export - ${filteredTransactions.length} transactions`,
         });
       }
 
@@ -168,13 +173,14 @@ export default function ExportScreen() {
         `Shared ${filteredTransactions.length} transactions as ${format.toUpperCase()}`,
       );
     } catch (err) {
-      if ((err as Error)?.message !== 'User did not share') {
+      const errorMessage = (err as Error)?.message || '';
+      if (!errorMessage.includes('User did not share') && !errorMessage.includes('dismissedAction')) {
         Alert.alert('Share failed', 'Something went wrong while sharing.');
       }
     } finally {
       setExportBusy(null);
     }
-  }, [filteredTransactions, format, isLoading]);
+  }, [filteredTransactions, format, isLoading, exportOptions]);
 
   const runSaveToDevice = useCallback(async () => {
     if (isLoading) {
@@ -463,7 +469,7 @@ export default function ExportScreen() {
           {/* Info note */}
           <View style={[styles.infoNote, {backgroundColor: colors.primaryLight + '12', borderRadius: radius.md}]}>
             <Text style={[styles.infoText, {color: colors.textSecondary}]}>
-              Exported data includes all transaction fields. Amounts use major currency units (e.g., 12.99 instead of 1299 cents). Save writes to your Downloads folder on Android. CSV and JSON share as text; PDF share also saves the file and includes its path because Android cannot attach files through the built-in share dialog.
+              Exported data includes all transaction fields. Amounts use major currency units (e.g., 12.99 instead of 1299 cents). Save writes to your Downloads folder on Android. CSV and JSON share as text; PDF shares the actual file for easy attachment to emails or messages.
             </Text>
           </View>
         </ScrollView>

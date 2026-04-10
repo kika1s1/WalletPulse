@@ -507,103 +507,115 @@ export default function AnalyticsScreen() {
 
           {activeTab === 'categories' && (
             <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
-              {pieData.length > 0 && (
-                <Card padding="md">
-                  <Text style={[styles.cardTitle, {color: colors.text}]}>
-                    Spending by Category
-                  </Text>
-                  <Spacer size={spacing.base} />
-                  <View style={styles.pieCenter}>
-                    <PieChart
-                      data={pieData}
-                      donut
-                      radius={90}
-                      innerRadius={58}
-                      innerCircleColor={colors.card}
-                      centerLabelComponent={() => (
-                        <View style={styles.pieCenterLabel}>
-                          <Text
-                            adjustsFontSizeToFit
-                            numberOfLines={1}
+              {categoryBreakdown.length === 0 ? (
+                <EmptyState
+                  title="No expense data"
+                  message="Add expense transactions to see your spending breakdown by category."
+                />
+              ) : (
+                <>
+                  {pieData.length > 0 && (
+                    <Card padding="md">
+                      <Text style={[styles.cardTitle, {color: colors.text}]}>
+                        Spending by Category
+                      </Text>
+                      <Spacer size={spacing.base} />
+                      <View style={styles.pieCenter}>
+                        <PieChart
+                          data={pieData}
+                          donut
+                          radius={90}
+                          innerRadius={58}
+                          innerCircleColor={colors.card}
+                          isAnimated={false}
+                          showText={false}
+                          focusOnPress={false}
+                          centerLabelComponent={() => (
+                            <View style={styles.pieCenterLabel}>
+                              <Text
+                                adjustsFontSizeToFit
+                                numberOfLines={1}
+                                style={[
+                                  styles.pieCenterAmount,
+                                  {color: colors.text},
+                                ]}>
+                                {formatAmountMasked(totalExpenses, baseCurrency, hide)}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.pieCenterSub,
+                                  {color: colors.textSecondary},
+                                ]}>
+                                Total
+                              </Text>
+                            </View>
+                          )}
+                        />
+                      </View>
+                    </Card>
+                  )}
+
+                  <Spacer size={spacing.lg} />
+
+                  <SectionHeader title="Breakdown" />
+
+                  <Card padding="md">
+                    {categoryBreakdown.map((cat, idx) => (
+                      <Pressable
+                        key={cat.categoryId}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${cat.categoryName}, ${cat.percentage.toFixed(0)}%`}
+                        onPress={() => {
+                          navigation.getParent()?.navigate('TransactionsTab', {
+                            screen: 'TransactionsList',
+                            params: {filterCategoryId: cat.categoryId},
+                          });
+                        }}
+                        style={({pressed}) => [
+                          styles.catRow,
+                          pressed && {opacity: 0.7},
+                          idx < categoryBreakdown.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: colors.borderLight,
+                            paddingBottom: 14,
+                          },
+                        ]}>
+                        <View style={styles.catHeader}>
+                          <View
                             style={[
-                              styles.pieCenterAmount,
-                              {color: colors.text},
+                              styles.catIconWrap,
+                              {backgroundColor: cat.categoryColor + '20'},
                             ]}>
-                            {formatAmountMasked(totalExpenses, baseCurrency, hide)}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.pieCenterSub,
-                              {color: colors.textSecondary},
-                            ]}>
-                            Total
+                            <AppIcon name={cat.categoryIcon} size={18} color={cat.categoryColor} />
+                          </View>
+                          <View style={styles.catNameCol}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.catName, {color: colors.text}]}>
+                              {cat.categoryName}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.catPercent, {color: colors.textSecondary}]}>
+                              {cat.percentage.toFixed(1)}% ({cat.count} txn
+                              {cat.count !== 1 ? 's' : ''})
+                            </Text>
+                          </View>
+                          <Text style={[styles.catAmount, {color: colors.text}]}>
+                            {formatAmountMasked(cat.total, baseCurrency, hide)}
                           </Text>
                         </View>
-                      )}
-                    />
-                  </View>
-                </Card>
+                        <ProgressBar
+                          progress={cat.percentage / 100}
+                          height={8}
+                          color={cat.categoryColor}
+                          showLabel={false}
+                        />
+                      </Pressable>
+                    ))}
+                  </Card>
+                </>
               )}
-
-              <Spacer size={spacing.lg} />
-
-              <SectionHeader title="Breakdown" />
-
-              <Card padding="md">
-                {categoryBreakdown.map((cat, idx) => (
-                  <Pressable
-                    key={cat.categoryId}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${cat.categoryName}, ${cat.percentage.toFixed(0)}%`}
-                    onPress={() => {
-                      navigation.getParent()?.navigate('TransactionsTab', {
-                        screen: 'Transactions',
-                        params: {filterCategoryId: cat.categoryId},
-                      });
-                    }}
-                    style={({pressed}) => [
-                      styles.catRow,
-                      pressed && {opacity: 0.7},
-                      idx < categoryBreakdown.length - 1 && {
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: colors.borderLight,
-                        paddingBottom: 14,
-                      },
-                    ]}>
-                    <View style={styles.catHeader}>
-                      <View
-                        style={[
-                          styles.catIconWrap,
-                          {backgroundColor: cat.categoryColor + '20'},
-                        ]}>
-                        <AppIcon name={cat.categoryIcon} size={18} color={cat.categoryColor} />
-                      </View>
-                      <View style={styles.catNameCol}>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.catName, {color: colors.text}]}>
-                          {cat.categoryName}
-                        </Text>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.catPercent, {color: colors.textSecondary}]}>
-                          {cat.percentage.toFixed(1)}% ({cat.count} txn
-                          {cat.count !== 1 ? 's' : ''})
-                        </Text>
-                      </View>
-                      <Text style={[styles.catAmount, {color: colors.text}]}>
-                        {formatAmountMasked(cat.total, baseCurrency, hide)}
-                      </Text>
-                    </View>
-                    <ProgressBar
-                      progress={cat.percentage / 100}
-                      height={8}
-                      color={cat.categoryColor}
-                      showLabel={false}
-                    />
-                  </Pressable>
-                ))}
-              </Card>
             </View>
           )}
 
@@ -816,6 +828,8 @@ const styles = StyleSheet.create({
   },
   pieCenter: {
     alignItems: 'center',
+    minHeight: 190,
+    justifyContent: 'center',
   },
   pieCenterLabel: {
     alignItems: 'center',

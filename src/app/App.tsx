@@ -11,6 +11,9 @@ import {
   stopNotificationHandler,
 } from '@infrastructure/notification/notification-handler';
 import {processRecurringItems} from '@infrastructure/recurring/recurring-scheduler';
+import {scheduleBillNotifications, cancelAllBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
+import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {useTheme} from '@shared/theme';
 
 const RECURRING_SCHEDULER_INTERVAL_MS = 3600_000;
@@ -74,6 +77,48 @@ function useGlobalNotificationListener() {
   }, [notificationEnabled]);
 }
 
+function useBillReminderNotifications(splashDone: boolean) {
+  const billNotifEnabled = useSettingsStore((s) => s.billReminderNotificationsEnabled);
+
+  useEffect(() => {
+    if (!splashDone) return;
+
+    if (!billNotifEnabled) {
+      void cancelAllBillNotifications();
+      return;
+    }
+
+    void (async () => {
+      try {
+        const ds = getLocalDataSource();
+        const unpaid = await ds.billReminders.findUnpaid();
+        await scheduleBillNotifications(unpaid);
+      } catch {
+        /* offline-first: non-fatal */
+      }
+    })();
+  }, [splashDone, billNotifEnabled]);
+
+  useEffect(() => {
+    if (!splashDone || !billNotifEnabled) return;
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void (async () => {
+          try {
+            const ds = getLocalDataSource();
+            const unpaid = await ds.billReminders.findUnpaid();
+            await scheduleBillNotifications(unpaid);
+          } catch {
+            /* non-fatal */
+          }
+        })();
+      }
+    });
+    return () => sub.remove();
+  }, [splashDone, billNotifEnabled]);
+}
+
 function AppContent() {
   const {isDark} = useTheme();
   const [splashDone, setSplashDone] = useState(false);
@@ -83,6 +128,7 @@ function AppContent() {
 
   useGlobalNotificationListener();
   useRecurringScheduler(splashDone);
+  useBillReminderNotifications(splashDone);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -112,7 +158,13 @@ function AppContent() {
   );
 }
 
+setupNotifeeEventHandlers();
+
 export default function App() {
+  useEffect(() => {
+    void checkInitialNotification();
+  }, []);
+
   return (
     <Providers>
       <AppContent />

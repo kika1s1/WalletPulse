@@ -8,6 +8,8 @@ import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {toDomain, type BillReminderRaw} from '@data/mappers/bill-reminder-mapper';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
 import {generateId} from '@shared/utils/hash';
+import {scheduleBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
 function modelToDomain(model: BillReminderModel): BillReminder {
   const raw: BillReminderRaw = {
@@ -80,6 +82,18 @@ export type UseBillReminderActionsReturn = {
   error: string | null;
 };
 
+async function refreshBillNotifications(): Promise<void> {
+  const enabled = useSettingsStore.getState().billReminderNotificationsEnabled;
+  if (!enabled) return;
+  try {
+    const ds = getLocalDataSource();
+    const unpaid = await ds.billReminders.findUnpaid();
+    await scheduleBillNotifications(unpaid);
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export function useBillReminderActions(): UseBillReminderActionsReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +104,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     try {
       const bill = createBillReminder(input);
       await getLocalDataSource().billReminders.save(bill);
+      void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -105,6 +120,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     try {
       const bill = createBillReminder(input);
       await getLocalDataSource().billReminders.update(bill);
+      void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -155,6 +171,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
         });
         await ds.billReminders.markPaid(id, txnId);
       }
+      void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -169,6 +186,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setError(null);
     try {
       await getLocalDataSource().billReminders.delete(id);
+      void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);

@@ -7,10 +7,11 @@ module.exports = {
     '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@app/(.*)$': '<rootDir>/src/app/$1',
+    '^@notifee/react-native$': '<rootDir>/__mocks__/@notifee/react-native.js',
   },
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation|@nozbe|@shopify|@gorhom|react-native-reanimated|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|react-native-vector-icons|react-native-svg|react-native-haptic-feedback|react-native-gifted-charts|react-native-config)/)',
+    'node_modules/(?!(react-native|@react-native|@react-navigation|@nozbe|@shopify|@gorhom|@notifee|react-native-reanimated|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|react-native-vector-icons|react-native-svg|react-native-haptic-feedback|react-native-gifted-charts|react-native-config)/)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

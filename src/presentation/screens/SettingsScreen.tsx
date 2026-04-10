@@ -458,6 +458,24 @@ export default function SettingsScreen() {
             value="View"
           />
           <SettingsRow
+            description="Get notified before bills are due"
+            icon="bell-badge-outline"
+            label="Bill Reminder Alerts"
+            trailing={
+              <Switch
+                onValueChange={(val) => settings.setBillReminderNotificationsEnabled(val)}
+                thumbColor={
+                  settings.billReminderNotificationsEnabled ? colors.primary : colors.border
+                }
+                trackColor={{
+                  false: colors.borderLight,
+                  true: colors.primaryLight,
+                }}
+                value={settings.billReminderNotificationsEnabled}
+              />
+            }
+          />
+          <SettingsRow
             description="Set and track savings targets"
             icon="target"
             label="Savings Goals"
