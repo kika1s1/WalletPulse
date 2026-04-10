@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="assets/banner.png" alt="WalletPulse banner" width="320" />
-</p>
 
 <p align="center">
   <img src="assets/logo.png" alt="WalletPulse logo" width="96" height="96" />
