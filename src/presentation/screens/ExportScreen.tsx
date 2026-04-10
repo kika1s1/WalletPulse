@@ -14,11 +14,10 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import {generatePDF} from 'react-native-html-to-pdf';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
-import {Chip} from '@presentation/components/common';
+import {BackButton, Chip} from '@presentation/components/common';
 import {
   formatTransactionsAsCsv,
   formatTransactionsAsJson,
@@ -85,7 +84,6 @@ const DATE_PRESETS: DatePreset[] = [
 ];
 
 export default function ExportScreen() {
-  const navigation = useNavigation();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const hide = useSettingsStore((s) => s.hideAmounts);
   const insets = useSafeAreaInsets();
@@ -217,13 +215,7 @@ export default function ExportScreen() {
             {paddingHorizontal: spacing.base, paddingTop: spacing.sm},
           ]}
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            hitSlop={12}
-          >
-            <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
-          </Pressable>
+          <BackButton />
           <Text style={[typography.title3, {color: colors.text}]}>Export Data</Text>
           <View style={{width: 48}} />
         </View>
@@ -477,11 +469,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 8,
-  },
-  backBtn: {
-    fontSize: 15,
-    fontWeight: fontWeight.semibold,
-    minWidth: 48,
   },
   scrollContent: {
     gap: 20,

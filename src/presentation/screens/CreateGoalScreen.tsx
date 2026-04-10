@@ -19,6 +19,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {AmountInput} from '@presentation/components/common/AmountInput';
 import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -190,9 +191,7 @@ export default function CreateGoalScreen() {
     <View style={[styles.container, {backgroundColor: colors.background}]}>
       <View style={[styles.header, {backgroundColor: colors.surface, borderBottomColor: colors.borderLight, paddingHorizontal: spacing.base, paddingTop: insets.top + 12}]}>
         <View style={styles.headerRow}>
-          <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
-            <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
-          </Pressable>
+          <BackButton icon="close" />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             {editId ? 'Edit Goal' : 'New Goal'}
           </Text>
@@ -371,7 +370,6 @@ const styles = StyleSheet.create({
   loadingBox: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 0, paddingBottom: 12},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   previewCard: {alignItems: 'center', gap: 8},
   previewName: {fontSize: 22, fontWeight: fontWeight.bold, color: '#FFFFFF'},

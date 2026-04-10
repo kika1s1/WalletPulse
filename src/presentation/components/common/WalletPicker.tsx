@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import type {ListRenderItemInfo} from '@shopify/flash-list';
+import type {ListRenderItemInfo} from 'react-native';
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
-  BottomSheetFlashList,
+  BottomSheetFlatList,
   BottomSheetTextInput,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
@@ -211,7 +211,7 @@ export function WalletPicker({
             testID={testID ? `${testID}-search` : undefined}
           />
         </View>
-        <BottomSheetFlashList
+        <BottomSheetFlatList
           data={data}
           extraData={`${selectedWalletId ?? ''}-${search}`}
           keyExtractor={keyExtractor}

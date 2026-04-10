@@ -8,6 +8,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {EmptyState} from '@presentation/components/feedback';
 import {
@@ -172,13 +173,7 @@ export default function TemplateManagementScreen() {
             {paddingHorizontal: spacing.base, paddingTop: spacing.sm},
           ]}
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            hitSlop={12}
-          >
-            <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
-          </Pressable>
+          <BackButton />
           <Text style={[typography.title3, {color: colors.text}]}>Quick Templates</Text>
           <View style={{width: 48}} />
         </View>
@@ -276,11 +271,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 8,
-  },
-  backBtn: {
-    fontSize: 15,
-    fontWeight: fontWeight.semibold,
-    minWidth: 48,
   },
   infoCard: {
     padding: 12,

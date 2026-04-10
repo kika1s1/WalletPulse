@@ -1,6 +1,7 @@
 import React from 'react';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import {isBrandIcon, BrandIcon} from './BrandIcons';
 
 export type IconFamily = 'material' | 'ionicons';
 
@@ -12,6 +13,9 @@ export type AppIconProps = {
 };
 
 export function AppIcon({name, size = 20, color = '#000', family = 'material'}: AppIconProps) {
+  if (isBrandIcon(name)) {
+    return <BrandIcon name={name} size={size} color={color} />;
+  }
   if (family === 'ionicons') {
     return <Ionicons name={name} size={size} color={color} />;
   }
@@ -97,6 +101,16 @@ export const ICON_MAP = {
   'close': 'close',
   'plus': 'plus',
   'chevron-right': 'chevron-right',
+  'payoneer': 'payoneer',
+  'grey': 'grey',
+  'dukascopy': 'dukascopy',
+  'brand-earth': 'brand-earth',
+  'brand-mobile': 'brand-mobile',
+  'brand-shield': 'brand-shield',
+  'brand-contactless': 'brand-contactless',
+  'brand-bitcoin': 'brand-bitcoin',
+  'piggy-bank': 'piggy-bank-outline',
+  'safe': 'safe',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

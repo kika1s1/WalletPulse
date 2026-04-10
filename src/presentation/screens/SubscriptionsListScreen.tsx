@@ -7,6 +7,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -159,9 +160,7 @@ export default function SubscriptionsListScreen() {
     <View style={[styles.root, {backgroundColor: colors.background}]}>
       <ScreenContainer scrollable={false}>
         <View style={[styles.header, {paddingHorizontal: spacing.base, paddingTop: spacing.sm}]}>
-          <Pressable accessibilityRole="button" onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
-          </Pressable>
+          <BackButton />
           <Text style={[typography.title3, {color: colors.text}]}>Subscriptions</Text>
           <Pressable
             accessibilityLabel="Add subscription"
@@ -303,11 +302,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 8,
-  },
-  backBtn: {
-    fontSize: 15,
-    fontWeight: fontWeight.semibold,
-    minWidth: 48,
   },
   centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},

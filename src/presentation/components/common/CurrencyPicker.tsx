@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import type {ListRenderItemInfo} from '@shopify/flash-list';
+import type {ListRenderItemInfo} from 'react-native';
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
-  BottomSheetFlashList,
+  BottomSheetFlatList,
   BottomSheetTextInput,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
@@ -204,8 +204,6 @@ export function CurrencyPicker({
 
   const keyExtractor = useCallback((item: ListRow) => item.id, []);
 
-  const getItemType = useCallback((item: ListRow) => item.kind, []);
-
   return (
     <BottomSheet
       ref={sheetRef}
@@ -228,10 +226,9 @@ export function CurrencyPicker({
             testID={testID ? `${testID}-search` : undefined}
           />
         </View>
-        <BottomSheetFlashList
+        <BottomSheetFlatList
           data={data}
           extraData={`${selectedCode ?? ''}-${search}`}
-          getItemType={getItemType}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           style={styles.list}

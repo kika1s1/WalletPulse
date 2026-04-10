@@ -1,4 +1,5 @@
 export {AmountInput} from './AmountInput';
+export {BackButton} from './BackButton';
 export {AppIcon, resolveIconName, ICON_MAP} from './AppIcon';
 export type {AppIconProps, IconName} from './AppIcon';
 export {Badge} from './Badge';

@@ -106,8 +106,9 @@ export function SwipeableRow({
   return (
     <Swipeable
       animationOptions={{
-        friction: 9,
-        tension: 64,
+        damping: 9,
+        stiffness: 64,
+        mass: 1,
       }}
       enableTrackpadTwoFingerGesture
       friction={2}

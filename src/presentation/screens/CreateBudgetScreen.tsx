@@ -18,6 +18,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {AmountInput} from '@presentation/components/common/AmountInput';
 import {Button} from '@presentation/components/common/Button';
 import {useBudgets} from '@presentation/hooks/useBudgets';
@@ -202,15 +203,7 @@ export default function CreateBudgetScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Cancel"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>
-              Cancel
-            </Text>
-          </Pressable>
+          <BackButton icon="close" />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             {isEditing ? 'Edit Budget' : 'New Budget'}
           </Text>
@@ -464,7 +457,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   section: {},
   sectionTitle: {

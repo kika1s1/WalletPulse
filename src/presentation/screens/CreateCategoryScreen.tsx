@@ -23,6 +23,7 @@ import {makeCreateCategory} from '@domain/usecases/create-category';
 import {makeUpdateCategory} from '@domain/usecases/update-category';
 import {generateId} from '@shared/utils/hash';
 import type {CategoryKind, Category} from '@domain/entities/Category';
+import {BackButton} from '@presentation/components/common';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateCategory'>;
@@ -177,15 +178,7 @@ export default function CreateCategoryScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Cancel"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>
-              Cancel
-            </Text>
-          </Pressable>
+          <BackButton icon="close" />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             {isEditing ? 'Edit Category' : 'New Category'}
           </Text>
@@ -382,7 +375,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   previewCard: {
     alignItems: 'center',

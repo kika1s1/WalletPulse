@@ -18,6 +18,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {AmountInput} from '@presentation/components/common/AmountInput';
 import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -204,9 +205,7 @@ export default function CreateBillReminderScreen() {
     <View style={[styles.container, {backgroundColor: colors.background}]}>
       <View style={[styles.header, {backgroundColor: colors.surface, borderBottomColor: colors.borderLight, paddingHorizontal: spacing.base, paddingTop: insets.top + 12}]}>
         <View style={styles.headerRow}>
-          <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
-            <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
-          </Pressable>
+          <BackButton icon="close" />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             {isEditing ? 'Edit Bill Reminder' : 'New Bill Reminder'}
           </Text>
@@ -377,7 +376,6 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 0, paddingBottom: 12},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   sectionTitle: {fontSize: 12, fontWeight: fontWeight.semibold, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8},
   inputWrap: {flexDirection: 'row', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, height: 48},

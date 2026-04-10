@@ -19,6 +19,7 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeArchiveCategory} from '@domain/usecases/archive-category';
 import type {Category} from '@domain/entities/Category';
+import {BackButton} from '@presentation/components/common';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CategoryManagement'>;
@@ -196,15 +197,7 @@ export default function CategoryManagementScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             Categories
           </Text>
@@ -321,7 +314,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  backBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   addBtn: {fontSize: 16, fontWeight: fontWeight.semibold},
   tabRow: {flexDirection: 'row'},

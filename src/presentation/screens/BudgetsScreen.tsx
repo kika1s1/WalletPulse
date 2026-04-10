@@ -18,6 +18,7 @@ import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress, type BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
+import {BackButton} from '@presentation/components/common';
 import {BudgetCard} from '@presentation/components/BudgetCard';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -170,15 +171,7 @@ export default function BudgetsScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             Budgets
           </Text>
@@ -268,7 +261,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   addBtn: {fontSize: 16, fontWeight: fontWeight.semibold},
   overviewCard: {borderWidth: StyleSheet.hairlineWidth},

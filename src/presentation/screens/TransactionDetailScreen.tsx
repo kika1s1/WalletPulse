@@ -16,7 +16,7 @@ import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
-import {Button, Card} from '@presentation/components/common';
+import {BackButton, Button, Card} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmount} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -226,13 +226,7 @@ export default function TransactionDetailScreen() {
           }}
           showsVerticalScrollIndicator={false}>
           <View style={[styles.topBar, {paddingTop: spacing.sm}]}>
-            <Pressable
-              accessibilityLabel="Go back"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}>
-              <Text style={[typography.callout, {color: colors.primary, fontWeight: '600'}]}>Back</Text>
-            </Pressable>
+            <BackButton />
           </View>
 
           <View style={styles.amountBlock}>

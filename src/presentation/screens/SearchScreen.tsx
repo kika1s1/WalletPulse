@@ -27,7 +27,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {EmptyState} from '@presentation/components/feedback';
-import {Chip} from '@presentation/components/common';
+import {BackButton, Chip} from '@presentation/components/common';
 import {FilterSheet} from '@presentation/components/FilterSheet';
 import {useSearch, SORT_OPTIONS, type SortOption, type SearchFilters} from '@presentation/hooks/useSearch';
 import {useCategories} from '@presentation/hooks/useCategories';
@@ -333,15 +333,7 @@ export default function SearchScreen() {
           },
         ]}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={handleBack}
-          style={styles.backBtn}
-          hitSlop={12}
-        >
-          <Text style={[styles.backArrow, {color: colors.text}]}>{'<'}</Text>
-        </Pressable>
+        <BackButton onPress={handleBack} />
 
         <Animated.View
           style={[
@@ -566,16 +558,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backArrow: {
-    fontSize: 22,
-    fontWeight: '700',
   },
   searchBarWrap: {
     flex: 1,

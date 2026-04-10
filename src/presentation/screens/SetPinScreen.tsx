@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {BackButton} from '@presentation/components/common';
 import {PinPad} from '@presentation/components/PinPad';
 import {usePinStore} from '@presentation/stores/usePinStore';
-import {useTheme} from '@shared/theme';
 
 const PIN_LENGTH = 4;
 
@@ -12,7 +12,6 @@ type Step = 'enter' | 'confirm';
 
 export default function SetPinScreen() {
   const navigation = useNavigation();
-  const {colors} = useTheme();
   const insets = useSafeAreaInsets();
   const setPin = usePinStore((s) => s.setPin);
 
@@ -49,14 +48,9 @@ export default function SetPinScreen() {
 
   return (
     <View style={styles.root}>
-      <Pressable
-        accessibilityLabel="Cancel"
-        accessibilityRole="button"
-        hitSlop={12}
-        onPress={() => navigation.goBack()}
-        style={[styles.cancelBtn, {top: insets.top + 12}]}>
-        <Text style={[styles.cancelText, {color: colors.textSecondary}]}>Cancel</Text>
-      </Pressable>
+      <View style={[styles.cancelBtn, {top: insets.top + 12}]}>
+        <BackButton icon="close" />
+      </View>
       <PinPad
         title={step === 'enter' ? 'Set Your PIN' : 'Confirm Your PIN'}
         subtitle={
@@ -82,9 +76,5 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

@@ -12,7 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
-import {Button, Card, Input, AmountInput, Chip} from '@presentation/components/common';
+import {BackButton, Button, Card, Input, AmountInput, Chip} from '@presentation/components/common';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
 import {ScreenContainer} from '@presentation/components/layout';
@@ -259,6 +259,32 @@ export default function AddTransactionScreen() {
 
   const categoryPickerFilter = type === 'transfer' ? undefined : type;
 
+  const hasFormData =
+    amount > 0 ||
+    description.length > 0 ||
+    merchant.length > 0 ||
+    notes.length > 0 ||
+    tags.length > 0 ||
+    categoryId.length > 0 ||
+    receiptUri.length > 0;
+
+  const handleClear = useCallback(() => {
+    setAmount(0);
+    setCurrency(DEFAULT_BASE_CURRENCY);
+    setCategoryId('');
+    setDescription('');
+    setMerchant('');
+    setNotes('');
+    setTags([]);
+    setTransactionDate(Date.now());
+    setReceiptUri('');
+    setCategoryError(undefined);
+    setFromWalletId('');
+    setToWalletId('');
+    setTransferFxPreview(null);
+    didInitTransferWalletsRef.current = false;
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (amount <= 0) {
       Alert.alert('Invalid amount', 'Enter an amount greater than zero.');
@@ -393,18 +419,26 @@ export default function AddTransactionScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={[styles.headerRow, {paddingTop: spacing.sm}]}>
-            <Pressable
-              accessibilityLabel="Go back"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}
-              style={styles.headerBtn}>
-              <Text style={[typography.callout, {color: colors.primary, fontWeight: '600'}]}>
-                Close
-              </Text>
-            </Pressable>
+            <BackButton icon="close" />
             <Text style={[typography.title3, {color: colors.text}]}>Add Transaction</Text>
-            <View style={styles.headerBtn} />
+            {hasFormData ? (
+              <Pressable
+                accessibilityLabel="Clear form"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={handleClear}
+                style={styles.headerBtn}>
+                <Text
+                  style={[
+                    typography.callout,
+                    {color: colors.danger, fontWeight: '600', textAlign: 'right'},
+                  ]}>
+                  Clear
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.headerBtn} />
+            )}
           </View>
 
           <View style={styles.typeRow}>

@@ -14,6 +14,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
+import {BackButton} from '@presentation/components/common';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmountMasked} from '@shared/utils/format-currency';
@@ -238,13 +239,7 @@ export default function BudgetDetailScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>← Back</Text>
-          </Pressable>
+          <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             Budget Detail
           </Text>
@@ -477,7 +472,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   deleteBtn: {fontSize: 14, fontWeight: fontWeight.semibold},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center'},

@@ -14,6 +14,7 @@ import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {Button} from '@presentation/components/common/Button';
@@ -144,13 +145,7 @@ export default function GoalDetailScreen() {
       <View style={[styles.root, {backgroundColor: colors.background}]}>
         <ScreenContainer scrollable={false}>
           <View style={[styles.header, {paddingHorizontal: spacing.base}]}>
-            <Pressable
-              accessibilityLabel="Go back"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}>
-              <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
-            </Pressable>
+            <BackButton />
           </View>
           <View style={styles.centered}>
             <Text style={{color: colors.textSecondary}}>Goal not found</Text>
@@ -180,13 +175,7 @@ export default function GoalDetailScreen() {
     <View style={[styles.root, {backgroundColor: colors.background}]}>
       <ScreenContainer>
         <View style={[styles.header, {paddingHorizontal: spacing.base}]}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>Back</Text>
-          </Pressable>
+          <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]} numberOfLines={1}>
             Goal
           </Text>
@@ -370,7 +359,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 8,
   },
-  backBtn: {fontSize: 16, fontWeight: fontWeight.medium, minWidth: 48},
   headerTitle: {flex: 1, textAlign: 'center', fontSize: 18, fontWeight: fontWeight.semibold},
   deleteHeaderBtn: {fontSize: 14, fontWeight: fontWeight.semibold, minWidth: 52, textAlign: 'right'},
   heroCard: {borderWidth: StyleSheet.hairlineWidth},

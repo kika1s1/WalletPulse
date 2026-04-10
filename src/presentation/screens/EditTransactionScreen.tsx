@@ -14,7 +14,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
-import {Button, Card, Input, AmountInput, Chip} from '@presentation/components/common';
+import {BackButton, Button, Card, Input, AmountInput, Chip} from '@presentation/components/common';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {CategoryPicker} from '@presentation/components/common/CategoryPicker';
 import {ScreenContainer} from '@presentation/components/layout';
@@ -112,6 +112,36 @@ export default function EditTransactionScreen() {
     [categories, categoryId],
   );
   const categoryPickerFilter = type === 'transfer' ? undefined : type;
+
+  const hasUnsavedChanges = existing
+    ? type !== existing.type ||
+      amount !== existing.amount ||
+      currency !== existing.currency ||
+      categoryId !== existing.categoryId ||
+      description !== existing.description ||
+      merchant !== existing.merchant ||
+      notes !== existing.notes ||
+      transactionDate !== existing.transactionDate ||
+      receiptUri !== (existing.receiptUri?.trim() ?? '') ||
+      JSON.stringify(tags) !== JSON.stringify(existing.tags)
+    : false;
+
+  const handleReset = useCallback(() => {
+    if (!existing) {
+      return;
+    }
+    setType(existing.type);
+    setAmount(existing.amount);
+    setCurrency(existing.currency);
+    setCategoryId(existing.categoryId);
+    setDescription(existing.description);
+    setMerchant(existing.merchant);
+    setNotes(existing.notes);
+    setTags([...existing.tags]);
+    setTransactionDate(existing.transactionDate);
+    setReceiptUri(existing.receiptUri?.trim() ?? '');
+    setCategoryError(undefined);
+  }, [existing]);
 
   const handleSave = useCallback(async () => {
     if (!existing) {
@@ -243,16 +273,26 @@ export default function EditTransactionScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={[styles.headerRow, {paddingTop: spacing.sm}]}>
-            <Pressable
-              accessibilityLabel="Go back"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}
-              style={styles.headerBtn}>
-              <Text style={[typography.callout, {color: colors.primary, fontWeight: '600'}]}>Back</Text>
-            </Pressable>
+            <BackButton />
             <Text style={[typography.title3, {color: colors.text}]}>Edit Transaction</Text>
-            <View style={styles.headerBtn} />
+            {hasUnsavedChanges ? (
+              <Pressable
+                accessibilityLabel="Reset changes"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={handleReset}
+                style={styles.headerBtn}>
+                <Text
+                  style={[
+                    typography.callout,
+                    {color: colors.danger, fontWeight: '600', textAlign: 'right'},
+                  ]}>
+                  Reset
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.headerBtn} />
+            )}
           </View>
 
           <View style={styles.typeRow}>

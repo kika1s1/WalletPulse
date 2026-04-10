@@ -16,6 +16,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {BackButton} from '@presentation/components/common';
 import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
@@ -43,7 +44,7 @@ const WALLET_COLORS = [
   '#F39C12', '#1ABC9C',
 ];
 
-const WALLET_ICONS: {key: string; mdi: string}[] = [
+const WALLET_ICONS: {key: string; mdi: string; label?: string}[] = [
   {key: 'wallet', mdi: 'wallet-outline'},
   {key: 'bank', mdi: 'bank-outline'},
   {key: 'cash', mdi: 'cash'},
@@ -52,6 +53,14 @@ const WALLET_ICONS: {key: string; mdi: string}[] = [
   {key: 'safe', mdi: 'safe'},
   {key: 'chart', mdi: 'chart-line'},
   {key: 'briefcase', mdi: 'briefcase-outline'},
+  {key: 'payoneer', mdi: 'payoneer', label: 'Payoneer'},
+  {key: 'grey', mdi: 'grey', label: 'Grey'},
+  {key: 'dukascopy', mdi: 'dukascopy', label: 'Dukascopy'},
+  {key: 'brand-earth', mdi: 'brand-earth'},
+  {key: 'brand-mobile', mdi: 'brand-mobile'},
+  {key: 'brand-shield', mdi: 'brand-shield'},
+  {key: 'brand-contactless', mdi: 'brand-contactless'},
+  {key: 'brand-bitcoin', mdi: 'brand-bitcoin'},
 ];
 
 export default function CreateWalletScreen() {
@@ -158,9 +167,7 @@ export default function CreateWalletScreen() {
           {backgroundColor: colors.surface, borderBottomColor: colors.borderLight, paddingHorizontal: spacing.base, paddingTop: insets.top + 12},
         ]}>
         <View style={styles.headerRow}>
-          <Pressable accessibilityLabel="Cancel" accessibilityRole="button" hitSlop={12} onPress={() => navigation.goBack()}>
-            <Text style={[styles.cancelBtn, {color: colors.textSecondary}]}>Cancel</Text>
-          </Pressable>
+          <BackButton icon="close" />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             {isEditing ? 'Edit Wallet' : 'New Wallet'}
           </Text>
@@ -277,7 +284,6 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   header: {borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 0, paddingBottom: 12},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  cancelBtn: {fontSize: 16, fontWeight: fontWeight.medium},
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   previewCard: {alignItems: 'center', gap: 8},
   previewName: {fontSize: 22, fontWeight: fontWeight.bold, color: '#FFFFFF'},

@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {useNotificationLogs} from '@presentation/hooks/useNotificationLogs';
 import type {NotificationLog} from '@domain/entities/NotificationLog';
 import {wasCreatedAsTransaction} from '@domain/entities/NotificationLog';
+import {BackButton} from '@presentation/components/common';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 
 const SOURCE_ICON: Record<string, string> = {
@@ -188,7 +188,6 @@ function LogItem({
 export default function NotificationLogScreen() {
   const insets = useSafeAreaInsets();
   const {colors, spacing, radius, typography, shadows} = useTheme();
-  const navigation = useNavigation();
   const {logs, isLoading, error, refetch} = useNotificationLogs(100);
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -244,15 +243,7 @@ export default function NotificationLogScreen() {
           },
         ]}>
         <View style={styles.headerRow}>
-          <Pressable
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtn, {color: colors.primary}]}>
-              ← Back
-            </Text>
-          </Pressable>
+          <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]}>
             Notification Log
           </Text>
@@ -376,10 +367,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
-  },
-  backBtn: {
-    fontSize: 16,
-    fontWeight: fontWeight.medium,
   },
   headerTitle: {
     fontSize: 18,
