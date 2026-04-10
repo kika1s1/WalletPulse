@@ -15,6 +15,7 @@ const baseInput = {
   dueDate: Date.UTC(2026, 5, 15),
   recurrence: 'monthly' as const,
   categoryId: 'cat-housing',
+  walletId: 'wallet-1',
   isPaid: false,
   remindDaysBefore: 7,
   createdAt: 1,

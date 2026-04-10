@@ -35,13 +35,6 @@ export function makeUpdateWallet(deps: UpdateWalletDeps) {
       updatedAt: Date.now(),
     });
 
-    if (next.currency !== existing.currency) {
-      const conflict = await deps.walletRepo.findByCurrency(next.currency);
-      if (conflict !== null && conflict.id !== id) {
-        throw new Error('A wallet for this currency already exists');
-      }
-    }
-
     await deps.walletRepo.update(next);
     return next;
   };

@@ -35,6 +35,7 @@ function baseBill(refNow: number, over: Partial<BillReminder> = {}): BillReminde
     dueDate: refNow - 1000,
     recurrence: 'once',
     categoryId: 'cat-2',
+    walletId: 'wallet-1',
     isPaid: false,
     remindDaysBefore: 3,
     createdAt: refNow,
@@ -186,5 +187,28 @@ describe('processRecurringItemsWithDeps', () => {
     expect(saved.isPaid).toBe(false);
     expect(saved.dueDate).toBeGreaterThan(bill.dueDate);
     expect(saved.id).toBe('gen-2');
+    expect(saved.walletId).toBe('wallet-1');
+  });
+
+  it('uses bill walletId for the transaction instead of default wallet', async () => {
+    const bill = baseBill(fixedNow, {recurrence: 'once', walletId: 'bill-wallet-99'});
+    const deps = makeDeps();
+    (deps.billReminders.findUnpaid as jest.Mock).mockResolvedValue([bill]);
+
+    await processRecurringItemsWithDeps(deps);
+
+    const call = (deps.createTransaction as jest.Mock).mock.calls[0][0];
+    expect(call.walletId).toBe('bill-wallet-99');
+  });
+
+  it('falls back to default wallet when bill has no walletId', async () => {
+    const bill = baseBill(fixedNow, {recurrence: 'once', walletId: ''});
+    const deps = makeDeps();
+    (deps.billReminders.findUnpaid as jest.Mock).mockResolvedValue([bill]);
+
+    await processRecurringItemsWithDeps(deps);
+
+    const call = (deps.createTransaction as jest.Mock).mock.calls[0][0];
+    expect(call.walletId).toBe('wallet-1');
   });
 });

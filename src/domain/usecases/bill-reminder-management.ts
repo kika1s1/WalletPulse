@@ -1,4 +1,5 @@
 import type {BillReminder, BillRecurrence} from '@domain/entities/BillReminder';
+import {advanceNextDueDate, type BillingCycleForAdvance} from '@shared/utils/advance-next-due-date';
 
 const MS_PER_DAY = 86400000;
 
@@ -52,17 +53,5 @@ export function getNextDueDate(currentDueDateMs: number, recurrence: BillRecurre
   if (recurrence === 'once') {
     return currentDueDateMs;
   }
-
-  const d = new Date(currentDueDateMs);
-
-  switch (recurrence) {
-    case 'weekly':
-      return currentDueDateMs + 7 * MS_PER_DAY;
-    case 'monthly':
-      return new Date(d.getFullYear(), d.getMonth() + 1, d.getDate()).getTime();
-    case 'quarterly':
-      return new Date(d.getFullYear(), d.getMonth() + 3, d.getDate()).getTime();
-    case 'yearly':
-      return new Date(d.getFullYear() + 1, d.getMonth(), d.getDate()).getTime();
-  }
+  return advanceNextDueDate(currentDueDateMs, recurrence as BillingCycleForAdvance);
 }

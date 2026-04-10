@@ -27,6 +27,8 @@ import type {Category} from '@domain/entities/Category';
 import {useTransactionById} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
+import {useWallets} from '@presentation/hooks/useWallets';
+import {WalletPicker} from '@presentation/components/common/WalletPicker';
 import {buildCreateTransactionInputFromForm} from './AddTransactionScreen';
 import {ReceiptAttachmentField} from '@presentation/components/ReceiptAttachmentField';
 
@@ -84,6 +86,7 @@ export default function EditTransactionScreen() {
   );
   const {updateTransaction, isSubmitting} = useTransactionActions();
   const {categories} = useCategories();
+  const {wallets} = useWallets();
 
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [amount, setAmount] = useState(0);
@@ -97,11 +100,26 @@ export default function EditTransactionScreen() {
   const [receiptUri, setReceiptUri] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState('');
+  const [walletId, setWalletId] = useState('');
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categoryError, setCategoryError] = useState<string | undefined>(undefined);
+
+  const selectedWallet = useMemo(
+    () => wallets.find((w) => w.id === walletId) ?? null,
+    [walletId, wallets],
+  );
+
+  const handleSelectWallet = useCallback((id: string) => {
+    setWalletId(id);
+    const w = wallets.find((x) => x.id === id);
+    if (w) {
+      setCurrency(w.currency);
+    }
+  }, [wallets]);
 
   useEffect(() => {
     if (!existing) {
@@ -119,6 +137,7 @@ export default function EditTransactionScreen() {
     setReceiptUri(existing.receiptUri?.trim() ?? '');
     setIsRecurring(existing.isRecurring);
     setRecurrenceRule(existing.recurrenceRule);
+    setWalletId(existing.walletId);
   }, [existing]);
 
   const categoryMeta = useMemo(
@@ -139,6 +158,7 @@ export default function EditTransactionScreen() {
       receiptUri !== (existing.receiptUri?.trim() ?? '') ||
       isRecurring !== existing.isRecurring ||
       recurrenceRule !== existing.recurrenceRule ||
+      walletId !== existing.walletId ||
       JSON.stringify(tags) !== JSON.stringify(existing.tags)
     : false;
 
@@ -158,6 +178,7 @@ export default function EditTransactionScreen() {
     setReceiptUri(existing.receiptUri?.trim() ?? '');
     setIsRecurring(existing.isRecurring);
     setRecurrenceRule(existing.recurrenceRule);
+    setWalletId(existing.walletId);
     setCategoryError(undefined);
   }, [existing]);
 
@@ -191,7 +212,7 @@ export default function EditTransactionScreen() {
         isRecurring,
         recurrenceRule,
       },
-      existing.walletId,
+      walletId,
       existing.id,
     );
     try {
@@ -338,6 +359,26 @@ export default function EditTransactionScreen() {
             />
           </View>
 
+          <Card onPress={() => setWalletPickerOpen(true)} padding="md">
+            <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Wallet</Text>
+            {selectedWallet ? (
+              <View style={styles.walletRow}>
+                <View style={[styles.categoryDot, {backgroundColor: selectedWallet.color}]} />
+                <View style={styles.walletTextCol}>
+                  <Text style={[typography.body, {color: colors.text, fontWeight: '600'}]}>
+                    {selectedWallet.name}
+                  </Text>
+                  <Text style={[typography.caption, {color: colors.textTertiary}]}>
+                    {selectedWallet.currency}
+                  </Text>
+                </View>
+                <Text style={[typography.caption, {color: colors.primary}]}>Change</Text>
+              </View>
+            ) : (
+              <Text style={[typography.body, {color: colors.textTertiary}]}>Select wallet</Text>
+            )}
+          </Card>
+
           <View style={styles.amountBlock}>
             <AmountInput
               currency={currency}
@@ -479,6 +520,16 @@ export default function EditTransactionScreen() {
         visible={categoryPickerOpen}
       />
 
+      <WalletPicker
+        excludeWalletIds={[]}
+        onClose={() => setWalletPickerOpen(false)}
+        onSelect={handleSelectWallet}
+        selectedWalletId={walletId || undefined}
+        title="Select wallet"
+        visible={walletPickerOpen}
+        wallets={wallets}
+      />
+
     </View>
   );
 }
@@ -545,5 +596,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 8,
+  },
+  walletRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  walletTextCol: {
+    flex: 1,
+    minWidth: 0,
   },
 });

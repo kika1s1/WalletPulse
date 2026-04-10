@@ -246,6 +246,7 @@ export default function AnalyticsScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          fadingEdgeLength={40}
           contentContainerStyle={styles.chipScrollContent}>
           {RANGE_PRESETS.map((p) => (
             <Chip
@@ -336,7 +337,7 @@ export default function AnalyticsScreen() {
 
         <Spacer size={spacing.base} />
 
-        <View style={styles.tabRow}>
+        <View style={[styles.tabRow, {backgroundColor: colors.surface, borderRadius: radius.lg}]}>
           {tabs.map((tab) => {
             const active = tab.id === activeTab;
             return (
@@ -347,11 +348,9 @@ export default function AnalyticsScreen() {
                 onPress={() => setActiveTab(tab.id)}
                 style={[
                   styles.tab,
-                  {
-                    backgroundColor: active
-                      ? colors.primary
-                      : colors.surfaceElevated,
-                    borderRadius: radius.full,
+                  active && {
+                    backgroundColor: colors.primary,
+                    borderRadius: radius.md,
                   },
                 ]}>
                 <Text
@@ -518,12 +517,14 @@ export default function AnalyticsScreen() {
                     <PieChart
                       data={pieData}
                       donut
-                      radius={80}
-                      innerRadius={50}
+                      radius={90}
+                      innerRadius={58}
                       innerCircleColor={colors.card}
                       centerLabelComponent={() => (
                         <View style={styles.pieCenterLabel}>
                           <Text
+                            adjustsFontSizeToFit
+                            numberOfLines={1}
                             style={[
                               styles.pieCenterAmount,
                               {color: colors.text},
@@ -548,38 +549,61 @@ export default function AnalyticsScreen() {
 
               <SectionHeader title="Breakdown" />
 
-              {categoryBreakdown.map((cat) => (
-                <View key={cat.categoryId} style={styles.catRow}>
-                  <View style={styles.catHeader}>
-                    <View
-                      style={[
-                        styles.catDot,
-                        {backgroundColor: cat.categoryColor},
-                      ]}
+              <Card padding="md">
+                {categoryBreakdown.map((cat, idx) => (
+                  <Pressable
+                    key={cat.categoryId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${cat.categoryName}, ${cat.percentage.toFixed(0)}%`}
+                    onPress={() => {
+                      navigation.getParent()?.navigate('TransactionsTab', {
+                        screen: 'Transactions',
+                        params: {filterCategoryId: cat.categoryId},
+                      });
+                    }}
+                    style={({pressed}) => [
+                      styles.catRow,
+                      pressed && {opacity: 0.7},
+                      idx < categoryBreakdown.length - 1 && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: colors.borderLight,
+                        paddingBottom: 14,
+                      },
+                    ]}>
+                    <View style={styles.catHeader}>
+                      <View
+                        style={[
+                          styles.catIconWrap,
+                          {backgroundColor: cat.categoryColor + '20'},
+                        ]}>
+                        <AppIcon name={cat.categoryIcon} size={18} color={cat.categoryColor} />
+                      </View>
+                      <View style={styles.catNameCol}>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.catName, {color: colors.text}]}>
+                          {cat.categoryName}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.catPercent, {color: colors.textSecondary}]}>
+                          {cat.percentage.toFixed(1)}% ({cat.count} txn
+                          {cat.count !== 1 ? 's' : ''})
+                        </Text>
+                      </View>
+                      <Text style={[styles.catAmount, {color: colors.text}]}>
+                        {formatAmountMasked(cat.total, baseCurrency, hide)}
+                      </Text>
+                    </View>
+                    <ProgressBar
+                      progress={cat.percentage / 100}
+                      height={8}
+                      color={cat.categoryColor}
+                      showLabel={false}
                     />
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.catName, {color: colors.text}]}>
-                      {cat.categoryName}
-                    </Text>
-                    <Text style={[styles.catAmount, {color: colors.text}]}>
-                      {formatAmountMasked(cat.total, baseCurrency, hide)}
-                    </Text>
-                  </View>
-                  <ProgressBar
-                    progress={cat.percentage / 100}
-                    height={6}
-                    color={cat.categoryColor}
-                    showLabel={false}
-                  />
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.catPercent, {color: colors.textSecondary}]}>
-                    {cat.percentage.toFixed(1)}% of spending ({cat.count} txn
-                    {cat.count !== 1 ? 's' : ''})
-                  </Text>
-                </View>
-              ))}
+                  </Pressable>
+                ))}
+              </Card>
             </View>
           )}
 
@@ -683,7 +707,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 4,
-    paddingRight: 4,
+    paddingRight: 24,
   },
   customDateRow: {
     flexDirection: 'row',
@@ -705,11 +729,13 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    gap: 8,
+    padding: 4,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
   },
   tabText: {
     fontSize: 14,
@@ -794,43 +820,47 @@ const styles = StyleSheet.create({
   pieCenterLabel: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   pieCenterAmount: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
   pieCenterSub: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
   catRow: {
-    marginTop: 12,
+    paddingTop: 12,
+    gap: 8,
   },
   catHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 12,
   },
-  catDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
+  catIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  catName: {
+  catNameCol: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
     minWidth: 0,
   },
+  catName: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+  },
   catAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '700',
   },
   catPercent: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
   },
   summaryStatRow: {
     flexDirection: 'row',

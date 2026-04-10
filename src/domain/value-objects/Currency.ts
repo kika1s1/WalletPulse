@@ -92,5 +92,5 @@ export function formatCurrencySymbol(code: string, amountInCents: number): strin
   const majorAmount = amountInCents / divisor;
   const sign = amountInCents < 0 ? '-' : '';
   const formatted = formatNumber(majorAmount, currency.decimals);
-  return `${sign}${currency.symbol}${formatted} ${currency.code}`;
+  return `${sign}${currency.symbol}${formatted}`;
 }

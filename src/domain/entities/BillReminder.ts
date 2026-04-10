@@ -8,6 +8,7 @@ export type BillReminder = {
   readonly dueDate: number;
   readonly recurrence: BillRecurrence;
   readonly categoryId: string;
+  readonly walletId: string;
   readonly isPaid: boolean;
   readonly paidTransactionId?: string;
   readonly remindDaysBefore: number;

@@ -36,11 +36,18 @@ function undefinedToNull<T>(value: T | undefined): T | null {
 }
 
 function parseTagsJson(tagsJson: string): string[] {
-  const parsed = JSON.parse(tagsJson) as unknown;
-  if (!Array.isArray(parsed)) {
+  if (!tagsJson) {
     return [];
   }
-  return parsed.map(String);
+  try {
+    const parsed = JSON.parse(tagsJson) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map(String);
+  } catch {
+    return [];
+  }
 }
 
 export function toDomain(raw: TransactionRaw): Transaction {

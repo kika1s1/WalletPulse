@@ -8,6 +8,7 @@ export type BillReminderRaw = {
   dueDate: number;
   recurrence: string;
   categoryId: string;
+  walletId: string;
   isPaid: boolean;
   paidTransactionId: string | null;
   remindDaysBefore: number;
@@ -32,6 +33,7 @@ export function toDomain(raw: BillReminderRaw): BillReminder {
     dueDate: raw.dueDate,
     recurrence: raw.recurrence as BillRecurrence,
     categoryId: raw.categoryId,
+    walletId: raw.walletId,
     isPaid: raw.isPaid,
     paidTransactionId: nullToUndefined(raw.paidTransactionId),
     remindDaysBefore: raw.remindDaysBefore,
@@ -48,6 +50,7 @@ export function toRaw(entity: BillReminder): Omit<BillReminderRaw, 'id'> {
     dueDate: entity.dueDate,
     recurrence: entity.recurrence,
     categoryId: entity.categoryId,
+    walletId: entity.walletId,
     isPaid: entity.isPaid,
     paidTransactionId: undefinedToNull(entity.paidTransactionId),
     remindDaysBefore: entity.remindDaysBefore,

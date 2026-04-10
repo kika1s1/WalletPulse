@@ -211,7 +211,10 @@ export function useSearch(): UseSearchReturn {
           return;
         }
         setResults(models.map(modelToDomain));
-      } catch {
+      } catch (err) {
+        if (__DEV__) {
+          console.warn('[useSearch] query failed:', err);
+        }
         if (currentId === requestIdRef.current) {
           setResults([]);
         }

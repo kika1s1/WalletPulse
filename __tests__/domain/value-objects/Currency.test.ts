@@ -57,20 +57,20 @@ describe('Currency value object', () => {
   });
 
   describe('formatCurrencySymbol', () => {
-    it('should format with symbol and code', () => {
-      expect(formatCurrencySymbol('USD', 150000)).toBe('$1,500.00 USD');
+    it('should format with symbol only', () => {
+      expect(formatCurrencySymbol('USD', 150000)).toBe('$1,500.00');
     });
 
     it('should format negative amounts', () => {
-      expect(formatCurrencySymbol('USD', -25050)).toBe('-$250.50 USD');
+      expect(formatCurrencySymbol('USD', -25050)).toBe('-$250.50');
     });
 
     it('should format zero-decimal currencies', () => {
-      expect(formatCurrencySymbol('JPY', 1500)).toBe('\u00a51,500 JPY');
+      expect(formatCurrencySymbol('JPY', 1500)).toBe('\u00a51,500');
     });
 
     it('should format ETB correctly', () => {
-      expect(formatCurrencySymbol('ETB', 250000)).toBe('Br2,500.00 ETB');
+      expect(formatCurrencySymbol('ETB', 250000)).toBe('Br2,500.00');
     });
   });
 

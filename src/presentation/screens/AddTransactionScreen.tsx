@@ -129,11 +129,6 @@ export default function AddTransactionScreen() {
   const {categories} = useCategories();
   const {convert} = useConvertCurrency();
 
-  const firstActiveWalletId = useMemo(() => {
-    const w = wallets.find((x) => x.isActive);
-    return w?.id ?? null;
-  }, [wallets]);
-
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState(DEFAULT_BASE_CURRENCY);
@@ -146,12 +141,15 @@ export default function AddTransactionScreen() {
   const [receiptUri, setReceiptUri] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState('');
-  const [newTransactionId] = useState(() => generateId());
+  const newTransactionIdRef = useRef(generateId());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categoryError, setCategoryError] = useState<string | undefined>(undefined);
+
+  const [selectedWalletId, setSelectedWalletId] = useState('');
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
 
   const [fromWalletId, setFromWalletId] = useState('');
   const [toWalletId, setToWalletId] = useState('');
@@ -177,6 +175,30 @@ export default function AddTransactionScreen() {
     [toWalletId, wallets],
   );
 
+  const selectedWallet = useMemo(
+    () => wallets.find((w) => w.id === selectedWalletId) ?? null,
+    [selectedWalletId, wallets],
+  );
+
+  const didInitWalletRef = useRef(false);
+  useEffect(() => {
+    if (didInitWalletRef.current || wallets.length === 0) {
+      return;
+    }
+    didInitWalletRef.current = true;
+    const active = wallets.find((x) => x.isActive) ?? wallets[0];
+    setSelectedWalletId(active.id);
+    setCurrency(active.currency);
+  }, [wallets]);
+
+  const handleSelectWallet = useCallback((id: string) => {
+    setSelectedWalletId(id);
+    const w = wallets.find((x) => x.id === id);
+    if (w) {
+      setCurrency(w.currency);
+    }
+  }, [wallets]);
+
   const didInitTransferWalletsRef = useRef(false);
 
   useEffect(() => {
@@ -188,11 +210,14 @@ export default function AddTransactionScreen() {
       return;
     }
     didInitTransferWalletsRef.current = true;
-    const active = wallets.find((x) => x.isActive) ?? wallets[0];
+    const preferred = paramWalletId
+      ? wallets.find((x) => x.id === paramWalletId)
+      : null;
+    const active = preferred ?? wallets.find((x) => x.isActive) ?? wallets[0];
     const other = wallets.find((x) => x.id !== active.id);
     setFromWalletId(active.id);
     setToWalletId(other?.id ?? '');
-  }, [type, wallets]);
+  }, [type, wallets, paramWalletId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,6 +254,7 @@ export default function AddTransactionScreen() {
   }, [amount, convert, fromWallet, toWallet, type]);
 
   const paramType = route.params?.type;
+  const paramWalletId = route.params?.walletId;
   const templateAmount = route.params?.templateAmount;
   const templateCategoryId = route.params?.templateCategoryId;
   const templateDescription = route.params?.templateDescription;
@@ -239,6 +265,13 @@ export default function AddTransactionScreen() {
   useEffect(() => {
     if (paramType === 'expense' || paramType === 'income' || paramType === 'transfer') {
       setType(paramType);
+    }
+    if (paramWalletId) {
+      const w = wallets.find((x) => x.id === paramWalletId);
+      if (w) {
+        setSelectedWalletId(w.id);
+        setCurrency(w.currency);
+      }
     }
     if (templateAmount !== undefined && templateAmount > 0) {
       setAmount(templateAmount);
@@ -252,7 +285,7 @@ export default function AddTransactionScreen() {
     if (templateMerchant !== undefined) {
       setMerchant(templateMerchant);
     }
-    if (templateCurrency) {
+    if (templateCurrency && !paramWalletId) {
       setCurrency(templateCurrency.toUpperCase());
     }
     if (templateTags && templateTags.length > 0) {
@@ -260,6 +293,8 @@ export default function AddTransactionScreen() {
     }
   }, [
     paramType,
+    paramWalletId,
+    wallets,
     templateAmount,
     templateCategoryId,
     templateDescription,
@@ -286,7 +321,9 @@ export default function AddTransactionScreen() {
 
   const handleClear = useCallback(() => {
     setAmount(0);
-    setCurrency(DEFAULT_BASE_CURRENCY);
+    const defaultWallet = wallets.find((x) => x.isActive) ?? wallets[0];
+    setSelectedWalletId(defaultWallet?.id ?? '');
+    setCurrency(defaultWallet?.currency ?? DEFAULT_BASE_CURRENCY);
     setCategoryId('');
     setDescription('');
     setMerchant('');
@@ -301,7 +338,7 @@ export default function AddTransactionScreen() {
     setToWalletId('');
     setTransferFxPreview(null);
     didInitTransferWalletsRef.current = false;
-  }, []);
+  }, [wallets]);
 
   const handleSave = useCallback(async () => {
     if (amount <= 0) {
@@ -367,10 +404,10 @@ export default function AddTransactionScreen() {
       Alert.alert('Category required', 'Select a category before saving.');
       return;
     }
-    if (!firstActiveWalletId) {
+    if (!selectedWalletId) {
       Alert.alert(
-        'No active wallet',
-        'Create an active wallet before adding a transaction.',
+        'No wallet selected',
+        'Select a wallet before adding a transaction.',
       );
       return;
     }
@@ -391,11 +428,12 @@ export default function AddTransactionScreen() {
         isRecurring,
         recurrenceRule,
       },
-      firstActiveWalletId,
-      newTransactionId,
+      selectedWalletId,
+      newTransactionIdRef.current,
     );
     try {
       await createTransaction(input);
+      newTransactionIdRef.current = generateId();
       navigation.goBack();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -409,11 +447,10 @@ export default function AddTransactionScreen() {
     createWalletTransfer,
     currency,
     description,
-    firstActiveWalletId,
+    selectedWalletId,
     fromWallet,
     merchant,
     navigation,
-    newTransactionId,
     notes,
     receiptUri,
     tags,
@@ -481,6 +518,28 @@ export default function AddTransactionScreen() {
               selected={type === 'transfer'}
             />
           </View>
+
+          {type !== 'transfer' && (
+            <Card onPress={() => setWalletPickerOpen(true)} padding="md">
+              <Text style={[styles.cardLabel, {color: colors.textSecondary}]}>Wallet</Text>
+              {selectedWallet ? (
+                <View style={styles.walletRow}>
+                  <View style={[styles.categoryDot, {backgroundColor: selectedWallet.color}]} />
+                  <View style={styles.walletTextCol}>
+                    <Text style={[typography.body, {color: colors.text, fontWeight: '600'}]}>
+                      {selectedWallet.name}
+                    </Text>
+                    <Text style={[typography.caption, {color: colors.textTertiary}]}>
+                      {selectedWallet.currency}
+                    </Text>
+                  </View>
+                  <Text style={[typography.caption, {color: colors.primary}]}>Change</Text>
+                </View>
+              ) : (
+                <Text style={[typography.body, {color: colors.textTertiary}]}>Select wallet</Text>
+              )}
+            </Card>
+          )}
 
           {type === 'transfer' ? (
             <>
@@ -668,7 +727,7 @@ export default function AddTransactionScreen() {
           {type !== 'transfer' ? (
             <ReceiptAttachmentField
               onChange={setReceiptUri}
-              storageKeyId={newTransactionId}
+              storageKeyId={newTransactionIdRef.current}
               value={receiptUri}
             />
           ) : null}
@@ -699,6 +758,16 @@ export default function AddTransactionScreen() {
         selectedId={categoryId || undefined}
         type={categoryPickerFilter}
         visible={categoryPickerOpen}
+      />
+
+      <WalletPicker
+        excludeWalletIds={[]}
+        onClose={() => setWalletPickerOpen(false)}
+        onSelect={handleSelectWallet}
+        selectedWalletId={selectedWalletId || undefined}
+        title="Select wallet"
+        visible={walletPickerOpen}
+        wallets={wallets}
       />
 
       <WalletPicker

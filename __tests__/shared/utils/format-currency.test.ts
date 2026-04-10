@@ -8,12 +8,12 @@ import {
 describe('format-currency', () => {
   describe('formatAmount', () => {
     it('formats known currencies with symbol via Currency value object', () => {
-      expect(formatAmount(150000, 'USD')).toBe('$1,500.00 USD');
-      expect(formatAmount(250000, 'ETB')).toBe('Br2,500.00 ETB');
+      expect(formatAmount(150000, 'USD')).toBe('$1,500.00');
+      expect(formatAmount(250000, 'ETB')).toBe('Br2,500.00');
     });
 
     it('formats negative amounts for known currencies', () => {
-      expect(formatAmount(-25050, 'USD')).toBe('-$250.50 USD');
+      expect(formatAmount(-25050, 'USD')).toBe('-$250.50');
     });
 
     it('falls back to code and major amount for unknown currencies', () => {

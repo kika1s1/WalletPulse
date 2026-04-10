@@ -19,6 +19,7 @@ function makeBill(overrides: Partial<BillReminder> = {}): BillReminder {
     dueDate: now + 5 * DAY,
     recurrence: 'monthly',
     categoryId: 'utilities',
+    walletId: 'wallet-1',
     isPaid: false,
     remindDaysBefore: 3,
     createdAt: now - 30 * DAY,

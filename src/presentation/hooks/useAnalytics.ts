@@ -50,6 +50,21 @@ export type AnalyticsData = {
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MS_PER_DAY = 86400000;
 
+const CHART_PALETTE = [
+  '#6C5CE7',
+  '#00B894',
+  '#FDCB6E',
+  '#E17055',
+  '#0984E3',
+  '#E84393',
+  '#00CEC9',
+  '#FF7675',
+  '#A29BFE',
+  '#55EFC4',
+  '#FAB1A0',
+  '#74B9FF',
+];
+
 function getDefaultMonthRange(): AnalyticsDateRange {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -68,7 +83,7 @@ function inclusiveCalendarDays(startMs: number, endMs: number): number {
 type DateFormat = 'US' | 'EU' | 'ISO';
 
 function formatRangeSubtitle(startMs: number, endMs: number, dateFormat: DateFormat = 'US'): string {
-  return `${formatDateLong(startMs, dateFormat)} – ${formatDateLong(endMs, dateFormat)}`;
+  return `${formatDateLong(startMs, dateFormat)} to ${formatDateLong(endMs, dateFormat)}`;
 }
 
 function formatDayLabel(d: Date, dateFormat: DateFormat): string {
@@ -163,15 +178,18 @@ function buildCategoryBreakdown(
   }
 
   const result: CategoryBreakdown[] = [];
+  let paletteIdx = 0;
   for (const [catId, data] of map.entries()) {
     const cat = categoryList.find(
       (c) => c.id === catId || c.name === catId,
     );
+    const color = cat?.color || CHART_PALETTE[paletteIdx % CHART_PALETTE.length];
+    paletteIdx += 1;
     result.push({
       categoryId: catId,
       categoryName: cat?.name ?? catId,
-      categoryColor: cat?.color ?? '#B2BEC3',
-      categoryIcon: cat?.icon ?? '?',
+      categoryColor: color,
+      categoryIcon: cat?.icon ?? 'shape-outline',
       total: data.total,
       percentage: totalExpenses > 0 ? (data.total / totalExpenses) * 100 : 0,
       count: data.count,
@@ -179,6 +197,18 @@ function buildCategoryBreakdown(
   }
 
   result.sort((a, b) => b.total - a.total);
+
+  const seen = new Set<string>();
+  for (let i = 0; i < result.length; i++) {
+    if (seen.has(result[i].categoryColor)) {
+      result[i] = {
+        ...result[i],
+        categoryColor: CHART_PALETTE[i % CHART_PALETTE.length],
+      };
+    }
+    seen.add(result[i].categoryColor);
+  }
+
   return result;
 }
 

@@ -1,7 +1,7 @@
 import {appSchema, tableSchema} from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 2,
+  version: 3,
   tables: [
     tableSchema({
       name: 'wallets',
@@ -118,6 +118,7 @@ export default appSchema({
         {name: 'due_date', type: 'number', isIndexed: true},
         {name: 'recurrence', type: 'string'},
         {name: 'category_id', type: 'string', isIndexed: true},
+        {name: 'wallet_id', type: 'string', isIndexed: true},
         {name: 'is_paid', type: 'boolean'},
         {name: 'paid_transaction_id', type: 'string', isOptional: true},
         {name: 'remind_days_before', type: 'number'},

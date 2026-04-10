@@ -14,6 +14,7 @@ export default class BillReminderModel extends Model {
   @field('due_date') dueDate!: number;
   @field('recurrence') recurrence!: string;
   @field('category_id') categoryId!: string;
+  @field('wallet_id') walletId!: string;
   @field('is_paid') isPaid!: boolean;
   @field('paid_transaction_id') paidTransactionId!: string | null;
   @field('remind_days_before') remindDaysBefore!: number;

@@ -178,6 +178,7 @@ export function WalletPicker({
       enableDynamicSizing={false}
       enablePanDownToClose
       index={sheetIndex}
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       onChange={handleSheetChange}
       snapPoints={['55%', '85%']}>

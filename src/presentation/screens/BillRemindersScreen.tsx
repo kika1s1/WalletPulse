@@ -20,6 +20,8 @@ import {
 import type {BillReminder} from '@domain/entities/BillReminder';
 import {useBillReminderActions, useBillReminders} from '@presentation/hooks/useBillReminders';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useCategories} from '@presentation/hooks/useCategories';
+import {useWallets} from '@presentation/hooks/useWallets';
 import {SwipeableRow, type SwipeAction} from '@presentation/components/common/SwipeableRow';
 import {Toast} from '@presentation/components/feedback/Toast';
 
@@ -37,7 +39,23 @@ export default function BillRemindersScreen() {
   const [tab, setTab] = useState<Tab>('upcoming');
   const {bills, isLoading, error} = useBillReminders();
   const {markPaid, deleteBill} = useBillReminderActions();
+  const {categories} = useCategories();
+  const {wallets} = useWallets();
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) {
+      map.set(c.id, c.name);
+    }
+    return map;
+  }, [categories]);
+  const walletMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of wallets) {
+      map.set(w.id, w.name);
+    }
+    return map;
+  }, [wallets]);
   const now = Date.now();
   const [paidToastVisible, setPaidToastVisible] = useState(false);
 
@@ -158,7 +176,8 @@ export default function BillRemindersScreen() {
               <View style={{flex: 1}}>
                 <Text numberOfLines={1} style={[styles.billName, {color: colors.text}]}>{bill.name}</Text>
                 <Text style={[styles.billCategory, {color: colors.textTertiary}]}>
-                  {bill.categoryId} / {bill.recurrence}
+                  {categoryMap.get(bill.categoryId) ?? bill.categoryId} / {bill.recurrence}
+                  {bill.walletId ? ` / ${walletMap.get(bill.walletId) ?? 'Unknown wallet'}` : ''}
                 </Text>
               </View>
               <Text style={[styles.billAmount, {color: colors.text}]}>

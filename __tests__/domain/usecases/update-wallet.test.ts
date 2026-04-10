@@ -45,14 +45,12 @@ describe('makeUpdateWallet', () => {
     expect(result.icon).toBe('bank');
     expect(result.color).toBe('#00B894');
     expect(result.balance).toBe(5000);
-    expect(walletRepo.findByCurrency).not.toHaveBeenCalled();
     expect(walletRepo.update).toHaveBeenCalledTimes(1);
   });
 
-  it('allows currency change when no other wallet uses it', async () => {
+  it('allows currency change freely', async () => {
     const walletRepo = createWalletRepoMock();
     walletRepo.findById.mockResolvedValue(existingWallet);
-    walletRepo.findByCurrency.mockResolvedValue(null);
     walletRepo.update.mockResolvedValue(undefined);
 
     const execute = makeUpdateWallet({walletRepo});
@@ -64,7 +62,6 @@ describe('makeUpdateWallet', () => {
     });
 
     expect(result.currency).toBe('EUR');
-    expect(walletRepo.findByCurrency).toHaveBeenCalledWith('EUR');
     expect(walletRepo.update).toHaveBeenCalled();
   });
 
@@ -85,44 +82,15 @@ describe('makeUpdateWallet', () => {
     expect(walletRepo.update).not.toHaveBeenCalled();
   });
 
-  it('rejects currency change when another wallet owns it', async () => {
+  it('allows multiple wallets with the same currency', async () => {
     const walletRepo = createWalletRepoMock();
     walletRepo.findById.mockResolvedValue(existingWallet);
-    walletRepo.findByCurrency.mockResolvedValue({
-      id: 'w-2',
-      currency: 'EUR',
-      name: 'Other',
-      balance: 0,
-      isActive: true,
-      icon: 'wallet',
-      color: '#000000',
-      sortOrder: 1,
-      createdAt: 1,
-      updatedAt: 1,
-    });
-
-    const execute = makeUpdateWallet({walletRepo});
-
-    await expect(
-      execute('w-1', {
-        name: 'Checking',
-        currency: 'EUR',
-        icon: 'wallet',
-        color: '#112233',
-      }),
-    ).rejects.toThrow('A wallet for this currency already exists');
-    expect(walletRepo.update).not.toHaveBeenCalled();
-  });
-
-  it('allows currency change to same wallet (case normalization)', async () => {
-    const walletRepo = createWalletRepoMock();
-    walletRepo.findById.mockResolvedValue(existingWallet);
-    walletRepo.findByCurrency.mockResolvedValue(existingWallet);
+    walletRepo.update.mockResolvedValue(undefined);
 
     const execute = makeUpdateWallet({walletRepo});
     await execute('w-1', {
       name: 'Checking',
-      currency: 'usd',
+      currency: 'USD',
       icon: 'wallet',
       color: '#112233',
     });

@@ -12,10 +12,6 @@ export type CreateWalletDeps = {
 export function makeCreateWallet(deps: CreateWalletDeps) {
   return async function execute(input: CreateWalletInput): Promise<Wallet> {
     const wallet = createWallet(input);
-    const existing = await deps.walletRepo.findByCurrency(wallet.currency);
-    if (existing !== null) {
-      throw new Error('A wallet for this currency already exists');
-    }
     await deps.walletRepo.save(wallet);
     return wallet;
   };

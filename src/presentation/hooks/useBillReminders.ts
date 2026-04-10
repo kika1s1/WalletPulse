@@ -6,6 +6,8 @@ import type {BillReminder, CreateBillReminderInput} from '@domain/entities/BillR
 import {createBillReminder} from '@domain/entities/BillReminder';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {toDomain, type BillReminderRaw} from '@data/mappers/bill-reminder-mapper';
+import {makeCreateTransaction} from '@domain/usecases/create-transaction';
+import {generateId} from '@shared/utils/hash';
 
 function modelToDomain(model: BillReminderModel): BillReminder {
   const raw: BillReminderRaw = {
@@ -16,6 +18,7 @@ function modelToDomain(model: BillReminderModel): BillReminder {
     dueDate: model.dueDate,
     recurrence: model.recurrence,
     categoryId: model.categoryId,
+    walletId: model.walletId ?? '',
     isPaid: model.isPaid,
     paidTransactionId: model.paidTransactionId,
     remindDaysBefore: model.remindDaysBefore,
@@ -115,7 +118,43 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().billReminders.markPaid(id, paidTransactionId);
+      if (paidTransactionId) {
+        await getLocalDataSource().billReminders.markPaid(id, paidTransactionId);
+      } else {
+        const ds = getLocalDataSource();
+        const bill = await ds.billReminders.findById(id);
+        if (!bill) {
+          throw new Error('Bill reminder not found');
+        }
+
+        const walletId = bill.walletId;
+        if (!walletId) {
+          throw new Error('No wallet assigned to this bill. Edit the bill and assign a wallet first.');
+        }
+
+        const createTxn = makeCreateTransaction({
+          transactionRepo: ds.transactions,
+          walletRepo: ds.wallets,
+        });
+        const now = Date.now();
+        const txnId = generateId();
+        await createTxn({
+          id: txnId,
+          walletId,
+          categoryId: bill.categoryId,
+          amount: bill.amount,
+          currency: bill.currency,
+          type: 'expense',
+          description: `Bill payment: ${bill.name}`,
+          merchant: bill.name,
+          source: 'manual',
+          sourceHash: '',
+          transactionDate: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await ds.billReminders.markPaid(id, txnId);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);

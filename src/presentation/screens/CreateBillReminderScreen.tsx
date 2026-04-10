@@ -28,6 +28,8 @@ import {useBillReminderActions, useBillReminders} from '@presentation/hooks/useB
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {generateId} from '@shared/utils/hash';
 import type {BillRecurrence, BillReminder} from '@domain/entities/BillReminder';
+import {WalletPicker} from '@presentation/components/common/WalletPicker';
+import {useWallets} from '@presentation/hooks/useWallets';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateBillReminder'>;
 type CreateRoute = RouteProp<SettingsStackParamList, 'CreateBillReminder'>;
@@ -67,12 +69,17 @@ export default function CreateBillReminderScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {bills, isLoading} = useBillReminders();
   const {saveBill, updateBill, isSubmitting} = useBillReminderActions();
+  const {wallets} = useWallets();
+  const activeWallets = wallets.filter((w) => w.isActive);
   const [baseline, setBaseline] = useState<BillReminder | null>(null);
   const missingBillAlertedRef = useRef(false);
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState(baseCurrency);
+  const [walletId, setWalletId] = useState('');
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const selectedWallet = activeWallets.find((w) => w.id === walletId);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
@@ -93,12 +100,14 @@ export default function CreateBillReminderScreen() {
     setName('');
     setAmount(0);
     setCurrency(baseCurrency);
+    setWalletId(activeWallets.length > 0 ? activeWallets[0].id : '');
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
     setDueDate(d.getTime());
     setRecurrence('monthly');
     setCategoryId('');
     setRemindDaysBefore(3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editBillId, baseCurrency]);
 
   useEffect(() => {
@@ -113,10 +122,12 @@ export default function CreateBillReminderScreen() {
     setName(found.name);
     setAmount(found.amount);
     setCurrency(found.currency);
+    setWalletId(found.walletId || (activeWallets.length > 0 ? activeWallets[0].id : ''));
     setDueDate(found.dueDate);
     setRecurrence(found.recurrence);
     setCategoryId(found.categoryId === 'uncategorized' ? '' : found.categoryId);
     setRemindDaysBefore(found.remindDaysBefore);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editBillId, bills]);
 
   useEffect(() => {
@@ -156,6 +167,7 @@ export default function CreateBillReminderScreen() {
           dueDate,
           recurrence,
           categoryId: categoryId || 'uncategorized',
+          walletId,
           isPaid: baseline.isPaid,
           paidTransactionId: baseline.paidTransactionId,
           remindDaysBefore,
@@ -171,6 +183,7 @@ export default function CreateBillReminderScreen() {
           dueDate,
           recurrence,
           categoryId: categoryId || 'uncategorized',
+          walletId,
           isPaid: false,
           remindDaysBefore,
           createdAt: now,
@@ -194,6 +207,7 @@ export default function CreateBillReminderScreen() {
     name,
     amount,
     currency,
+    walletId,
     dueDate,
     recurrence,
     categoryId,
@@ -246,6 +260,19 @@ export default function CreateBillReminderScreen() {
               value={amount}
             />
           </View>
+        </View>
+
+        <View style={{marginTop: spacing.xl}}>
+          <Text style={[styles.sectionTitle, {color: colors.textTertiary}]}>WALLET</Text>
+          <Pressable
+            onPress={() => setWalletPickerOpen(true)}
+            style={[styles.inputWrap, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md}]}>
+            <AppIcon name="wallet-outline" size={20} color={selectedWallet ? colors.primary : colors.textTertiary} />
+            <Text style={[{color: selectedWallet ? colors.text : colors.textTertiary, fontSize: 16, flex: 1, marginLeft: 10, fontWeight: selectedWallet ? fontWeight.medium : fontWeight.regular}]}>
+              {selectedWallet ? `${selectedWallet.name} (${selectedWallet.currency})` : 'Select wallet'}
+            </Text>
+            <AppIcon name="chevron-down" size={20} color={colors.textTertiary} />
+          </Pressable>
         </View>
 
         <View style={{marginTop: spacing.xl}}>
@@ -367,6 +394,19 @@ export default function CreateBillReminderScreen() {
         selectedId={categoryId || undefined}
         type="expense"
         visible={categoryPickerOpen}
+      />
+
+      <WalletPicker
+        onClose={() => setWalletPickerOpen(false)}
+        onSelect={(id) => {
+          setWalletId(id);
+          const w = activeWallets.find((aw) => aw.id === id);
+          if (w) {
+            setCurrency(w.currency);
+          }
+        }}
+        selectedId={walletId || undefined}
+        visible={walletPickerOpen}
       />
     </View>
   );

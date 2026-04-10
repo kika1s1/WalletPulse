@@ -107,17 +107,18 @@ function billRecurrenceToCycle(
   return recurrence;
 }
 
-async function processDueBills(deps: RecurringSchedulerDeps, walletId: string, nowMs: number): Promise<void> {
+async function processDueBills(deps: RecurringSchedulerDeps, defaultWalletId: string, nowMs: number): Promise<void> {
   const bills = await deps.billReminders.findUnpaid();
   for (const bill of bills) {
     if (bill.dueDate > nowMs) {
       continue;
     }
+    const effectiveWalletId = bill.walletId || defaultWalletId;
     const txId = deps.generateId();
     await deps.createTransaction(
       buildExpenseInput({
         id: txId,
-        walletId,
+        walletId: effectiveWalletId,
         categoryId: bill.categoryId,
         amount: bill.amount,
         currency: bill.currency,
@@ -140,6 +141,7 @@ async function processDueBills(deps: RecurringSchedulerDeps, walletId: string, n
         dueDate: nextDue,
         recurrence: bill.recurrence,
         categoryId: bill.categoryId,
+        walletId: effectiveWalletId,
         isPaid: false,
         remindDaysBefore: bill.remindDaysBefore,
         createdAt: nowMs,

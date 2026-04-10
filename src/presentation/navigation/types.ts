@@ -12,6 +12,7 @@ export type TransactionsStackParamList = {
   AddTransaction:
     | {
         type?: 'income' | 'expense' | 'transfer';
+        walletId?: string;
         templateAmount?: number;
         templateCategoryId?: string;
         templateDescription?: string;

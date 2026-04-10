@@ -90,7 +90,7 @@ export default function DashboardScreen() {
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
             screen: 'AddTransaction',
-            params: {type: 'expense'},
+            params: {type: 'expense', walletId: selectedWalletId ?? undefined},
           }),
       },
       {
@@ -100,7 +100,7 @@ export default function DashboardScreen() {
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
             screen: 'AddTransaction',
-            params: {type: 'income'},
+            params: {type: 'income', walletId: selectedWalletId ?? undefined},
           }),
       },
       {
@@ -110,7 +110,7 @@ export default function DashboardScreen() {
         onPress: () =>
           navigation.getParent()?.navigate('TransactionsTab', {
             screen: 'AddTransaction',
-            params: {type: 'transfer'},
+            params: {type: 'transfer', walletId: selectedWalletId ?? undefined},
           }),
       },
       {
@@ -123,7 +123,7 @@ export default function DashboardScreen() {
           }),
       },
     ],
-    [colors, navigation],
+    [colors, navigation, selectedWalletId],
   );
 
   const [dismissedInsights, setDismissedInsights] = useState<Set<string>>(

@@ -211,6 +211,7 @@ export function CurrencyPicker({
       enableDynamicSizing={false}
       enablePanDownToClose
       index={sheetIndex}
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       onChange={handleSheetChange}
       snapPoints={['70%', '90%']}>

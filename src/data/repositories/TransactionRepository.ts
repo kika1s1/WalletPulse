@@ -76,7 +76,13 @@ export class TransactionRepository implements ITransactionRepository {
     }
     if (filter.searchQuery !== undefined && filter.searchQuery.trim() !== '') {
       const safe = Q.sanitizeLikeString(filter.searchQuery.trim());
-      conditions.push(Q.where('description', Q.like(`%${safe}%`)));
+      conditions.push(
+        Q.or(
+          Q.where('description', Q.like(`%${safe}%`)),
+          Q.where('merchant', Q.like(`%${safe}%`)),
+          Q.where('notes', Q.like(`%${safe}%`)),
+        ),
+      );
     }
     if (filter.tags !== undefined && filter.tags.length > 0) {
       for (const tag of filter.tags) {

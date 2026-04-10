@@ -25,6 +25,7 @@ export class BillReminderRepository implements IBillReminderRepository {
       dueDate: model.dueDate,
       recurrence: model.recurrence,
       categoryId: model.categoryId,
+      walletId: model.walletId ?? '',
       isPaid: model.isPaid,
       paidTransactionId: model.paidTransactionId,
       remindDaysBefore: model.remindDaysBefore,
@@ -75,6 +76,7 @@ export class BillReminderRepository implements IBillReminderRepository {
         record.dueDate = raw.dueDate;
         record.recurrence = raw.recurrence;
         record.categoryId = raw.categoryId;
+        record.walletId = raw.walletId;
         record.isPaid = raw.isPaid;
         record.paidTransactionId = raw.paidTransactionId;
         record.remindDaysBefore = raw.remindDaysBefore;
@@ -95,6 +97,7 @@ export class BillReminderRepository implements IBillReminderRepository {
         record.dueDate = raw.dueDate;
         record.recurrence = raw.recurrence;
         record.categoryId = raw.categoryId;
+        record.walletId = raw.walletId;
         record.isPaid = raw.isPaid;
         record.paidTransactionId = raw.paidTransactionId;
         record.remindDaysBefore = raw.remindDaysBefore;

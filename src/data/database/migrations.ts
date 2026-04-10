@@ -3,6 +3,17 @@ import {schemaMigrations, addColumns} from '@nozbe/watermelondb/Schema/migration
 export default schemaMigrations({
   migrations: [
     {
+      toVersion: 3,
+      steps: [
+        addColumns({
+          table: 'bill_reminders',
+          columns: [
+            {name: 'wallet_id', type: 'string'},
+          ],
+        }),
+      ],
+    },
+    {
       toVersion: 2,
       steps: [
         addColumns({

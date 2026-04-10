@@ -105,11 +105,6 @@ export function SwipeableRow({
 
   return (
     <Swipeable
-      animationOptions={{
-        damping: 9,
-        stiffness: 64,
-        mass: 1,
-      }}
       enableTrackpadTwoFingerGesture
       overshootLeft={false}
       overshootRight={false}

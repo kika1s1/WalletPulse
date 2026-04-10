@@ -1,6 +1,11 @@
 import React, {forwardRef, useCallback, useMemo, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import BottomSheet, {BottomSheetBackdrop, BottomSheetView} from '@gorhom/bottom-sheet';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 import type {BottomSheetDefaultBackdropProps} from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetBackdrop/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -186,6 +191,8 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
+        keyboardBehavior="extend"
+        keyboardBlurBehavior="restore"
         backdropComponent={renderBackdrop}
         backgroundStyle={{backgroundColor: colors.surface}}
         handleIndicatorStyle={{backgroundColor: colors.border}}
@@ -201,7 +208,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
             )}
           </View>
 
-          <ScrollView
+          <BottomSheetScrollView
             contentContainerStyle={[styles.scrollContent, {paddingHorizontal: spacing.base}]}
             showsVerticalScrollIndicator={false}
           >
@@ -259,7 +266,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                   {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
                 ]}>
                   <Text style={[styles.amountPrefix, {color: colors.textTertiary}]}>Min</Text>
-                  <TextInput
+                  <BottomSheetTextInput
                     style={[styles.amountInput, {color: colors.text}]}
                     value={minAmountText}
                     onChangeText={setMinAmountText}
@@ -274,7 +281,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                   {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
                 ]}>
                   <Text style={[styles.amountPrefix, {color: colors.textTertiary}]}>Max</Text>
-                  <TextInput
+                  <BottomSheetTextInput
                     style={[styles.amountInput, {color: colors.text}]}
                     value={maxAmountText}
                     onChangeText={setMaxAmountText}
@@ -346,7 +353,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
             </View>
 
             <View style={{height: 80}} />
-          </ScrollView>
+          </BottomSheetScrollView>
 
           <View style={[
             styles.applyBar,
