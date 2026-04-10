@@ -8,6 +8,7 @@ type SettingsState = {
   firstDayOfWeek: 'monday' | 'sunday';
   notificationEnabled: boolean;
   billReminderNotificationsEnabled: boolean;
+  subscriptionNotificationsEnabled: boolean;
   onboardingCompleted: boolean;
   hideAmounts: boolean;
   setThemeMode: (mode: 'light' | 'dark' | 'system') => void;
@@ -15,6 +16,7 @@ type SettingsState = {
   setFirstDayOfWeek: (day: 'monday' | 'sunday') => void;
   setNotificationEnabled: (enabled: boolean) => void;
   setBillReminderNotificationsEnabled: (enabled: boolean) => void;
+  setSubscriptionNotificationsEnabled: (enabled: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => void;
   toggleHideAmounts: () => void;
 };
@@ -27,6 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
       firstDayOfWeek: 'monday',
       notificationEnabled: true,
       billReminderNotificationsEnabled: true,
+      subscriptionNotificationsEnabled: true,
       onboardingCompleted: false,
       hideAmounts: false,
       setThemeMode: (mode) => set({themeMode: mode}),
@@ -34,6 +37,7 @@ export const useSettingsStore = create<SettingsState>()(
       setFirstDayOfWeek: (day) => set({firstDayOfWeek: day}),
       setNotificationEnabled: (enabled) => set({notificationEnabled: enabled}),
       setBillReminderNotificationsEnabled: (enabled) => set({billReminderNotificationsEnabled: enabled}),
+      setSubscriptionNotificationsEnabled: (enabled) => set({subscriptionNotificationsEnabled: enabled}),
       setOnboardingCompleted: (completed) => set({onboardingCompleted: completed}),
       toggleHideAmounts: () => set((s) => ({hideAmounts: !s.hideAmounts})),
     }),

@@ -12,6 +12,7 @@ import {
 } from '@infrastructure/notification/notification-handler';
 import {processRecurringItems} from '@infrastructure/recurring/recurring-scheduler';
 import {scheduleBillNotifications, cancelAllBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
+import {scheduleSubscriptionNotifications, cancelAllSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
 import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {useTheme} from '@shared/theme';
@@ -119,6 +120,48 @@ function useBillReminderNotifications(splashDone: boolean) {
   }, [splashDone, billNotifEnabled, scheduleBills]);
 }
 
+const SUB_SCHEDULE_THROTTLE_MS = 60_000;
+
+function useSubscriptionNotifications(splashDone: boolean) {
+  const subNotifEnabled = useSettingsStore((s) => s.subscriptionNotificationsEnabled);
+  const lastScheduleRef = useRef(0);
+
+  const scheduleSubs = useCallback(async () => {
+    const elapsed = Date.now() - lastScheduleRef.current;
+    if (elapsed < SUB_SCHEDULE_THROTTLE_MS) {return;}
+    lastScheduleRef.current = Date.now();
+    try {
+      const ds = getLocalDataSource();
+      const active = await ds.subscriptions.findActive();
+      await scheduleSubscriptionNotifications(active);
+    } catch {
+      /* offline-first: non-fatal */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!splashDone) {return;}
+
+    if (!subNotifEnabled) {
+      void cancelAllSubscriptionNotifications();
+      return;
+    }
+
+    void scheduleSubs();
+  }, [splashDone, subNotifEnabled, scheduleSubs]);
+
+  useEffect(() => {
+    if (!splashDone || !subNotifEnabled) {return;}
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void scheduleSubs();
+      }
+    });
+    return () => sub.remove();
+  }, [splashDone, subNotifEnabled, scheduleSubs]);
+}
+
 function AppContent() {
   const {isDark} = useTheme();
   const [splashDone, setSplashDone] = useState(false);
@@ -129,6 +172,7 @@ function AppContent() {
   useGlobalNotificationListener();
   useRecurringScheduler(splashDone);
   useBillReminderNotifications(splashDone);
+  useSubscriptionNotifications(splashDone);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {

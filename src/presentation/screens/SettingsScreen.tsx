@@ -489,6 +489,24 @@ export default function SettingsScreen() {
             onPress={() => navigation.navigate('SubscriptionsList')}
             value="View"
           />
+          <SettingsRow
+            description="Get notified before subscriptions renew"
+            icon="bell-check-outline"
+            label="Subscription Alerts"
+            trailing={
+              <Switch
+                onValueChange={(val) => settings.setSubscriptionNotificationsEnabled(val)}
+                thumbColor={
+                  settings.subscriptionNotificationsEnabled ? colors.primary : colors.border
+                }
+                trackColor={{
+                  false: colors.borderLight,
+                  true: colors.primaryLight,
+                }}
+                value={settings.subscriptionNotificationsEnabled}
+              />
+            }
+          />
         </View>
 
         <SectionHeader title="DATA" />

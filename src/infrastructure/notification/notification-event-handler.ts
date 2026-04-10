@@ -1,6 +1,7 @@
 import {navigationRef} from '@presentation/navigation/navigationRef';
 
 let pendingBillNav: string | null = null;
+let pendingSubscriptionNav: string | null = null;
 
 export function getPendingBillNav(): string | null {
   const v = pendingBillNav;
@@ -8,18 +9,37 @@ export function getPendingBillNav(): string | null {
   return v;
 }
 
-function handleNotificationPress(data: Record<string, unknown> | undefined): void {
-  if (!data || data.type !== 'bill_reminder') {return;}
+export function getPendingSubscriptionNav(): string | null {
+  const v = pendingSubscriptionNav;
+  pendingSubscriptionNav = null;
+  return v;
+}
 
-  if (navigationRef.isReady()) {
-    navigationRef.navigate('MainTabs', {
-      screen: 'SettingsTab',
-      params: {
-        screen: 'BillReminders',
-      },
-    });
-  } else {
-    pendingBillNav = (data.billId as string) ?? null;
+function handleNotificationPress(data: Record<string, unknown> | undefined): void {
+  if (!data) {return;}
+
+  if (data.type === 'bill_reminder') {
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('MainTabs', {
+        screen: 'SettingsTab',
+        params: {
+          screen: 'BillReminders',
+        },
+      });
+    } else {
+      pendingBillNav = (data.billId as string) ?? null;
+    }
+  } else if (data.type === 'subscription_reminder') {
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('MainTabs', {
+        screen: 'SettingsTab',
+        params: {
+          screen: 'Subscriptions',
+        },
+      });
+    } else {
+      pendingSubscriptionNav = (data.subscriptionId as string) ?? null;
+    }
   }
 }
 

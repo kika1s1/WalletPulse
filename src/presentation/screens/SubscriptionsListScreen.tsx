@@ -22,6 +22,7 @@ import {
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
+import {showImmediateSubscriptionNotification} from '@infrastructure/notification/subscription-notifications';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useStableNow} from '@presentation/hooks/useStableNow';
@@ -48,6 +49,7 @@ type SubCardItemProps = {
   onEdit: (id: string) => void;
   onCancel: (sub: Subscription) => void;
   onDelete: (sub: Subscription) => void;
+  onTestNotification: (sub: Subscription) => void;
 };
 
 const SubCardItem = React.memo(function SubCardItem({
@@ -58,6 +60,7 @@ const SubCardItem = React.memo(function SubCardItem({
   onEdit,
   onCancel,
   onDelete,
+  onTestNotification,
 }: SubCardItemProps) {
   const {colors, radius, shadows} = useTheme();
 
@@ -75,9 +78,10 @@ const SubCardItem = React.memo(function SubCardItem({
   return (
     <SwipeableRow rightActions={rightActions}>
       <Pressable
-        accessibilityLabel={`Edit ${sub.name}`}
+        accessibilityLabel={`Edit ${sub.name}, long press to test notification`}
         accessibilityRole="button"
         onPress={() => onEdit(sub.id)}
+        onLongPress={() => onTestNotification(sub)}
         style={[
           styles.subCard,
           {
@@ -162,6 +166,17 @@ export default function SubscriptionsListScreen() {
       ]);
     },
     [deleteSubscription],
+  );
+
+  const handleTestNotification = useCallback(
+    (sub: Subscription) => {
+      void showImmediateSubscriptionNotification(sub).then(() => {
+        Alert.alert('Notification Sent', `Test notification sent for "${sub.name}"`);
+      }).catch((e) => {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to send notification');
+      });
+    },
+    [],
   );
 
   const handleCancelSubscription = useCallback(
@@ -315,6 +330,7 @@ export default function SubscriptionsListScreen() {
                         onEdit={navigateToEditSub}
                         onCancel={handleCancelSubscription}
                         onDelete={confirmDeleteSubscription}
+                        onTestNotification={handleTestNotification}
                       />
                     ))}
                   </View>
