@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AppState, Platform, StatusBar, View, StyleSheet} from 'react-native';
+import {AppState, Platform, StatusBar, View, StyleSheet, PermissionsAndroid} from 'react-native';
 import {Providers} from './Providers';
 import AppNavigator from '@presentation/navigation/AppNavigator';
 import {SplashScreen} from '@presentation/components/SplashScreen';
@@ -16,6 +16,17 @@ import {scheduleSubscriptionNotifications, cancelAllSubscriptionNotifications} f
 import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {useTheme} from '@shared/theme';
+
+async function requestNotificationPermission(): Promise<void> {
+  if (Platform.OS !== 'android' || Platform.Version < 33) {return;}
+  try {
+    await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+  } catch {
+    /* permission request failed, notifications may not work */
+  }
+}
 
 const RECURRING_SCHEDULER_INTERVAL_MS = 3600_000;
 
@@ -206,6 +217,7 @@ setupNotifeeEventHandlers();
 
 export default function App() {
   useEffect(() => {
+    void requestNotificationPermission();
     void checkInitialNotification();
   }, []);
 

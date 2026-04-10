@@ -22,7 +22,7 @@ import {
 import type {Subscription} from '@domain/entities/Subscription';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {useSubscriptionActions, useSubscriptions} from '@presentation/hooks/useSubscriptions';
-import {showImmediateSubscriptionNotification} from '@infrastructure/notification/subscription-notifications';
+import {scheduleTestSubscriptionNotification} from '@infrastructure/notification/subscription-notifications';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useStableNow} from '@presentation/hooks/useStableNow';
@@ -170,10 +170,13 @@ export default function SubscriptionsListScreen() {
 
   const handleTestNotification = useCallback(
     (sub: Subscription) => {
-      void showImmediateSubscriptionNotification(sub).then(() => {
-        Alert.alert('Notification Sent', `Test notification sent for "${sub.name}"`);
+      void scheduleTestSubscriptionNotification(sub, 10).then((delay) => {
+        Alert.alert(
+          'Notification Scheduled',
+          `A notification for "${sub.name}" will appear in ${delay} seconds.\n\nClose the app now to see it!`,
+        );
       }).catch((e) => {
-        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to send notification');
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to schedule notification');
       });
     },
     [],

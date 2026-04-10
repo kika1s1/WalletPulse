@@ -25,6 +25,7 @@ import {useWallets} from '@presentation/hooks/useWallets';
 import {useStableNow} from '@presentation/hooks/useStableNow';
 import {SwipeableRow, type SwipeAction} from '@presentation/components/common/SwipeableRow';
 import {Toast} from '@presentation/components/feedback/Toast';
+import {scheduleTestBillNotification} from '@infrastructure/notification/bill-reminder-notifications';
 
 const DAY = 86400000;
 
@@ -50,6 +51,7 @@ type BillCardItemProps = {
   onEdit: (id: string) => void;
   onDelete: (bill: BillReminder) => void;
   onMarkPaid: (id: string) => void;
+  onTestNotification: (bill: BillReminder) => void;
 };
 
 const BillCardItem = React.memo(function BillCardItem({
@@ -61,6 +63,7 @@ const BillCardItem = React.memo(function BillCardItem({
   onEdit,
   onDelete,
   onMarkPaid,
+  onTestNotification,
 }: BillCardItemProps) {
   const {colors, radius, shadows} = useTheme();
   const isOverdueItem = !bill.isPaid && bill.dueDate < now;
@@ -91,9 +94,10 @@ const BillCardItem = React.memo(function BillCardItem({
         ]}
       >
         <Pressable
-          accessibilityLabel={`Edit ${bill.name}`}
+          accessibilityLabel={`Edit ${bill.name}, long press to test notification`}
           accessibilityRole="button"
           onPress={() => onEdit(bill.id)}
+          onLongPress={() => onTestNotification(bill)}
           style={({pressed}) => ({opacity: pressed ? 0.92 : 1})}
         >
           <View style={styles.billHeader}>
@@ -210,6 +214,20 @@ export default function BillRemindersScreen() {
   const handleMarkPaidCb = useCallback(
     (billId: string) => { void handleMarkPaid(billId); },
     [handleMarkPaid],
+  );
+
+  const handleTestNotification = useCallback(
+    (bill: BillReminder) => {
+      void scheduleTestBillNotification(bill, 10).then((delay) => {
+        Alert.alert(
+          'Notification Scheduled',
+          `A notification for "${bill.name}" will appear in ${delay} seconds.\n\nClose the app now to see it!`,
+        );
+      }).catch((e) => {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to schedule notification');
+      });
+    },
+    [],
   );
 
   const tabs: {key: Tab; label: string; count: number}[] = [
@@ -358,6 +376,7 @@ export default function BillRemindersScreen() {
                       onEdit={navigateToEdit}
                       onDelete={confirmDelete}
                       onMarkPaid={handleMarkPaidCb}
+                      onTestNotification={handleTestNotification}
                     />
                   ))}
                   </View>
