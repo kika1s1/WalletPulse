@@ -10,7 +10,7 @@ import {
 } from '@domain/usecases/calculate-balance-history';
 import {startOfDay} from '@shared/utils/date-helpers';
 
-export type BalancePeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
+export type BalancePeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y' | 'ALL';
 
 type RateMap = Record<string, number>;
 
@@ -27,6 +27,10 @@ function periodToStartMs(period: BalancePeriod): number {
       return startOfDay(new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()).getTime());
     case '1Y':
       return startOfDay(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).getTime());
+    case '2Y':
+      return startOfDay(new Date(now.getFullYear() - 2, now.getMonth(), now.getDate()).getTime());
+    case '5Y':
+      return startOfDay(new Date(now.getFullYear() - 5, now.getMonth(), now.getDate()).getTime());
     case 'ALL':
       return 0;
   }
