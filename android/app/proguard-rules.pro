@@ -7,4 +7,31 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Add any project specific keep options here:
+# React Native
+-keep class com.facebook.hermes.unicode.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# WatermelonDB
+-keep class com.nozbe.watermelondb.** { *; }
+
+# RevenueCat
+-keep class com.revenuecat.purchases.** { *; }
+
+# react-native-reanimated
+-keep class com.swmansion.reanimated.** { *; }
+
+# react-native-gesture-handler
+-keep class com.swmansion.gesturehandler.** { *; }
+
+# OkHttp (used by various libraries)
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+
+# Gson (if used by any library)
+-keep class com.google.gson.** { *; }
+
+# Keep native methods
+-keepclassmembers class * {
+    @com.facebook.react.uimanager.annotations.ReactProp <methods>;
+}
