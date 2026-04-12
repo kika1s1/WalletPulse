@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
@@ -26,7 +26,7 @@ type WalletDetailRoute = RouteProp<WalletsStackParamList, 'WalletDetail'>;
 type WalletDetailNav = NativeStackNavigationProp<WalletsStackParamList, 'WalletDetail'>;
 
 export default function WalletDetailScreen() {
-  const {colors, spacing, radius, shadows} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<WalletDetailNav>();
   const route = useRoute<WalletDetailRoute>();
   const {walletId} = route.params;
@@ -96,11 +96,13 @@ export default function WalletDetailScreen() {
     [deleteTransaction],
   );
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     walletRefetch();
     txRefetch();
-    setTimeout(() => setRefreshing(false), 600);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 600);
   }, [walletRefetch, txRefetch]);
 
   const isLoading = walletLoading || txLoading;

@@ -1,4 +1,4 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -12,8 +12,12 @@ import {Spacer} from '@presentation/components/layout/Spacer';
 import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {WalletCard} from '@presentation/components/WalletCard';
+import {ProBadge} from '@presentation/components/common/ProBadge';
+import {UpgradePrompt} from '@presentation/components/common/UpgradePrompt';
 import {useWallets} from '@presentation/hooks/useWallets';
+import {useEntitlement} from '@presentation/hooks/useEntitlement';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
 type Nav = NativeStackNavigationProp<WalletsStackParamList>;
@@ -25,11 +29,17 @@ export default function WalletsScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading, refetch} = useWallets();
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const {isFree, entitlement} = useEntitlement();
+  const maxWallets = entitlement.featureLimits.maxWallets;
+  const activeWalletCount = wallets.filter((w) => w.isActive).length;
+  const walletLimitReached = isFree && activeWalletCount >= maxWallets;
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();
-    setTimeout(() => setRefreshing(false), 600);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 600);
   }, [refetch]);
 
   const handleWalletPress = useCallback(
@@ -61,9 +71,18 @@ export default function WalletsScreen() {
             accessibilityLabel="Add wallet"
             accessibilityRole="button"
             hitSlop={12}
-            onPress={() => navigation.navigate('CreateWallet')}
+            onPress={() => {
+              if (walletLimitReached) {
+                navigateToPaywall('wallet_limit', 'maxWallets');
+              } else {
+                navigation.navigate('CreateWallet');
+              }
+            }}
             style={[styles.addBtn, {backgroundColor: colors.primary, borderRadius: radius.sm}]}>
-            <Text style={styles.addBtnText}>+ Add</Text>
+            <View style={styles.addBtnContent}>
+              <Text style={styles.addBtnText}>+ Add</Text>
+              {isFree && <ProBadge tier="pro" size="small" />}
+            </View>
           </Pressable>
         </View>
 
@@ -91,6 +110,17 @@ export default function WalletsScreen() {
       </View>
 
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+        {walletLimitReached && (
+          <View style={{marginBottom: spacing.md}}>
+            <UpgradePrompt
+              title={`You have reached the ${maxWallets}-wallet limit`}
+              description="Upgrade to Pro for unlimited wallets across all your financial accounts."
+              tier="pro"
+              onUpgrade={() => navigateToPaywall('wallet_limit', 'maxWallets')}
+            />
+          </View>
+        )}
+
         {isLoading ? (
           <>
             <SectionHeader title="Active Wallets" />
@@ -179,6 +209,11 @@ const styles = StyleSheet.create({
   addBtn: {
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  addBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   addBtnText: {
     color: '#FFFFFF',

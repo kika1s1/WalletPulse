@@ -35,6 +35,7 @@ import {useSearch, SORT_OPTIONS, type SortOption, type SearchFilters} from '@pre
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {useEntitlement} from '@presentation/hooks/useEntitlement';
 import {
   addRecentSearch,
   getRecentSearches,
@@ -168,6 +169,9 @@ export default function SearchScreen() {
   const {categories} = useCategories();
   const {wallets} = useWallets();
   const hideAmounts = useSettingsStore((s) => s.hideAmounts);
+  const {canAccess} = useEntitlement();
+  const canUseTags = canAccess('tags');
+  const canUseSavedFilters = canAccess('savedFilters');
 
   const getCategoryDisplay = useCallback(
     (categoryId: string): {name: string; icon: string; color: string} => {
@@ -206,7 +210,8 @@ export default function SearchScreen() {
   }, []);
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 350);
+    const timer = setTimeout(() => inputRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -247,12 +252,15 @@ export default function SearchScreen() {
       minAmount: f.minAmount,
       maxAmount: f.maxAmount,
       dateRange: f.dateRange,
-      tags: f.tags,
+      tags: canUseTags ? f.tags : undefined,
     }),
-    [],
+    [canUseTags],
   );
 
   const handleSaveFilters = useCallback(() => {
+    if (!canUseSavedFilters) {
+      return;
+    }
     const payload = searchFiltersToTransactionFilter(filters);
     const applyNameAndRefresh = (name: string) => {
       const trimmed = name.trim();
@@ -368,7 +376,7 @@ export default function SearchScreen() {
         onClear: () => setFilters({...filters, minAmount: undefined, maxAmount: undefined}),
       });
     }
-    if (filters.tags && filters.tags.length > 0) {
+    if (canUseTags && filters.tags && filters.tags.length > 0) {
       chips.push({
         key: 'tags',
         label: `Tags: ${filters.tags.join(', ')}`,
@@ -413,7 +421,7 @@ export default function SearchScreen() {
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
 
   const showRecentSearches = !hasActiveSearch && recentSearches.length > 0;
-  const showSavedFiltersSection = !hasActiveSearch && savedFiltersList.length > 0;
+  const showSavedFiltersSection = canUseSavedFilters && !hasActiveSearch && savedFiltersList.length > 0;
   const showEmptyResults = hasActiveSearch && !isSearching && resultCount === 0;
   const showInitialHint =
     !hasActiveSearch &&

@@ -41,7 +41,7 @@ export const usePinStore = create<PinState>()(
 
       verifyPin: (pin: string) => {
         const {pinHash} = get();
-        if (!pinHash) {return true;}
+        if (!pinHash) {return false;}
         return hashPin(pin) === pinHash;
       },
 

@@ -1,7 +1,8 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import BottomSheet from '@gorhom/bottom-sheet';
 import {useTheme} from '@shared/theme';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {SectionHeader} from '@presentation/components/layout/SectionHeader';
@@ -14,14 +15,29 @@ import {QuickActions, type QuickAction} from '@presentation/components/QuickActi
 import {MiniBarChart} from '@presentation/components/charts/MiniBarChart';
 import {InsightCard} from '@presentation/components/InsightCard';
 import {TransactionCard} from '@presentation/components/TransactionCard';
+import {
+  UpgradeInsightCard,
+  TrialBanner,
+  HealthScoreCard,
+  PaydayPlannerSheet,
+  AffiliateCard,
+} from '@presentation/components/common';
 import {WalletPulseLogo} from '@presentation/components/WalletPulseLogo';
 import {WalletSwitcher} from '@presentation/components/WalletSwitcher';
 import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
+import {useBillReminders} from '@presentation/hooks/useBillReminders';
+import {useEntitlement} from '@presentation/hooks/useEntitlement';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
 import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
 import {useCategories} from '@presentation/hooks/useCategories';
+import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
+import {CheckTrialStatus} from '@domain/usecases/check-trial-status';
+import {CalculateHealthScore} from '@domain/usecases/calculate-health-score';
+import {CalculatePaydayPlan} from '@domain/usecases/calculate-payday-plan';
+import {GetAffiliateRecommendation} from '@domain/usecases/get-affiliate-recommendation';
+import {monetizationAnalytics} from '@infrastructure/analytics/monetization-events';
 import type {HomeStackParamList} from '@presentation/navigation/types';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -68,12 +84,20 @@ export default function DashboardScreen() {
   } = useDashboard();
 
   const {activeBudgets} = useBudgets();
+  const {bills} = useBillReminders();
   const {items: budgetItems, totalBudget, totalSpent} = useBudgetProgress(activeBudgets);
+  const {isFree, isTrialing, trialEndsAt, isPro, entitlement, canAccess} = useEntitlement();
+  const paydaySheetRef = useRef<BottomSheet>(null);
+  const [paydayDismissed, setPaydayDismissed] = useState(false);
+  const [affiliateDismissed, setAffiliateDismissed] = useState(false);
+  const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();
-    setTimeout(() => setRefreshing(false), 600);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 600);
   }, [refetch]);
 
   const handleTransactionPress = useCallback(
@@ -128,6 +152,99 @@ export default function DashboardScreen() {
     [colors, navigation, selectedWalletId],
   );
 
+  // Trial banner data
+  const trialStatus = useMemo(() => {
+    if (!isTrialing || !trialEndsAt) {return null;}
+    const checker = new CheckTrialStatus();
+    return checker.execute({
+      isTrialing,
+      trialEndsAt,
+      trialStartedAt: entitlement.purchasedAt,
+    });
+  }, [isTrialing, trialEndsAt, entitlement.purchasedAt]);
+
+  // Health score (Pro+ only, needs data)
+  const healthScoreResult = useMemo(() => {
+    if (!canAccess('financialHealthScore')) {return null;}
+    const totalIncome = monthIncome;
+    const totalExpenses = monthExpenses;
+    if (totalIncome === 0 && totalExpenses === 0) {return null;}
+
+    const calculator = new CalculateHealthScore();
+    return calculator.execute({
+      totalIncome,
+      totalExpenses,
+      budgetAdherencePercent:
+        totalBudget > 0
+          ? Math.round(Math.min((1 - totalSpent / totalBudget) * 100, 100))
+          : 100,
+      billsOnTimePercent: 100,
+      activeSubscriptionCount: 0,
+      usedSubscriptionCount: 0,
+      emergencyFundProgress: 0,
+      previousPeriodExpenses: 0,
+    });
+  }, [canAccess, monthIncome, monthExpenses, totalBudget, totalSpent]);
+
+  // Payday planner: detect recent income transactions to trigger the sheet
+  const latestIncome = useMemo(() => {
+    if (!canAccess('paydayPlanner') || paydayDismissed) {return null;}
+    const oneDayAgo = Date.now() - 86_400_000;
+    return recentTransactions.find(
+      (t) => t.type === 'income' && t.transactionDate >= oneDayAgo,
+    ) ?? null;
+  }, [canAccess, recentTransactions, paydayDismissed]);
+
+  const paydayResult = useMemo(() => {
+    if (!latestIncome) {return null;}
+    const planner = new CalculatePaydayPlan();
+    const upcomingBills = bills
+      .filter((b) => !b.isPaid && b.dueDate > Date.now())
+      .map((b) => ({
+        name: b.name,
+        amount: b.amount,
+        currency: b.currency,
+        dueDate: b.dueDate,
+      }));
+    const budgetEntries = activeBudgets.map((b) => ({
+      name: b.categoryId ?? 'Budget',
+      remaining: Math.max(b.amount - (budgetItems.find((bi) => bi.budget.id === b.id)?.spent ?? 0), 0),
+      currency: b.currency,
+    }));
+    return planner.execute({
+      incomeAmount: latestIncome.amount,
+      incomeCurrency: latestIncome.currency,
+      upcomingBills,
+      activeBudgets: budgetEntries,
+      currentWalletBalance: displayBalance,
+    });
+  }, [latestIncome, bills, activeBudgets, budgetItems, displayBalance]);
+
+  // Affiliate recommendation
+  const affiliateRec = useMemo(() => {
+    if (affiliateDismissed) {return null;}
+    const recommender = new GetAffiliateRecommendation();
+    const walletCurrencies = wallets.map((w) => w.currency);
+    const walletSources = wallets.map((w) => w.name.toLowerCase());
+    return recommender.execute({
+      currencies: walletCurrencies,
+      existingSources: walletSources,
+    });
+  }, [affiliateDismissed, wallets]);
+
+  const handleDismissAffiliate = useCallback(() => {
+    setAffiliateDismissed(true);
+    if (affiliateRec) {
+      void monetizationAnalytics.trackUpgradePromptDismissed(`affiliate_${affiliateRec.partner.id}`);
+    }
+  }, [affiliateRec]);
+
+  const handleAffiliateLearnMore = useCallback(() => {
+    if (affiliateRec) {
+      void monetizationAnalytics.trackAffiliateClicked(affiliateRec.partner.id);
+    }
+  }, [affiliateRec]);
+
   const [dismissedInsights, setDismissedInsights] = useState<Set<string>>(
     () => new Set(),
   );
@@ -152,6 +269,7 @@ export default function DashboardScreen() {
   }
 
   return (
+    <>
     <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.sm} />
@@ -174,6 +292,15 @@ export default function DashboardScreen() {
             />
           </Pressable>
         </View>
+        {trialStatus?.isActive && !trialBannerDismissed && trialStatus.daysRemaining != null && (
+          <>
+            <Spacer size={spacing.sm} />
+            <TrialBanner
+              daysRemaining={trialStatus.daysRemaining}
+              onDismiss={() => setTrialBannerDismissed(true)}
+            />
+          </>
+        )}
         <Spacer size={spacing.base} />
         <BalanceHeader
           totalBalance={displayBalance}
@@ -226,6 +353,13 @@ export default function DashboardScreen() {
         </View>
       )}
 
+      {healthScoreResult && (
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.lg} />
+          <HealthScoreCard result={healthScoreResult} />
+        </View>
+      )}
+
       {visibleInsights.length > 0 && (
         <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
           <Spacer size={spacing.lg} />
@@ -241,6 +375,31 @@ export default function DashboardScreen() {
               />
             </View>
           ))}
+        </View>
+      )}
+
+      {isFree && (
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.lg} />
+          <UpgradeInsightCard
+            title="Unlock your full financial picture"
+            description="Pro users get unlimited wallets, advanced analytics, export tools, and a Financial Health Score."
+            ctaText="See Plans"
+            icon="crown-outline"
+            onPress={() => navigateToPaywall('dashboard_insight')}
+          />
+        </View>
+      )}
+
+      {affiliateRec && (
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.lg} />
+          <AffiliateCard
+            partner={affiliateRec.partner}
+            context={affiliateRec.reason}
+            onDismiss={handleDismissAffiliate}
+            onLearnMore={handleAffiliateLearnMore}
+          />
         </View>
       )}
 
@@ -298,7 +457,60 @@ export default function DashboardScreen() {
           </Text>
         </View>
       )}
+
+      {paydayResult && latestIncome && (
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.md} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open payday planner"
+            onPress={() => paydaySheetRef.current?.snapToIndex(0)}
+            style={[
+              styles.paydayTrigger,
+              {
+                backgroundColor: `${colors.income}12`,
+                borderColor: `${colors.income}33`,
+                borderRadius: 12,
+                padding: spacing.base,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="cash-check"
+              size={22}
+              color={colors.income}
+            />
+            <View style={styles.paydayTriggerText}>
+              <Text style={{color: colors.text, fontWeight: '600', fontSize: 14}}>
+                You received income today!
+              </Text>
+              <Text style={{color: colors.textSecondary, fontSize: 12}}>
+                Tap to see your spending plan
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={colors.textTertiary}
+            />
+          </Pressable>
+        </View>
+      )}
     </ScreenContainer>
+
+    {paydayResult && latestIncome && (
+      <PaydayPlannerSheet
+        ref={paydaySheetRef}
+        result={paydayResult}
+        incomeFormatted={new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: latestIncome.currency,
+          minimumFractionDigits: 0,
+        }).format(latestIncome.amount / 100)}
+        onDismiss={() => setPaydayDismissed(true)}
+      />
+    )}
+    </>
   );
 }
 
@@ -317,5 +529,15 @@ const styles = StyleSheet.create({
   },
   txGap: {
     marginTop: 6,
+  },
+  paydayTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+  },
+  paydayTriggerText: {
+    flex: 1,
+    gap: 2,
   },
 });

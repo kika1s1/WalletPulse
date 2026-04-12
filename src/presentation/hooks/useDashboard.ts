@@ -330,6 +330,10 @@ export function useDashboard(): DashboardData {
           severity,
         })),
       );
+    }).catch(() => {
+      if (!cancelled) {
+        setInsights([]);
+      }
     });
     return () => {
       cancelled = true;
