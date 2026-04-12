@@ -127,8 +127,9 @@ export class CalculateMoneyLost {
       : null;
 
     const topSource = bySource[0]?.source;
+    const avgFormatted = (averageLossPerTransaction / 100).toFixed(2);
     const savingsTip = totalLost > 0
-      ? `Consider using a service with lower fees for ${topSource ?? 'your'} transfers. You could save up to ${averageLossPerTransaction} cents per transaction.`
+      ? `Consider using a service with lower fees for ${topSource ?? 'your'} transfers. You could save an estimated ${avgFormatted} per transaction on average.`
       : 'Your conversion rates look good. Keep monitoring for changes.';
 
     return {

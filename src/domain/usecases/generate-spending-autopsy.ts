@@ -75,6 +75,14 @@ function changePercent(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function formatDelta(cents: number): string {
+  const abs = Math.abs(cents);
+  if (abs >= 100) {
+    return `${(abs / 100).toFixed(0)}`;
+  }
+  return `${(abs / 100).toFixed(2)}`;
+}
+
 export class GenerateSpendingAutopsy {
   execute(params: AutopsyParams): AutopsyResult {
     const {currentPeriodTransactions, previousPeriodTransactions, categories} =
@@ -121,7 +129,7 @@ export class GenerateSpendingAutopsy {
       });
     }
 
-    categoryChanges.sort((a, b) => b.diff - a.diff);
+    categoryChanges.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 
     const biggestChange = categoryChanges[0]?.name ?? 'None';
 
@@ -137,7 +145,7 @@ export class GenerateSpendingAutopsy {
       insights.push({
         type: 'overspend',
         title: `${os.name} spending up ${os.pct}%`,
-        description: `You spent ${os.diff} cents more on ${os.name} compared to last period.`,
+        description: `You spent ${formatDelta(os.diff)} more on ${os.name} compared to the same period last month.`,
         savingsEstimate: os.diff,
         category: os.name,
         severity,
@@ -152,7 +160,7 @@ export class GenerateSpendingAutopsy {
       insights.push({
         type: 'positive',
         title: `${s.name} spending down ${Math.abs(s.pct)}%`,
-        description: `Great work! You saved ${Math.abs(s.diff)} cents on ${s.name} this period.`,
+        description: `Great work! You saved ${formatDelta(s.diff)} on ${s.name} this period.`,
         savingsEstimate: Math.abs(s.diff),
         category: s.name,
         severity: 'info',
@@ -164,7 +172,7 @@ export class GenerateSpendingAutopsy {
         type: 'trend',
         title: `Overall spending increased ${overallChange}%`,
         description:
-          'Your total expenses grew compared to the previous period. Review your biggest categories for potential cuts.',
+          'Your total expenses grew compared to the same period last month. Review your biggest categories for potential cuts.',
         savingsEstimate: currentTotal - previousTotal,
         severity: overallChange >= 30 ? 'critical' : 'warning',
       });
@@ -173,7 +181,7 @@ export class GenerateSpendingAutopsy {
         type: 'positive',
         title: `Overall spending decreased ${Math.abs(overallChange)}%`,
         description:
-          'You spent less this period. Keep up the good habits.',
+          'You spent less this period compared to the same time last month. Keep up the good habits.',
         savingsEstimate: 0,
         severity: 'info',
       });

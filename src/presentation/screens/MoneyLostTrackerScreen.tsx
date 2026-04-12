@@ -1,43 +1,110 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {formatAmountMasked} from '@shared/utils/format-currency';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {Spacer} from '@presentation/components/layout/Spacer';
 import {BackButton, Card} from '@presentation/components/common';
+import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {CalculateMoneyLost} from '@domain/usecases/calculate-money-lost';
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {makeGetConversionRate} from '@infrastructure/fx-service';
 
-function formatCents(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(cents / 100);
+type RateMap = Record<string, number>;
+
+/**
+ * We estimate FX loss by comparing each foreign-currency transaction against
+ * what the mid-market rate (from our cached data) says it should cost.
+ * Financial apps typically charge 1-3% spread on top of mid-market.
+ * Since we don't store the exact rate each provider applied, we estimate
+ * the provider spread at 2% for notification-parsed transactions and 0%
+ * for manual ones (user entered exact amount, no hidden fee).
+ */
+const ESTIMATED_SPREAD: Record<string, number> = {
+  notification: 0.02,
+  manual: 0,
+};
+
+function getSpreadForSource(source: string): number {
+  return ESTIMATED_SPREAD[source] ?? 0.015;
 }
 
 export default function MoneyLostTrackerScreen() {
   const {colors, spacing, radius, typography: typo} = useTheme();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
-  const {transactions, isLoading} = useTransactions({syncWithFilterStore: false});
+  const hide = useSettingsStore((s) => s.hideAmounts);
+  const {transactions, isLoading: txLoading} = useTransactions({syncWithFilterStore: false});
+
+  const [midMarketRates, setMidMarketRates] = useState<RateMap>({});
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const fetchedRef = useRef('');
+
+  const foreignTxs = useMemo(
+    () => transactions.filter((t) => t.currency.toUpperCase() !== baseCurrency.toUpperCase()),
+    [transactions, baseCurrency],
+  );
+
+  const allForeignCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of foreignTxs) {set.add(t.currency.toUpperCase());}
+    return Array.from(set);
+  }, [foreignTxs]);
+
+  useEffect(() => {
+    const key = allForeignCurrencies.sort().join(',') + ':' + baseCurrency;
+    if (key === fetchedRef.current) {return;}
+    fetchedRef.current = key;
+    if (allForeignCurrencies.length === 0) {
+      setMidMarketRates({});
+      setRatesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRatesLoading(true);
+    (async () => {
+      const ds = getLocalDataSource();
+      const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
+      const result: RateMap = {};
+      for (const c of allForeignCurrencies) {
+        try {
+          const r = await getRate(c, baseCurrency);
+          if (r !== null) {result[c] = r;}
+        } catch { /* skip */ }
+      }
+      if (!cancelled) {
+        setMidMarketRates(result);
+        setRatesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [allForeignCurrencies, baseCurrency]);
 
   const result = useMemo(() => {
     const calculator = new CalculateMoneyLost();
-    const fxTxs = transactions
-      .filter((t) => t.currency.toUpperCase() !== baseCurrency.toUpperCase())
-      .map((t) => ({
-        date: t.transactionDate,
-        amount: t.amount,
-        currency: t.currency,
-        appliedRate: 1,
-        midMarketRate: 1,
-        source: t.source ?? 'manual',
-      }));
+    const fxTxs = foreignTxs
+      .filter((t) => midMarketRates[t.currency.toUpperCase()] != null)
+      .map((t) => {
+        const midRate = midMarketRates[t.currency.toUpperCase()] ?? 1;
+        const spread = getSpreadForSource(t.source);
+        const appliedRate = midRate * (1 - spread);
+        return {
+          date: t.transactionDate,
+          amount: t.amount,
+          currency: t.currency,
+          appliedRate,
+          midMarketRate: midRate,
+          source: t.source ?? 'manual',
+        };
+      });
     return calculator.execute({transactions: fxTxs, targetCurrency: baseCurrency});
-  }, [transactions, baseCurrency]);
+  }, [foreignTxs, baseCurrency, midMarketRates]);
+
+  const isLoading = txLoading || ratesLoading;
 
   return (
     <ScreenContainer>
@@ -52,12 +119,18 @@ export default function MoneyLostTrackerScreen() {
         <Spacer size={spacing.base} />
       </View>
 
-        {isLoading && (
-          <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing['4xl']}}>
-            <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading transactions" />
-          </View>
-        )}
-        {!isLoading && (
+      {isLoading ? (
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing['4xl']}}>
+          <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading transactions" />
+        </View>
+      ) : foreignTxs.length === 0 ? (
+        <View style={{paddingHorizontal: spacing.base}}>
+          <EmptyState
+            title="No foreign currency transactions"
+            message="FX loss tracking will appear here when you have transactions in currencies other than your base currency."
+          />
+        </View>
+      ) : (
         <ScrollView contentContainerStyle={{padding: spacing.base, paddingTop: 0}}>
           <Card padding="md">
             <View style={styles.totalRow}>
@@ -66,19 +139,19 @@ export default function MoneyLostTrackerScreen() {
               </View>
               <View style={{flex: 1}}>
                 <Text style={[typo.caption, {color: colors.textSecondary}]}>
-                  Total lost to FX fees
+                  Estimated FX fees lost
                 </Text>
-                <Text style={[styles.totalValue, {color: colors.danger}]}>
-                  {formatCents(result.totalLost, result.currency)}
+                <Text style={[styles.totalValue, {color: result.totalLost > 0 ? colors.danger : colors.success}]}>
+                  {result.totalLost > 0 ? '-' : ''}{formatAmountMasked(result.totalLost, result.currency, hide)}
                 </Text>
                 <Text style={[typo.caption, {color: colors.textTertiary}]}>
-                  across {result.transactionCount} conversions
+                  across {result.transactionCount} foreign currency transactions
                 </Text>
               </View>
             </View>
           </Card>
 
-          {result.worstTransaction && (
+          {result.worstTransaction && result.worstTransaction.lostAmount > 0 && (
             <>
               <Spacer size={spacing.md} />
               <Card padding="md">
@@ -90,7 +163,7 @@ export default function MoneyLostTrackerScreen() {
                     {result.worstTransaction.source}
                   </Text>
                   <Text style={[styles.worstLoss, {color: colors.danger}]}>
-                    -{formatCents(result.worstTransaction.lostAmount, result.currency)}
+                    -{formatAmountMasked(result.worstTransaction.lostAmount, result.currency, hide)}
                   </Text>
                 </View>
                 <Text style={[typo.caption, {color: colors.textTertiary}]}>
@@ -104,26 +177,20 @@ export default function MoneyLostTrackerScreen() {
             <>
               <Spacer size={spacing.md} />
               <Text style={[typo.footnote, {color: colors.textSecondary, marginBottom: spacing.xs}]}>
-                Loss by source
+                Estimated loss by source
               </Text>
               {result.bySource.map((src) => (
                 <View
                   key={src.source}
                   style={[
                     styles.sourceRow,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      borderRadius: radius.md,
-                      padding: spacing.sm,
-                      marginBottom: spacing.xs,
-                    },
-                  ]}
-                >
+                    {backgroundColor: colors.surfaceElevated, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.xs},
+                  ]}>
                   <Text style={[typo.footnote, {color: colors.text, flex: 1}]}>
                     {src.source}
                   </Text>
                   <Text style={[typo.footnote, {color: colors.danger}]}>
-                    -{formatCents(src.totalLost, result.currency)}
+                    -{formatAmountMasked(src.totalLost, result.currency, hide)}
                   </Text>
                   <Text style={[typo.caption, {color: colors.textTertiary, marginLeft: 8}]}>
                     {src.count} txns
@@ -137,26 +204,20 @@ export default function MoneyLostTrackerScreen() {
             <>
               <Spacer size={spacing.md} />
               <Text style={[typo.footnote, {color: colors.textSecondary, marginBottom: spacing.xs}]}>
-                Loss by month
+                Estimated loss by month
               </Text>
               {result.byMonth.map((m) => (
                 <View
                   key={m.month}
                   style={[
                     styles.sourceRow,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      borderRadius: radius.md,
-                      padding: spacing.sm,
-                      marginBottom: spacing.xs,
-                    },
-                  ]}
-                >
+                    {backgroundColor: colors.surfaceElevated, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.xs},
+                  ]}>
                   <Text style={[typo.footnote, {color: colors.text, flex: 1}]}>
                     {m.month}
                   </Text>
                   <Text style={[typo.footnote, {color: colors.danger}]}>
-                    -{formatCents(m.totalLost, result.currency)}
+                    -{formatAmountMasked(m.totalLost, result.currency, hide)}
                   </Text>
                 </View>
               ))}
@@ -172,9 +233,19 @@ export default function MoneyLostTrackerScreen() {
               </Text>
             </View>
           </Card>
+
+          <Spacer size={spacing.sm} />
+          <Card padding="sm" style={{backgroundColor: `${colors.warning}08`}}>
+            <View style={styles.tipRow}>
+              <Icon name="information-outline" size={16} color={colors.warning} />
+              <Text style={[typo.caption, {color: colors.textTertiary, flex: 1}]}>
+                Estimates are based on typical provider spreads (1.5-2% for notification-parsed, 0% for manual entries). Actual fees may vary.
+              </Text>
+            </View>
+          </Card>
           <Spacer size={spacing.xl} />
         </ScrollView>
-        )}
+      )}
     </ScreenContainer>
   );
 }
