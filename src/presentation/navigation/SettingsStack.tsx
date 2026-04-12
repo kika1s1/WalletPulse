@@ -5,26 +5,30 @@ import type {SettingsStackParamList} from './types';
 import SettingsScreen from '@presentation/screens/SettingsScreen';
 
 const SetPinScreen = React.lazy(() => import('@presentation/screens/SetPinScreen'));
+const ManageSubscriptionScreen = React.lazy(() => import('@presentation/screens/ManageSubscriptionScreen'));
 const CategoryManagementScreen = React.lazy(() => import('@presentation/screens/CategoryManagementScreen'));
 const NotificationLogScreen = React.lazy(() => import('@presentation/screens/NotificationLogScreen'));
 const ParsingRulesScreen = React.lazy(() => import('@presentation/screens/ParsingRulesScreen'));
 const CreateParsingRuleScreen = React.lazy(() => import('@presentation/screens/CreateParsingRuleScreen'));
-const CreateCategoryScreen = React.lazy(() => import('@presentation/screens/CreateCategoryScreen.tsx'));
-const BudgetsScreen = React.lazy(() => import('@presentation/screens/BudgetsScreen.tsx'));
-const CreateBudgetScreen = React.lazy(() => import('@presentation/screens/CreateBudgetScreen.tsx'));
-const BudgetDetailScreen = React.lazy(() => import('@presentation/screens/BudgetDetailScreen.tsx'));
+const CreateCategoryScreen = React.lazy(() => import('@presentation/screens/CreateCategoryScreen'));
+const BudgetsScreen = React.lazy(() => import('@presentation/screens/BudgetsScreen'));
+const CreateBudgetScreen = React.lazy(() => import('@presentation/screens/CreateBudgetScreen'));
+const BudgetDetailScreen = React.lazy(() => import('@presentation/screens/BudgetDetailScreen'));
 const TemplateManagementScreen = React.lazy(() => import('@presentation/screens/TemplateManagementScreen'));
 const CreateTemplateScreen = React.lazy(() => import('@presentation/screens/CreateTemplateScreen'));
 const ExportScreen = React.lazy(() => import('@presentation/screens/ExportScreen'));
-const BillRemindersScreen = React.lazy(() => import('@presentation/screens/BillRemindersScreen.tsx'));
+const BillRemindersScreen = React.lazy(() => import('@presentation/screens/BillRemindersScreen'));
 const CreateBillReminderScreen = React.lazy(() => import('@presentation/screens/CreateBillReminderScreen'));
-const GoalsListScreen = React.lazy(() => import('@presentation/screens/GoalsListScreen.tsx'));
+const GoalsListScreen = React.lazy(() => import('@presentation/screens/GoalsListScreen'));
 const CreateGoalScreen = React.lazy(() => import('@presentation/screens/CreateGoalScreen'));
 const GoalDetailScreen = React.lazy(() => import('@presentation/screens/GoalDetailScreen'));
-const SubscriptionsListScreen = React.lazy(() => import('@presentation/screens/SubscriptionsListScreen.tsx'));
+const SubscriptionsListScreen = React.lazy(() => import('@presentation/screens/SubscriptionsListScreen'));
 const CreateSubscriptionScreen = React.lazy(() => import('@presentation/screens/CreateSubscriptionScreen'));
 const TransactionDetailScreen = React.lazy(() => import('@presentation/screens/TransactionDetailScreen'));
 const EditTransactionScreen = React.lazy(() => import('@presentation/screens/EditTransactionScreen'));
+const ParserPackStoreScreen = React.lazy(() => import('@presentation/screens/ParserPackStoreScreen'));
+const ThemeStoreScreen = React.lazy(() => import('@presentation/screens/ThemeStoreScreen'));
+const MonetizationDebugScreen = React.lazy(() => import('@presentation/screens/MonetizationDebugScreen'));
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -41,6 +45,7 @@ export default function SettingsStack() {
     <Suspense fallback={<LazyFallback />}>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="SettingsMain" component={SettingsScreen} />
+        <Stack.Screen name="ManageSubscription" component={ManageSubscriptionScreen} />
         <Stack.Screen name="SetPin" component={SetPinScreen} />
         <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
         <Stack.Screen name="CreateCategory" component={CreateCategoryScreen} />
@@ -62,6 +67,9 @@ export default function SettingsStack() {
         <Stack.Screen name="CreateSubscription" component={CreateSubscriptionScreen} />
         <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
         <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
+        <Stack.Screen name="ParserPackStore" component={ParserPackStoreScreen} />
+        <Stack.Screen name="ThemeStore" component={ThemeStoreScreen} />
+        <Stack.Screen name="MonetizationDebug" component={MonetizationDebugScreen} />
       </Stack.Navigator>
     </Suspense>
   );

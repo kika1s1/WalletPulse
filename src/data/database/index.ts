@@ -22,7 +22,7 @@ const adapter = new SQLiteAdapter({
   migrations,
   jsi: true,
   onSetUpError: (error) => {
-    console.error('WatermelonDB setup failed:', error);
+    if (__DEV__) { console.error('WatermelonDB setup failed:', error); }
   },
 });
 

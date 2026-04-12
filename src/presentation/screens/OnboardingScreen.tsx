@@ -21,8 +21,6 @@ import Animated, {
   interpolateColor,
 } from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Input} from '@presentation/components/common';
@@ -31,6 +29,7 @@ import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 import {
   getOnboardingSteps,
   validateOnboardingStep,
@@ -42,9 +41,6 @@ import database from '@data/database';
 import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
 import {seedDefaultCategories} from '@data/seed/categories';
-import type {RootStackParamList} from '@presentation/navigation/types';
-
-type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -301,8 +297,75 @@ function NotificationStep({
   );
 }
 
+const PRO_FEATURES = [
+  {icon: 'wallet-outline', label: 'Unlimited wallets and budgets'},
+  {icon: 'chart-bar', label: 'Full analytics and spending reports'},
+  {icon: 'export', label: 'CSV, JSON, and PDF export'},
+  {icon: 'star-outline', label: 'Financial Health Score'},
+];
+
+function ProTrialStep({colors, onStartTrial, onSkip}: {
+  colors: any;
+  onStartTrial: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <View style={styles.stepContent}>
+      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.iconCircle}>
+        <AppIcon name="crown-outline" size={64} color={colors.primary} />
+      </Animated.View>
+      <Animated.Text
+        entering={FadeInUp.delay(300).duration(400)}
+        style={[styles.heroTitle, {color: colors.text}]}
+      >
+        You are all set!
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeInUp.delay(400).duration(400)}
+        style={[styles.heroSubtitle, {color: colors.textSecondary}]}
+      >
+        Start your free trial of WalletPulse Pro and unlock the full experience.
+      </Animated.Text>
+      <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.featureList}>
+        {PRO_FEATURES.map((f, idx) => (
+          <Animated.View
+            key={f.label}
+            entering={FadeInDown.delay(600 + idx * 100).duration(300)}
+            style={styles.featureRow}
+          >
+            <View style={[styles.featureDot, {backgroundColor: colors.primary + '33'}]}>
+              <AppIcon name={f.icon} size={14} color={colors.primary} />
+            </View>
+            <Text style={[styles.featureLabel, {color: colors.text}]}>{f.label}</Text>
+          </Animated.View>
+        ))}
+      </Animated.View>
+      <Animated.View entering={FadeInUp.delay(1000).duration(300)} style={styles.trialActions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onStartTrial}
+          style={({pressed}) => [
+            styles.trialBtn,
+            {backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, borderRadius: 12},
+          ]}
+        >
+          <Text style={[styles.trialBtnText, {color: '#FFFFFF'}]}>Start Free Trial</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onSkip}
+          hitSlop={12}
+        >
+          <Text style={[styles.trialSkip, {color: colors.textTertiary}]}>
+            Continue with Free
+          </Text>
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function OnboardingScreen() {
-  const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
   const steps = useMemo(() => getOnboardingSteps(), []);
@@ -376,8 +439,7 @@ export default function OnboardingScreen() {
     useSettingsStore.getState().setNotificationEnabled(enableNotifications);
     setBaseCurrency(currency);
     setOnboardingCompleted(true);
-    navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
-  }, [currentStep, steps, state, walletName, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted, navigation]);
+  }, [currentStep, steps, state, walletName, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted]);
 
   const handleSkip = useCallback(async () => {
     try {
@@ -403,8 +465,7 @@ export default function OnboardingScreen() {
     useSettingsStore.getState().setNotificationEnabled(false);
     setBaseCurrency('USD');
     setOnboardingCompleted(true);
-    navigation.reset({index: 0, routes: [{name: 'MainTabs'}]});
-  }, [setBaseCurrency, setOnboardingCompleted, navigation]);
+  }, [setBaseCurrency, setOnboardingCompleted]);
 
   const progressWidth = ((currentStep + 1) / steps.length) * 100;
 
@@ -488,50 +549,59 @@ export default function OnboardingScreen() {
             radius={radius}
           />
         )}
+        {currentStep === 4 && (
+          <ProTrialStep
+            colors={colors}
+            onStartTrial={() => navigateToPaywall('onboarding')}
+            onSkip={handleFinish}
+          />
+        )}
       </ScrollView>
 
-      {/* Bottom CTA */}
-      <View
-        style={[
-          styles.bottomBar,
-          {
-            paddingHorizontal: spacing.base,
-            paddingBottom: insets.bottom + spacing.base,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        {stepError && currentStep !== 2 && (
-          <Text
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            style={[styles.errorText, {color: colors.danger}]}
-          >
-            {stepError}
-          </Text>
-        )}
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={isLast ? handleFinish : handleNext}
-          style={({pressed}) => [
-            styles.ctaBtn,
+      {/* Bottom CTA (hidden on Pro trial step which has its own buttons) */}
+      {steps[currentStep]?.id !== 'pro_trial' && (
+        <View
+          style={[
+            styles.bottomBar,
             {
-              backgroundColor: colors.primary,
-              borderRadius: radius.md,
-              opacity: pressed ? 0.88 : 1,
+              paddingHorizontal: spacing.base,
+              paddingBottom: insets.bottom + spacing.base,
+              backgroundColor: colors.background,
             },
           ]}
         >
-          <Text style={[styles.ctaText, {color: '#FFFFFF'}]}>
-            {isLast ? 'Get started' : 'Continue'}
-          </Text>
-        </Pressable>
+          {stepError && currentStep !== 2 && (
+            <Text
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+              style={[styles.errorText, {color: colors.danger}]}
+            >
+              {stepError}
+            </Text>
+          )}
 
-        <Text style={[styles.stepLabel, {color: colors.textTertiary}]}>
-          Step {currentStep + 1} of {steps.length}
-        </Text>
-      </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={isLast ? handleFinish : handleNext}
+            style={({pressed}) => [
+              styles.ctaBtn,
+              {
+                backgroundColor: colors.primary,
+                borderRadius: radius.md,
+                opacity: pressed ? 0.88 : 1,
+              },
+            ]}
+          >
+            <Text style={[styles.ctaText, {color: '#FFFFFF'}]}>
+              {isLast ? 'Get started' : 'Continue'}
+            </Text>
+          </Pressable>
+
+          <Text style={[styles.stepLabel, {color: colors.textTertiary}]}>
+            Step {currentStep + 1} of {steps.length}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -720,5 +790,25 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  trialActions: {
+    gap: 16,
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  trialBtn: {
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  trialBtnText: {
+    fontSize: 17,
+    fontWeight: fontWeight.semibold,
+  },
+  trialSkip: {
+    fontSize: 15,
+    fontWeight: fontWeight.medium,
+    paddingVertical: 8,
   },
 });

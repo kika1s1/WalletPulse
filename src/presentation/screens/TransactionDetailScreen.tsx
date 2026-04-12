@@ -364,10 +364,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 72,
   },
-  categoryIcon: {
-    fontSize: 28,
-    fontWeight: '600',
-  },
   row: {
     flexDirection: 'row',
     gap: 12,

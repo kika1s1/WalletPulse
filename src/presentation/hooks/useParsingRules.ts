@@ -5,15 +5,17 @@ import type {ParsingRule, CreateParsingRuleInput} from '@domain/entities/Parsing
 export function useParsingRules() {
   const [rules, setRules] = useState<ParsingRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadRules = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const ds = getLocalDataSource();
       const rows = await ds.parsingRules.findAll();
       setRules(rows);
-    } catch {
-      // DB not available
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load rules');
     } finally {
       setIsLoading(false);
     }
@@ -62,6 +64,7 @@ export function useParsingRules() {
   return {
     rules,
     isLoading,
+    error,
     addRule,
     updateRule,
     deleteRule,

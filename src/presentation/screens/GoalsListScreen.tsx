@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {BackButton} from '@presentation/components/common';
+import {BackButton, PaywallGate} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -32,7 +32,7 @@ export default function GoalsListScreen() {
   const insets = useSafeAreaInsets();
   const hide = useSettingsStore((s) => s.hideAmounts);
   const baseCurrency = useAppStore((s) => s.baseCurrency);
-  const {goals, isLoading, error} = useGoals();
+  const {goals, isLoading, error, refetch} = useGoals();
   const now = useStableNow();
 
   const sorted = useMemo(() => sortGoalsByPriority(goals, now), [goals, now]);
@@ -47,7 +47,7 @@ export default function GoalsListScreen() {
     [goals],
   );
 
-  function renderGoalCard(goal: Goal, index: number) {
+  const renderGoalCard = useCallback((goal: Goal) => {
     const progress = getProgress(goal);
     const pct = Math.round(progress * 100);
     const status = getGoalStatusLabel(goal, now);
@@ -122,7 +122,7 @@ export default function GoalsListScreen() {
         </Pressable>
       </View>
     );
-  }
+  }, [colors, radius, shadows, hide, navigation, now]);
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -139,13 +139,17 @@ export default function GoalsListScreen() {
           </Pressable>
         </View>
 
+        <PaywallGate feature="goals" featureLabel="Savings Goals">
         {isLoading && goals.length === 0 ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : error && goals.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={{color: colors.danger}}>{error}</Text>
+            <Text style={{color: colors.danger, marginBottom: spacing.sm}}>{error}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retry" onPress={refetch}>
+              <Text style={{color: colors.primary, fontWeight: '600'}}>Tap to retry</Text>
+            </Pressable>
           </View>
         ) : (
           <ScrollView
@@ -198,12 +202,13 @@ export default function GoalsListScreen() {
                 </Animated.View>
 
                 <View style={{gap: 12}}>
-                  {sorted.map((goal, idx) => renderGoalCard(goal, idx))}
+                  {sorted.map((goal) => renderGoalCard(goal))}
                 </View>
               </>
             )}
           </ScrollView>
         )}
+        </PaywallGate>
       </ScreenContainer>
     </View>
   );
