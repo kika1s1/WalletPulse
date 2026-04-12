@@ -36,6 +36,7 @@ export type WalletsStackParamList = {
 
 export type AnalyticsStackParamList = {
   AnalyticsOverview: undefined;
+  BalanceHistory: undefined;
   CurrencyConverter: undefined;
   SpendingAutopsy: undefined;
   MoneyLostTracker: undefined;

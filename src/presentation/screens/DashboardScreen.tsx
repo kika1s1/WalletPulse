@@ -318,6 +318,37 @@ export default function DashboardScreen() {
         />
       </View>
 
+      <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+        <Spacer size={spacing.lg} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="View balance history"
+          onPress={() =>
+            navigation.getParent()?.navigate('AnalyticsTab', {
+              screen: 'BalanceHistory',
+            })
+          }
+          style={({pressed}) => [
+            styles.balanceHistoryLink,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}>
+          <MaterialCommunityIcons name="chart-timeline-variant" size={22} color={colors.primary} />
+          <View style={styles.balanceHistoryLinkText}>
+            <Text style={[styles.balanceHistoryTitle, {color: colors.text}]}>
+              Balance History
+            </Text>
+            <Text style={[styles.balanceHistorySub, {color: colors.textSecondary}]}>
+              Track your total balance over time
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+        </Pressable>
+      </View>
+
       {budgetItems.length > 0 && (
         <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
           <Spacer size={spacing.lg} />
@@ -496,5 +527,26 @@ const styles = StyleSheet.create({
   paydayTriggerText: {
     flex: 1,
     gap: 2,
+  },
+  balanceHistoryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  balanceHistoryLinkText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  balanceHistoryTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  balanceHistorySub: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

@@ -441,6 +441,33 @@ export default function AnalyticsScreen() {
 
               <Spacer size={spacing.lg} />
 
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('BalanceHistory')}
+                style={[
+                  styles.converterLink,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                  },
+                ]}>
+                <AppIcon name="chart-timeline-variant" size={28} color={colors.primary} />
+                <View style={styles.converterLinkText}>
+                  <Text style={[styles.converterLinkTitle, {color: colors.text}]}>
+                    Balance History
+                  </Text>
+                  <Text style={[styles.converterLinkSub, {color: colors.textSecondary}]}>
+                    Track your total balance over time
+                  </Text>
+                </View>
+                <Text style={[styles.converterArrow, {color: colors.textTertiary}]}>
+                  ›
+                </Text>
+              </Pressable>
+
+              <Spacer size={spacing.lg} />
+
               <Card padding="md">
                 <Text style={[styles.cardTitle, {color: colors.text}]}>
                   Top Merchants
