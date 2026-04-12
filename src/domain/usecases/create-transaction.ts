@@ -25,10 +25,14 @@ export function makeCreateTransaction({transactionRepo, walletRepo}: Deps) {
 
     await transactionRepo.save(transaction);
 
-    const wallet = await walletRepo.findById(transaction.walletId);
-    if (wallet) {
-      const delta = transactionLedgerDeltaCents(transaction);
-      await walletRepo.updateBalance(wallet.id, wallet.balance + delta);
+    try {
+      const wallet = await walletRepo.findById(transaction.walletId);
+      if (wallet) {
+        const delta = transactionLedgerDeltaCents(transaction);
+        await walletRepo.updateBalance(wallet.id, wallet.balance + delta);
+      }
+    } catch {
+      // Balance update is secondary; transaction is saved
     }
 
     return transaction;

@@ -146,8 +146,8 @@ export default function TransactionsScreen() {
             text: 'Delete',
             style: 'destructive',
             onPress: () => {
-              deleteTransaction(id).catch(() => {
-                Alert.alert('Error', 'Failed to delete the transaction.');
+              deleteTransaction(id).catch((e) => {
+                Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete the transaction.');
               });
             },
           },

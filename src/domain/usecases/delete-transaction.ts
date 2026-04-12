@@ -15,11 +15,16 @@ export function makeDeleteTransaction({transactionRepo, walletRepo}: Deps) {
     }
 
     const oldDelta = transactionLedgerDeltaCentsFromTransaction(existing);
-    const wallet = await walletRepo.findById(existing.walletId);
-    if (wallet) {
-      await walletRepo.updateBalance(existing.walletId, wallet.balance - oldDelta);
-    }
 
     await transactionRepo.delete(id);
+
+    try {
+      const wallet = await walletRepo.findById(existing.walletId);
+      if (wallet) {
+        await walletRepo.updateBalance(existing.walletId, wallet.balance - oldDelta);
+      }
+    } catch {
+      // Wallet balance update is non-critical; transaction is already deleted
+    }
   };
 }

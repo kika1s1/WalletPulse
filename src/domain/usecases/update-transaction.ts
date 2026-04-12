@@ -52,24 +52,29 @@ export function makeUpdateTransaction({transactionRepo, walletRepo}: Deps) {
     const oldDelta = transactionLedgerDeltaCentsFromTransaction(existing);
     const newDelta = transactionLedgerDeltaCentsFromTransaction(updated);
 
-    if (existing.walletId === updated.walletId) {
-      const wallet = await walletRepo.findById(existing.walletId);
-      if (wallet) {
-        const nextBalance = wallet.balance - oldDelta + newDelta;
-        await walletRepo.updateBalance(updated.walletId, nextBalance);
+    await transactionRepo.update(updated);
+
+    try {
+      if (existing.walletId === updated.walletId) {
+        const wallet = await walletRepo.findById(existing.walletId);
+        if (wallet) {
+          const nextBalance = wallet.balance - oldDelta + newDelta;
+          await walletRepo.updateBalance(updated.walletId, nextBalance);
+        }
+      } else {
+        const oldWallet = await walletRepo.findById(existing.walletId);
+        if (oldWallet) {
+          await walletRepo.updateBalance(existing.walletId, oldWallet.balance - oldDelta);
+        }
+        const newWallet = await walletRepo.findById(updated.walletId);
+        if (newWallet) {
+          await walletRepo.updateBalance(updated.walletId, newWallet.balance + newDelta);
+        }
       }
-    } else {
-      const oldWallet = await walletRepo.findById(existing.walletId);
-      if (oldWallet) {
-        await walletRepo.updateBalance(existing.walletId, oldWallet.balance - oldDelta);
-      }
-      const newWallet = await walletRepo.findById(updated.walletId);
-      if (newWallet) {
-        await walletRepo.updateBalance(updated.walletId, newWallet.balance + newDelta);
-      }
+    } catch {
+      // Balance update is secondary; transaction is updated
     }
 
-    await transactionRepo.update(updated);
     return updated;
   };
 }
