@@ -19,17 +19,15 @@ export type UpgradeInsightCardProps = {
 export const UpgradeInsightCard = React.memo(function UpgradeInsightCard({
   title,
   description,
-  ctaText = 'See Plans',
+  ctaText = 'See Plans \u2192',
   onPress,
   tier = 'pro',
-  icon = 'star-outline',
+  icon = 'crown-outline',
   testID,
 }: UpgradeInsightCardProps) {
-  const {colors, radius, shadows, spacing, isDark} = useTheme();
+  const {colors, radius, spacing, isDark} = useTheme();
 
-  const bgColor = isDark ? `${colors.primary}1F` : `${colors.primary}12`;
-  const iconBg = isDark ? `${colors.primary}30` : `${colors.primary}1A`;
-  const ctaBg = isDark ? `${colors.primary}28` : `${colors.primary}18`;
+  const iconBg = isDark ? `${colors.primary}25` : `${colors.primary}14`;
 
   return (
     <Animated.View entering={FadeInUp.duration(300).springify()}>
@@ -41,11 +39,10 @@ export const UpgradeInsightCard = React.memo(function UpgradeInsightCard({
         style={({pressed}) => [
           styles.card,
           {
-            backgroundColor: bgColor,
-            borderColor: `${colors.primary}28`,
+            backgroundColor: isDark ? colors.surfaceElevated : colors.surface,
+            borderColor: isDark ? colors.border : colors.borderLight,
             borderRadius: radius.lg,
           },
-          shadows.md,
           pressed && styles.pressed,
         ]}>
         <View
@@ -53,12 +50,16 @@ export const UpgradeInsightCard = React.memo(function UpgradeInsightCard({
           importantForAccessibility="no-hide-descendants"
           style={[
             styles.accentBar,
-            {backgroundColor: colors.primary, borderTopLeftRadius: radius.lg, borderBottomLeftRadius: radius.lg},
+            {
+              backgroundColor: colors.primary,
+              borderTopLeftRadius: radius.lg,
+              borderBottomLeftRadius: radius.lg,
+            },
           ]}
         />
 
-        <View style={[styles.inner, {paddingHorizontal: spacing.base, paddingVertical: spacing.base}]}>
-          <View style={[styles.iconCircle, {backgroundColor: iconBg, borderRadius: radius.full}]}>
+        <View style={[styles.inner, {padding: spacing.base}]}>
+          <View style={[styles.iconCircle, {backgroundColor: iconBg}]}>
             <AppIcon name={icon} size={20} color={colors.primary} />
           </View>
 
@@ -78,16 +79,9 @@ export const UpgradeInsightCard = React.memo(function UpgradeInsightCard({
               {description}
             </Text>
 
-            <View
-              style={[
-                styles.ctaPill,
-                {backgroundColor: ctaBg, borderRadius: radius.sm},
-              ]}>
-              <Text style={[styles.ctaText, {color: colors.primary}]}>
-                {ctaText}
-              </Text>
-              <AppIcon name="arrow-right" size={14} color={colors.primary} />
-            </View>
+            <Text style={[styles.ctaText, {color: colors.primary}]}>
+              {ctaText}
+            </Text>
           </View>
         </View>
       </Pressable>
@@ -102,7 +96,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.92,
     transform: [{scale: 0.985}],
   },
   accentBar: {
@@ -110,20 +104,21 @@ const styles = StyleSheet.create({
     left: 0,
     position: 'absolute',
     top: 0,
-    width: 5,
+    width: 4,
   },
   inner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    paddingLeft: 5 + 12,
+    paddingLeft: 4 + 14,
   },
   iconCircle: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    marginTop: 1,
   },
   textBlock: {
     flex: 1,
@@ -136,25 +131,17 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontWeight: fontWeight.bold,
+    fontWeight: fontWeight.semibold,
     lineHeight: 20,
   },
   message: {
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 6,
-  },
-  ctaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    marginTop: 4,
   },
   ctaText: {
     fontSize: 13,
     fontWeight: fontWeight.semibold,
+    marginTop: 8,
   },
 });
