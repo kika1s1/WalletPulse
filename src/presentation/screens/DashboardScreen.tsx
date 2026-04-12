@@ -24,6 +24,8 @@ import {WalletSwitcher} from '@presentation/components/WalletSwitcher';
 import {useDashboard} from '@presentation/hooks/useDashboard';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBillReminders} from '@presentation/hooks/useBillReminders';
+import {useSubscriptions} from '@presentation/hooks/useSubscriptions';
+import {useGoals} from '@presentation/hooks/useGoals';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgetProgress} from '@presentation/hooks/useBudgetProgress';
 import {BudgetSummaryWidget} from '@presentation/components/BudgetSummaryWidget';
@@ -64,6 +66,7 @@ export default function DashboardScreen() {
     percentChange,
     monthIncome,
     monthExpenses,
+    prevMonthExpenses,
     weeklySpending,
     recentTransactions,
     insights,
@@ -77,6 +80,8 @@ export default function DashboardScreen() {
 
   const {activeBudgets} = useBudgets();
   const {bills} = useBillReminders();
+  const {subscriptions} = useSubscriptions();
+  const {goals} = useGoals();
   const {items: budgetItems, totalBudget, totalSpent} = useBudgetProgress(activeBudgets);
   const paydaySheetRef = useRef<BottomSheet>(null);
   const [paydayDismissed, setPaydayDismissed] = useState(false);
@@ -141,26 +146,62 @@ export default function DashboardScreen() {
     [colors, navigation, selectedWalletId],
   );
 
+  const billsOnTimePercent = useMemo(() => {
+    if (bills.length === 0) {return 100;}
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 86_400_000;
+    const recentBills = bills.filter((b) => b.dueDate >= thirtyDaysAgo && b.dueDate <= now);
+    if (recentBills.length === 0) {return 100;}
+    const paidOnTime = recentBills.filter((b) => b.isPaid).length;
+    return Math.round((paidOnTime / recentBills.length) * 100);
+  }, [bills]);
+
+  const subscriptionCounts = useMemo(() => {
+    const active = subscriptions.filter((s) => s.isActive);
+    const now = Date.now();
+    const sixtyDaysAgo = now - 60 * 86_400_000;
+    const recentlyUsed = active.filter((s) => s.nextDueDate >= sixtyDaysAgo);
+    return {active: active.length, used: recentlyUsed.length};
+  }, [subscriptions]);
+
+  const emergencyFundProgress = useMemo(() => {
+    const emergencyGoals = goals.filter(
+      (g) => g.category === 'emergency' && !g.isCompleted,
+    );
+    if (emergencyGoals.length === 0) {
+      const targetMonths = 3;
+      const monthlyExpenseTarget = monthExpenses > 0 ? monthExpenses * targetMonths : 0;
+      if (monthlyExpenseTarget <= 0) {return 50;}
+      const totalSavings = wallets
+        .filter((w) => w.isActive)
+        .reduce((sum, w) => sum + Math.max(w.balance, 0), 0);
+      return Math.min(Math.round((totalSavings / monthlyExpenseTarget) * 100), 100);
+    }
+    const totalProgress = emergencyGoals.reduce((sum, g) => {
+      if (g.targetAmount <= 0) {return sum + 100;}
+      return sum + Math.min((g.currentAmount / g.targetAmount) * 100, 100);
+    }, 0);
+    return Math.round(totalProgress / emergencyGoals.length);
+  }, [goals, monthExpenses, wallets]);
+
   const healthScoreResult = useMemo(() => {
-    const totalIncome = monthIncome;
-    const totalExpenses = monthExpenses;
-    if (totalIncome === 0 && totalExpenses === 0) {return null;}
+    if (monthIncome === 0 && monthExpenses === 0) {return null;}
 
     const calculator = new CalculateHealthScore();
     return calculator.execute({
-      totalIncome,
-      totalExpenses,
+      totalIncome: monthIncome,
+      totalExpenses: monthExpenses,
       budgetAdherencePercent:
         totalBudget > 0
           ? Math.round(Math.min((1 - totalSpent / totalBudget) * 100, 100))
           : 100,
-      billsOnTimePercent: 100,
-      activeSubscriptionCount: 0,
-      usedSubscriptionCount: 0,
-      emergencyFundProgress: 0,
-      previousPeriodExpenses: 0,
+      billsOnTimePercent,
+      activeSubscriptionCount: subscriptionCounts.active,
+      usedSubscriptionCount: subscriptionCounts.used,
+      emergencyFundProgress,
+      previousPeriodExpenses: prevMonthExpenses,
     });
-  }, [monthIncome, monthExpenses, totalBudget, totalSpent]);
+  }, [monthIncome, monthExpenses, totalBudget, totalSpent, billsOnTimePercent, subscriptionCounts, emergencyFundProgress, prevMonthExpenses]);
 
   const latestIncome = useMemo(() => {
     if (paydayDismissed) {return null;}

@@ -20,6 +20,7 @@ export type DashboardData = {
   percentChange: number;
   monthIncome: number;
   monthExpenses: number;
+  prevMonthExpenses: number;
   weeklySpending: DaySpending[];
   recentTransactions: Transaction[];
   insights: InsightCardProps[];
@@ -356,6 +357,7 @@ export function useDashboard(): DashboardData {
     percentChange,
     monthIncome,
     monthExpenses,
+    prevMonthExpenses,
     weeklySpending,
     recentTransactions,
     insights,
