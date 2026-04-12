@@ -25,6 +25,7 @@ import {
   isInitialized,
   removeCustomerInfoUpdateListener,
 } from '@infrastructure/purchases/revenue-cat-client';
+import {getOrCreateAppUserId} from '@infrastructure/purchases/app-user-id';
 
 type EntitlementState = {
   initialized: boolean;
@@ -129,10 +130,18 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
 
     const ready = await initializePurchases();
     if (!ready) {
+      const [offering, fallbackUserId] = await Promise.all([
+        purchaseService.getOffering(),
+        getOrCreateAppUserId(),
+      ]);
       set({
-        initialized: false,
+        initialized: true,
         isLoading: false,
-        error: 'RevenueCat failed to initialize.',
+        entitlement: FREE_ENTITLEMENT,
+        appUserId: fallbackUserId,
+        offering,
+        availablePackages: offering?.availablePackages ?? [],
+        error: null,
       });
       return;
     }

@@ -15,6 +15,7 @@ import {
   ENTITLEMENT_IDS,
   REVENUECAT_API_KEY,
 } from '@shared/constants/purchase-constants';
+import {getOrCreateAppUserId} from './app-user-id';
 
 let initialized = false;
 
@@ -22,8 +23,11 @@ function hasValidApiKey(): boolean {
   if (REVENUECAT_API_KEY.length === 0) {
     return false;
   }
-  const validPrefixes = ['goog_', 'appl_', 'amzn_', 'test_', 'rcb_', 'strp_'];
-  return validPrefixes.some(p => REVENUECAT_API_KEY.startsWith(p));
+  const prodPrefixes = ['goog_', 'appl_', 'amzn_', 'rcb_', 'strp_'];
+  if (prodPrefixes.some(p => REVENUECAT_API_KEY.startsWith(p))) {
+    return true;
+  }
+  return __DEV__ && REVENUECAT_API_KEY.startsWith('test_');
 }
 
 export async function initializePurchases(): Promise<boolean> {
@@ -40,11 +44,14 @@ export async function initializePurchases(): Promise<boolean> {
       await Purchases.setLogLevel(LOG_LEVEL.WARN);
     }
 
+    const appUserId = await getOrCreateAppUserId();
+
     if (Platform.OS === 'android') {
       Purchases.configure({
         apiKey: REVENUECAT_API_KEY,
+        appUserID: appUserId,
         useAmazon: false,
-        shouldShowInAppMessagesAutomatically: true,
+        shouldShowInAppMessagesAutomatically: false,
         diagnosticsEnabled: __DEV__,
         entitlementVerificationMode:
           Purchases.ENTITLEMENT_VERIFICATION_MODE.DISABLED,

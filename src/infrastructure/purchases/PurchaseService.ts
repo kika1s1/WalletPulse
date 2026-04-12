@@ -2,6 +2,7 @@ import type {CustomerInfo, PurchasesOffering} from 'react-native-purchases';
 import {PAYWALL_RESULT} from 'react-native-purchases-ui';
 import {
   PLAN_LABELS,
+  PLAN_PRICES,
   type WalletPulsePlanId,
 } from '@shared/constants/purchase-constants';
 import {
@@ -19,6 +20,7 @@ import {
   getCurrentOffering,
   getCustomerInfo,
   getPurchasesErrorMessage,
+  isInitialized,
   presentCustomerCenter,
   presentPaywall as presentRevenueCatPaywall,
   presentPaywallIfNeeded as presentRevenueCatPaywallIfNeeded,
@@ -26,6 +28,7 @@ import {
   refreshCustomerInfo,
   restorePurchases,
 } from './revenue-cat-client';
+import {isWebPurchaseConfigured, openWebPurchase} from './web-purchase';
 
 const ORDERED_PLANS: WalletPulsePlanId[] = ['monthly', 'yearly', 'lifetime'];
 
@@ -60,6 +63,25 @@ function mapPackage(planId: WalletPulsePlanId, pkg: NonNullable<ReturnType<typeo
   };
 }
 
+function buildFallbackPackage(planId: WalletPulsePlanId): PurchasePackage {
+  const prices = PLAN_PRICES[planId];
+  return {
+    identifier: `$rc_${planId === 'yearly' ? 'annual' : planId}`,
+    packageType: planId === 'monthly' ? 'MONTHLY' : planId === 'yearly' ? 'ANNUAL' : 'LIFETIME',
+    planId,
+    product: {
+      id: `walletpulse_pro_${planId}`,
+      title: PLAN_LABELS[planId],
+      description: getPlanDescription(planId),
+      priceString: prices.amount,
+      price: parseFloat(prices.amount.replace('$', '')),
+      currencyCode: 'USD',
+      pricePerMonthString: planId === 'monthly' ? prices.amount : null,
+      pricePerYearString: planId === 'yearly' ? prices.amount : null,
+    },
+  };
+}
+
 function mapOffering(offering: PurchasesOffering | null): PurchaseOffering | null {
   if (!offering) {
     return null;
@@ -73,6 +95,13 @@ function mapOffering(offering: PurchasesOffering | null): PurchaseOffering | nul
   return {
     identifier: offering.identifier,
     availablePackages,
+  };
+}
+
+function buildWebFallbackOffering(): PurchaseOffering {
+  return {
+    identifier: 'default',
+    availablePackages: ORDERED_PLANS.map(buildFallbackPackage),
   };
 }
 
@@ -130,6 +159,9 @@ async function buildPaywallResult(
 
 export class PurchaseService {
   async getOffering(): Promise<PurchaseOffering | null> {
+    if (isWebPurchaseConfigured()) {
+      return buildWebFallbackOffering();
+    }
     return mapOffering(await getCurrentOffering());
   }
 
@@ -138,6 +170,26 @@ export class PurchaseService {
   }
 
   async purchasePlan(planId: WalletPulsePlanId): Promise<PurchaseResult> {
+    if (isWebPurchaseConfigured()) {
+      const result = await openWebPurchase(planId);
+      if (!result.success) {
+        return {
+          success: false,
+          customerInfo: await getCustomerInfo(),
+          productId: null,
+          transactionId: null,
+          errorMessage: result.errorMessage ?? 'Web purchase failed.',
+        };
+      }
+      return {
+        success: true,
+        customerInfo: await getCustomerInfo(),
+        productId: `walletpulse_pro_${planId}`,
+        transactionId: null,
+        errorMessage: null,
+      };
+    }
+
     if (!(await canMakePayments())) {
       return {
         success: false,

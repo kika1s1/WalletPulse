@@ -17,6 +17,7 @@ import {usePurchase} from '@presentation/hooks/usePurchase';
 import {PlanCard} from '@presentation/components/common/PlanCard';
 import type {WalletPulsePlanId} from '@shared/constants/purchase-constants';
 import {monetizationAnalytics} from '@infrastructure/analytics/monetization-events';
+import {isWebPurchaseConfigured} from '@infrastructure/purchases/web-purchase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
@@ -92,20 +93,22 @@ export default function PaywallScreen({navigation, route}: Props) {
     return map;
   }, [availablePackages]);
 
+  const isWebFlow = isWebPurchaseConfigured();
+
   const handleSelectPlan = useCallback(
     async (planId: WalletPulsePlanId) => {
       clearError();
       setPurchasingPlanId(planId);
       const success = await purchase(planId);
       setPurchasingPlanId(null);
-      if (success) {
+      if (success && !isWebFlow) {
         void monetizationAnalytics.trackPurchaseCompleted(planId, 0, tier);
         navigation.goBack();
-      } else {
+      } else if (!success) {
         void monetizationAnalytics.trackPurchaseFailed(planId, 'purchase_cancelled_or_failed');
       }
     },
-    [clearError, purchase, navigation, tier],
+    [clearError, purchase, navigation, tier, isWebFlow],
   );
 
   const handleRestore = useCallback(async () => {
@@ -217,6 +220,28 @@ export default function PaywallScreen({navigation, route}: Props) {
             );
           })}
         </View>
+
+        {isWebFlow && (
+          <View
+            style={[
+              styles.webNotice,
+              {
+                backgroundColor: `${colors.primary}14`,
+                borderRadius: radius.sm,
+                marginTop: spacing.md,
+                padding: spacing.sm,
+              },
+            ]}>
+            <Icon name="open-in-new" size={16} color={colors.primary} />
+            <Text
+              style={[
+                typo.footnote,
+                {color: colors.primary, marginLeft: spacing.xs, flex: 1},
+              ]}>
+              Payment opens securely in your browser via Stripe. Your subscription will activate automatically when you return.
+            </Text>
+          </View>
+        )}
 
         {error && (
           <View
@@ -345,6 +370,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  webNotice: {
     flexDirection: 'row',
     alignItems: 'center',
   },

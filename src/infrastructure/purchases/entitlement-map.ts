@@ -28,7 +28,14 @@ function getActiveEntitlement(
 }
 
 function isLifetimeProduct(productIdentifier: string | null | undefined): boolean {
-  return productIdentifier === PRODUCT_IDS.LIFETIME;
+  if (!productIdentifier) {
+    return false;
+  }
+  return (
+    productIdentifier === PRODUCT_IDS.LIFETIME ||
+    productIdentifier === 'lifetime' ||
+    productIdentifier.includes('lifetime')
+  );
 }
 
 export function hasWalletPulseProEntitlement(info: CustomerInfo | null): boolean {
@@ -59,19 +66,30 @@ export function getActivePlanId(
     return 'lifetime';
   }
 
-  if (productIdentifier === PRODUCT_IDS.YEARLY) {
+  if (
+    productIdentifier === PRODUCT_IDS.YEARLY ||
+    productIdentifier === 'yearly' ||
+    (productIdentifier && productIdentifier.includes('yearly'))
+  ) {
     return 'yearly';
   }
 
-  if (productIdentifier === PRODUCT_IDS.MONTHLY) {
+  if (
+    productIdentifier === PRODUCT_IDS.MONTHLY ||
+    productIdentifier === 'monthly' ||
+    (productIdentifier && productIdentifier.includes('monthly'))
+  ) {
     return 'monthly';
   }
 
-  if (info.activeSubscriptions.includes(PRODUCT_IDS.YEARLY)) {
+  const yearlyIds = [PRODUCT_IDS.YEARLY, 'yearly', 'walletpulse_pro_yearly'];
+  const monthlyIds = [PRODUCT_IDS.MONTHLY, 'monthly', 'walletpulse_pro_monthly'];
+
+  if (yearlyIds.some(id => info.activeSubscriptions.includes(id))) {
     return 'yearly';
   }
 
-  if (info.activeSubscriptions.includes(PRODUCT_IDS.MONTHLY)) {
+  if (monthlyIds.some(id => info.activeSubscriptions.includes(id))) {
     return 'monthly';
   }
 

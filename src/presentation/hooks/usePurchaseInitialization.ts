@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {AppState} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   disposeEntitlementStoreListener,
@@ -13,6 +14,11 @@ import {
 } from '@infrastructure/notifications/trial-reminders';
 import {scheduleRetentionNotification} from '@infrastructure/notifications/retention-notifications';
 import {monetizationAnalytics} from '@infrastructure/analytics/monetization-events';
+import {
+  setupDeepLinkHandler,
+  removeDeepLinkHandler,
+  handleInitialDeepLink,
+} from '@infrastructure/purchases/deep-link-handler';
 
 const WINBACK_SHOWN_KEY = '@walletpulse/winback_shown';
 const PREVIOUS_TIER_KEY = '@walletpulse/previous_tier';
@@ -35,9 +41,23 @@ export function usePurchaseInitialization(): PurchaseInitResult {
 
   useEffect(() => {
     void initialize();
+    void handleInitialDeepLink();
+
+    const refresh = useEntitlementStore.getState().refresh;
+    setupDeepLinkHandler(() => {
+      void refresh();
+    });
+
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refresh();
+      }
+    });
 
     return () => {
       disposeEntitlementStoreListener();
+      removeDeepLinkHandler();
+      appStateSub.remove();
     };
   }, [initialize]);
 
