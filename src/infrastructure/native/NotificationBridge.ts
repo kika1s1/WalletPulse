@@ -44,13 +44,3 @@ export async function openListenerSettings(): Promise<void> {
   }
 }
 
-export async function getWatchedPackages(): Promise<string[]> {
-  if (Platform.OS !== 'android') {
-    return [];
-  }
-  try {
-    return await NotificationBridge.getWatchedPackages();
-  } catch {
-    return [];
-  }
-}

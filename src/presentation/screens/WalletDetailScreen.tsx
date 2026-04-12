@@ -20,7 +20,9 @@ import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
+import {Button} from '@presentation/components/common/Button';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
+import {transactionLedgerDeltaCentsFromTransaction} from '@domain/value-objects/WalletTransferNotes';
 
 type WalletDetailRoute = RouteProp<WalletsStackParamList, 'WalletDetail'>;
 type WalletDetailNav = NativeStackNavigationProp<WalletsStackParamList, 'WalletDetail'>;
@@ -125,6 +127,16 @@ export default function WalletDetailScreen() {
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
+  const ledgerBalance = useMemo(() => {
+    let cents = 0;
+    for (const t of transactions) {
+      cents += transactionLedgerDeltaCentsFromTransaction(t);
+    }
+    return cents;
+  }, [transactions]);
+
+  const balanceMismatch = wallet ? Math.abs(wallet.balance - ledgerBalance) > 0 : false;
+
   const handleDeleteWallet = useCallback(() => {
     Alert.alert(
       'Delete Wallet',
@@ -217,7 +229,6 @@ export default function WalletDetailScreen() {
               </View>
             </View>
 
-            {/* Balance from wallet record; use `makeCalculateWalletBalance` when a ledger-derived total is required (e.g. reconciliation). */}
             <Text
               style={[
                 styles.balanceAmount,
@@ -228,6 +239,42 @@ export default function WalletDetailScreen() {
               ]}>
               {formatAmountMasked(wallet.balance, wallet.currency, hide)}
             </Text>
+
+            {!txLoading && balanceMismatch && (
+              <View style={[styles.reconcileRow, {marginTop: spacing.sm}]}>
+                <AppIcon name="alert-circle-outline" size={14} color={colors.warning} />
+                <Text style={[styles.reconcileText, {color: colors.warning}]}>
+                  Ledger: {formatAmountMasked(ledgerBalance, wallet.currency, hide)}
+                </Text>
+                <Pressable
+                  accessibilityLabel="Reconcile wallet balance"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => {
+                    Alert.alert(
+                      'Reconcile Balance',
+                      `Update stored balance to match the calculated total from all transactions (${formatAmountMasked(ledgerBalance, wallet.currency, false)})?`,
+                      [
+                        {text: 'Cancel', style: 'cancel'},
+                        {
+                          text: 'Reconcile',
+                          onPress: async () => {
+                            try {
+                              const ds = await import('@data/datasources/LocalDataSource');
+                              await ds.getLocalDataSource().wallets.updateBalance(walletId, ledgerBalance);
+                              walletRefetch();
+                            } catch {
+                              Alert.alert('Error', 'Failed to reconcile balance.');
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}>
+                  <Text style={[styles.reconcileAction, {color: colors.primary}]}>Reconcile</Text>
+                </Pressable>
+              </View>
+            )}
           </>
         ) : null}
 
@@ -371,6 +418,20 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: fontWeight.semibold,
+  },
+  reconcileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reconcileText: {
+    fontSize: 13,
+    fontWeight: fontWeight.medium,
+  },
+  reconcileAction: {
+    fontSize: 13,
+    fontWeight: fontWeight.semibold,
+    marginLeft: 4,
   },
   txGap: {
     marginTop: 6,

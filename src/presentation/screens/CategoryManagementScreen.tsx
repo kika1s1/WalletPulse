@@ -18,6 +18,7 @@ import {fontWeight} from '@shared/theme/typography';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeArchiveCategory} from '@domain/usecases/archive-category';
+import {makeReorderCategories} from '@domain/usecases/reorder-categories';
 import type {Category} from '@domain/entities/Category';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {BackButton} from '@presentation/components/common';
@@ -37,10 +38,18 @@ function CategoryRow({
   cat,
   onEdit,
   onArchive,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   cat: Category;
   onEdit: (id: string) => void;
   onArchive: (id: string, name: string) => void;
+  onMoveUp: (id: string) => void;
+  onMoveDown: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const {colors, spacing, radius} = useTheme();
 
@@ -56,6 +65,25 @@ function CategoryRow({
           paddingVertical: spacing.md,
         },
       ]}>
+      <View style={styles.reorderCol}>
+        <Pressable
+          accessibilityLabel={`Move ${cat.name} up`}
+          disabled={isFirst}
+          hitSlop={4}
+          onPress={() => onMoveUp(cat.id)}
+          style={{opacity: isFirst ? 0.25 : 1}}>
+          <MaterialCommunityIcons color={colors.textTertiary} name="chevron-up" size={20} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel={`Move ${cat.name} down`}
+          disabled={isLast}
+          hitSlop={4}
+          onPress={() => onMoveDown(cat.id)}
+          style={{opacity: isLast ? 0.25 : 1}}>
+          <MaterialCommunityIcons color={colors.textTertiary} name="chevron-down" size={20} />
+        </Pressable>
+      </View>
+
       <View
         style={[
           styles.catIcon,
@@ -183,11 +211,44 @@ export default function CategoryManagementScreen() {
     [refetch],
   );
 
+  const swapCategories = useCallback(
+    async (id: string, direction: 'up' | 'down') => {
+      const idx = filtered.findIndex((c) => c.id === id);
+      if (idx < 0) {return;}
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= filtered.length) {return;}
+
+      const reordered = [...filtered];
+      [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+
+      try {
+        const ds = getLocalDataSource();
+        const reorder = makeReorderCategories({categoryRepo: ds.categories});
+        await reorder(reordered.map((c) => c.id));
+        refetch();
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to reorder');
+      }
+    },
+    [filtered, refetch],
+  );
+
+  const handleMoveUp = useCallback((id: string) => swapCategories(id, 'up'), [swapCategories]);
+  const handleMoveDown = useCallback((id: string) => swapCategories(id, 'down'), [swapCategories]);
+
   const renderItem = useCallback(
-    ({item}: {item: Category}) => (
-      <CategoryRow cat={item} onArchive={handleArchive} onEdit={handleEdit} />
+    ({item, index}: {item: Category; index: number}) => (
+      <CategoryRow
+        cat={item}
+        onArchive={handleArchive}
+        onEdit={handleEdit}
+        onMoveUp={handleMoveUp}
+        onMoveDown={handleMoveDown}
+        isFirst={index === 0}
+        isLast={index === filtered.length - 1}
+      />
     ),
-    [handleArchive, handleEdit],
+    [handleArchive, handleEdit, handleMoveUp, handleMoveDown, filtered.length],
   );
 
   const keyExtractor = useCallback((item: Category) => item.id, []);
@@ -340,6 +401,11 @@ const styles = StyleSheet.create({
   },
   tabLabel: {fontSize: 14, fontWeight: fontWeight.medium},
   tabCount: {fontSize: 12},
+  reorderCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 0,
+  },
   catRow: {
     flexDirection: 'row',
     alignItems: 'center',

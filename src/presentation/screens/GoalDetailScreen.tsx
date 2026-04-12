@@ -24,10 +24,11 @@ import {AmountInput} from '@presentation/components/common/AmountInput';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-import {getProgress} from '@domain/entities/Goal';
+import {getProgress, getRemainingAmount} from '@domain/entities/Goal';
 import {formatDeadline, getGoalStatusLabel} from '@domain/usecases/goal-management';
 import {useGoals, useGoalActions} from '@presentation/hooks/useGoals';
 import {useStableNow} from '@presentation/hooks/useStableNow';
+import {calculatePercentage} from '@domain/value-objects/Percentage';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'GoalDetail'>;
 type Route = RouteProp<SettingsStackParamList, 'GoalDetail'>;
@@ -61,6 +62,36 @@ export default function GoalDetailScreen() {
   const progressRatio = goal ? getProgress(goal) : 0;
   const pctRounded = Math.round(progressRatio * 100);
   const canMarkComplete = goal && !goal.isCompleted && progressRatio >= 1;
+
+  const goalMetrics = useMemo(() => {
+    if (!goal) {
+      return {remaining: 0, etaDays: null as number | null, isOnTrack: false, percentage: 0};
+    }
+    const MS_PER_DAY = 86_400_000;
+    const remaining = getRemainingAmount(goal);
+    const pct = calculatePercentage(goal.currentAmount, goal.targetAmount);
+
+    let etaDays: number | null = null;
+    if (goal.currentAmount >= goal.targetAmount) {
+      etaDays = 0;
+    } else {
+      const elapsedMs = now - goal.createdAt;
+      const elapsedDays = Math.max(elapsedMs / MS_PER_DAY, 1);
+      const ratePerDay = goal.currentAmount / elapsedDays;
+      if (ratePerDay > 0) {
+        etaDays = Math.ceil(remaining / ratePerDay);
+      }
+    }
+
+    let isOnTrack = false;
+    if (goal.currentAmount >= goal.targetAmount) {
+      isOnTrack = now <= goal.deadline;
+    } else if (etaDays !== null) {
+      isOnTrack = now + etaDays * MS_PER_DAY <= goal.deadline;
+    }
+
+    return {remaining, etaDays, isOnTrack, percentage: pct.value};
+  }, [goal, now]);
 
   const openContribModal = useCallback(() => {
     setContribCents(0);
@@ -263,6 +294,38 @@ export default function GoalDetailScreen() {
               ]}>
               {pctRounded}% complete
             </Text>
+
+            <View style={[styles.metricsRow, {marginTop: spacing.lg, gap: spacing.sm}]}>
+              <View style={[styles.metricItem, {backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md}]}>
+                <AppIcon name="clock-outline" size={16} color={colors.textTertiary} />
+                <Text style={[styles.metricLabel, {color: colors.textTertiary}]}>ETA</Text>
+                <Text style={[styles.metricValue, {color: colors.text}]}>
+                  {goalMetrics.etaDays === null
+                    ? 'N/A'
+                    : goalMetrics.etaDays === 0
+                      ? 'Done'
+                      : `${goalMetrics.etaDays}d`}
+                </Text>
+              </View>
+              <View style={[styles.metricItem, {backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md}]}>
+                <AppIcon
+                  name={goalMetrics.isOnTrack ? 'check-circle-outline' : 'alert-circle-outline'}
+                  size={16}
+                  color={goalMetrics.isOnTrack ? colors.success : colors.warning}
+                />
+                <Text style={[styles.metricLabel, {color: colors.textTertiary}]}>Status</Text>
+                <Text style={[styles.metricValue, {color: goalMetrics.isOnTrack ? colors.success : colors.warning}]}>
+                  {goalMetrics.isOnTrack ? 'On track' : 'Behind'}
+                </Text>
+              </View>
+              <View style={[styles.metricItem, {backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md}]}>
+                <AppIcon name="currency-usd" size={16} color={colors.textTertiary} />
+                <Text style={[styles.metricLabel, {color: colors.textTertiary}]}>Left</Text>
+                <Text style={[styles.metricValue, {color: colors.text}]} numberOfLines={1}>
+                  {formatAmountMasked(Math.max(0, goalMetrics.remaining), goal.currency, hide)}
+                </Text>
+              </View>
+            </View>
           </View>
 
           {!goal.isCompleted && (
@@ -507,6 +570,10 @@ const styles = StyleSheet.create({
   savedMajor: {fontSize: 30, fontWeight: fontWeight.bold, marginTop: 6},
   ofLine: {fontSize: 14, marginTop: 4},
   pctLine: {fontSize: 14, textAlign: 'center'},
+  metricsRow: {flexDirection: 'row'},
+  metricItem: {flex: 1, alignItems: 'center', gap: 4},
+  metricLabel: {fontSize: 11, fontWeight: fontWeight.semibold, letterSpacing: 0.4, textTransform: 'uppercase'},
+  metricValue: {fontSize: 14, fontWeight: fontWeight.bold},
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
