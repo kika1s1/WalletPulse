@@ -1,4 +1,4 @@
-package com.walletpulsetemp.notification
+package com.walletpulse.notification
 
 import android.content.ComponentName
 import android.content.Intent

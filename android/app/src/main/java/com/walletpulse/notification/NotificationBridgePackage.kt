@@ -1,4 +1,4 @@
-package com.walletpulsetemp.notification
+package com.walletpulse.notification
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

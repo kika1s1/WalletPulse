@@ -1,4 +1,4 @@
-package com.walletpulsetemp
+package com.walletpulse
 
 import android.os.Bundle
 import com.facebook.react.ReactActivity
@@ -13,7 +13,7 @@ class MainActivity : ReactActivity() {
       super.onCreate(savedInstanceState)
   }
 
-  override fun getMainComponentName(): String = "WalletPulseTemp"
+  override fun getMainComponentName(): String = "WalletPulse"
 
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)

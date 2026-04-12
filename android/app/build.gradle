@@ -78,9 +78,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.walletpulsetemp"
+    namespace "com.walletpulse"
     defaultConfig {
-        applicationId "com.walletpulsetemp"
+        applicationId "com.walletpulse"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
@@ -93,15 +93,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (project.hasProperty('WALLETPULSE_UPLOAD_STORE_FILE')) {
+                storeFile file(WALLETPULSE_UPLOAD_STORE_FILE)
+                storePassword WALLETPULSE_UPLOAD_STORE_PASSWORD
+                keyAlias WALLETPULSE_UPLOAD_KEY_ALIAS
+                keyPassword WALLETPULSE_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release.storeFile ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

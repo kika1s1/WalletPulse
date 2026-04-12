@@ -1,4 +1,4 @@
-package com.walletpulsetemp.notification
+package com.walletpulse.notification
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
