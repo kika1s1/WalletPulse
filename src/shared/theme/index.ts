@@ -1,6 +1,6 @@
 import React, {createContext, useContext, useMemo} from 'react';
 import {useColorScheme} from 'react-native';
-import {colors, ColorTheme} from './colors';
+import {colors, ColorTheme, getThemeColors, type ThemeId} from './colors';
 import {typography} from './typography';
 import {spacing} from './spacing';
 import {shadows} from './shadows';
@@ -13,6 +13,7 @@ export type Theme = {
   shadows: typeof shadows;
   radius: typeof radius;
   isDark: boolean;
+  themeId: ThemeId;
 };
 
 const ThemeContext = createContext<Theme | null>(null);
@@ -22,9 +23,11 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 export function ThemeProvider({
   children,
   themeMode = 'system',
+  themeId = 'default',
 }: {
   children: React.ReactNode;
   themeMode?: ThemeMode;
+  themeId?: ThemeId;
 }) {
   const systemScheme = useColorScheme();
   const isDark =
@@ -32,14 +35,15 @@ export function ThemeProvider({
 
   const theme = useMemo<Theme>(
     () => ({
-      colors: isDark ? colors.dark : colors.light,
+      colors: getThemeColors(themeId, isDark),
       typography,
       spacing,
       shadows,
       radius,
       isDark,
+      themeId,
     }),
-    [isDark],
+    [isDark, themeId],
   );
 
   return React.createElement(ThemeContext.Provider, {value: theme}, children);
@@ -54,6 +58,8 @@ export function useTheme(): Theme {
 }
 
 export {colors} from './colors';
+export type {ThemeId} from './colors';
+export {themePalettes, getThemeColors} from './colors';
 export {typography} from './typography';
 export {spacing} from './spacing';
 export {shadows} from './shadows';

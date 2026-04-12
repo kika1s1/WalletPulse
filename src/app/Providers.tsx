@@ -14,12 +14,15 @@ const ROOT_STYLE = {flex: 1} as const;
 
 export function Providers({children}: Props) {
   const themeMode = useSettingsStore(s => s.themeMode);
+  const activeThemeId = useSettingsStore(s => s.activeThemeId);
 
   return (
     <GestureHandlerRootView style={ROOT_STYLE}>
       <SafeAreaProvider>
         <DatabaseProvider database={database}>
-          <ThemeProvider themeMode={themeMode}>{children}</ThemeProvider>
+          <ThemeProvider themeMode={themeMode} themeId={activeThemeId}>
+            {children}
+          </ThemeProvider>
         </DatabaseProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
