@@ -6,6 +6,7 @@ import WalletsScreen from '@presentation/screens/WalletsScreen';
 
 const CreateWalletScreen = React.lazy(() => import('@presentation/screens/CreateWalletScreen'));
 const WalletDetailScreen = React.lazy(() => import('@presentation/screens/WalletDetailScreen'));
+const BalanceHistoryScreen = React.lazy(() => import('@presentation/screens/BalanceHistoryScreen'));
 const TransactionDetailScreen = React.lazy(() => import('@presentation/screens/TransactionDetailScreen'));
 const EditTransactionScreen = React.lazy(() => import('@presentation/screens/EditTransactionScreen'));
 
@@ -27,6 +28,7 @@ export default function WalletsStack() {
         <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
         <Stack.Screen name="EditWallet" component={CreateWalletScreen} />
         <Stack.Screen name="WalletDetail" component={WalletDetailScreen} />
+        <Stack.Screen name="WalletBalanceHistory" component={BalanceHistoryScreen} />
         <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
         <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
       </Stack.Navigator>

@@ -8,7 +8,7 @@ import {
   computeBalanceHistory,
   type BalanceHistoryPoint,
 } from '@domain/usecases/calculate-balance-history';
-import {startOfDay, endOfDay} from '@shared/utils/date-helpers';
+import {startOfDay} from '@shared/utils/date-helpers';
 
 export type BalancePeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
 
@@ -68,33 +68,61 @@ function useConversionRates(currencies: string[], baseCurrency: string): RateMap
   return rates;
 }
 
+export type UseBalanceHistoryOptions = {
+  walletId?: string | null;
+};
+
 export type UseBalanceHistoryReturn = {
   points: BalanceHistoryPoint[];
   period: BalancePeriod;
   setPeriod: (p: BalancePeriod) => void;
-  baseCurrency: string;
+  displayCurrency: string;
   currentBalance: number;
   highWater: number;
   lowWater: number;
   changeAmount: number;
   changePercent: number;
   isLoading: boolean;
+  walletId: string | null;
+  setWalletId: (id: string | null) => void;
+  walletOptions: {id: string; name: string; currency: string; color: string; icon: string}[];
 };
 
-export function useBalanceHistory(): UseBalanceHistoryReturn {
+export function useBalanceHistory(options?: UseBalanceHistoryOptions): UseBalanceHistoryReturn {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [period, setPeriod] = useState<BalancePeriod>('1M');
+  const [walletId, setWalletId] = useState<string | null>(options?.walletId ?? null);
 
-  const {transactions, isLoading: txLoading} = useTransactions({syncWithFilterStore: false});
+  const txFilter = useMemo(
+    () => (walletId ? {walletId} : undefined),
+    [walletId],
+  );
+
+  const {transactions, isLoading: txLoading} = useTransactions({
+    syncWithFilterStore: false,
+    filter: txFilter,
+  });
   const {wallets, isLoading: walletLoading} = useWallets();
 
+  const selectedWallet = useMemo(
+    () => (walletId ? wallets.find((w) => w.id === walletId) ?? null : null),
+    [wallets, walletId],
+  );
+
+  const displayCurrency = selectedWallet ? selectedWallet.currency : baseCurrency;
+
+  const needsFxConversion = !selectedWallet;
+
   const allCurrencies = useMemo(() => {
+    if (!needsFxConversion) {return [];}
     const set = new Set<string>();
     for (const t of transactions) {set.add(t.currency.toUpperCase());}
     return Array.from(set);
-  }, [transactions]);
+  }, [transactions, needsFxConversion]);
 
   const fxRates = useConversionRates(allCurrencies, baseCurrency);
+
+  const effectiveRates = needsFxConversion ? fxRates : {};
 
   const periodStart = useMemo(() => periodToStartMs(period), [period]);
 
@@ -114,21 +142,22 @@ export function useBalanceHistory(): UseBalanceHistoryReturn {
   );
 
   const points = useMemo(
-    () => computeBalanceHistory(historyInputs, baseCurrency, fxRates),
-    [historyInputs, baseCurrency, fxRates],
+    () => computeBalanceHistory(historyInputs, displayCurrency, effectiveRates),
+    [historyInputs, displayCurrency, effectiveRates],
   );
 
-  const currentBalance = useMemo(
-    () =>
-      wallets
-        .filter((w) => w.isActive)
-        .reduce((sum, w) => {
-          if (w.currency.toUpperCase() === baseCurrency.toUpperCase()) {return sum + w.balance;}
-          const rate = fxRates[w.currency.toUpperCase()];
-          return sum + (rate ? Math.round(w.balance * rate) : w.balance);
-        }, 0),
-    [wallets, baseCurrency, fxRates],
-  );
+  const currentBalance = useMemo(() => {
+    if (selectedWallet) {
+      return selectedWallet.balance;
+    }
+    return wallets
+      .filter((w) => w.isActive)
+      .reduce((sum, w) => {
+        if (w.currency.toUpperCase() === baseCurrency.toUpperCase()) {return sum + w.balance;}
+        const rate = fxRates[w.currency.toUpperCase()];
+        return sum + (rate ? Math.round(w.balance * rate) : w.balance);
+      }, 0);
+  }, [wallets, selectedWallet, baseCurrency, fxRates]);
 
   const stats = useMemo(() => {
     if (points.length === 0) {
@@ -144,16 +173,33 @@ export function useBalanceHistory(): UseBalanceHistoryReturn {
     return {highWater, lowWater, changeAmount, changePercent};
   }, [points]);
 
+  const walletOptions = useMemo(
+    () =>
+      wallets
+        .filter((w) => w.isActive)
+        .map((w) => ({
+          id: w.id,
+          name: w.name,
+          currency: w.currency,
+          color: w.color,
+          icon: w.icon,
+        })),
+    [wallets],
+  );
+
   return {
     points,
     period,
     setPeriod,
-    baseCurrency,
+    displayCurrency,
     currentBalance,
     highWater: stats.highWater,
     lowWater: stats.lowWater,
     changeAmount: stats.changeAmount,
     changePercent: stats.changePercent,
     isLoading: txLoading || walletLoading,
+    walletId,
+    setWalletId,
+    walletOptions,
   };
 }

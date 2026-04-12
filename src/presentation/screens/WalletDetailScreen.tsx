@@ -21,6 +21,7 @@ import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {Button} from '@presentation/components/common/Button';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 import {transactionLedgerDeltaCentsFromTransaction} from '@domain/value-objects/WalletTransferNotes';
 
@@ -307,6 +308,35 @@ export default function WalletDetailScreen() {
             </Text>
           </Card>
         </View>
+
+        <Spacer size={spacing.base} />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="View balance history for this wallet"
+          onPress={() =>
+            navigation.navigate('WalletBalanceHistory', {walletId})
+          }
+          style={({pressed}) => [
+            styles.historyLink,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}>
+          <MaterialCommunityIcons name="chart-timeline-variant" size={22} color={wallet?.color ?? colors.primary} />
+          <View style={styles.historyLinkText}>
+            <Text style={[styles.historyLinkTitle, {color: colors.text}]}>
+              Balance History
+            </Text>
+            <Text style={[styles.historyLinkSub, {color: colors.textSecondary}]}>
+              Track this wallet's balance in {currency}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+        </Pressable>
       </View>
 
       <Spacer size={spacing.lg} />
@@ -435,5 +465,25 @@ const styles = StyleSheet.create({
   },
   txGap: {
     marginTop: 6,
+  },
+  historyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  historyLinkText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  historyLinkTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  historyLinkSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

@@ -30,13 +30,14 @@ export type WalletsStackParamList = {
   CreateWallet: {editWalletId?: string} | undefined;
   EditWallet: {walletId: string};
   WalletDetail: {walletId: string};
+  WalletBalanceHistory: {walletId: string};
   TransactionDetail: {transactionId: string};
   EditTransaction: {transactionId: string};
 };
 
 export type AnalyticsStackParamList = {
   AnalyticsOverview: undefined;
-  BalanceHistory: undefined;
+  BalanceHistory: {walletId?: string} | undefined;
   CurrencyConverter: undefined;
   SpendingAutopsy: undefined;
   MoneyLostTracker: undefined;
