@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,7 +16,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {AffiliateCard, BackButton} from '@presentation/components/common';
+import {BackButton} from '@presentation/components/common';
 import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
@@ -25,10 +25,6 @@ import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useWallets} from '@presentation/hooks/useWallets';
-import {useEntitlement} from '@presentation/hooks/useEntitlement';
-import {GetAffiliateRecommendation} from '@domain/usecases/get-affiliate-recommendation';
-import {monetizationAnalytics} from '@infrastructure/analytics/monetization-events';
-import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
 type Nav = NativeStackNavigationProp<WalletsStackParamList, 'CreateWallet' | 'EditWallet'>;
@@ -74,7 +70,6 @@ export default function CreateWalletScreen() {
   const route = useRoute<WalletFormRoute>();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading: walletsLoading, updateWallet} = useWallets();
-  const {entitlement} = useEntitlement();
 
   const p = route.params;
   const editWalletId: string | undefined =
@@ -112,28 +107,8 @@ export default function CreateWalletScreen() {
   const selectedMdi = WALLET_ICONS.find((i) => i.key === icon)?.mdi ?? 'wallet-outline';
   const canSave = name.trim().length > 0 && currency.length === 3;
 
-  const [affDismissed, setAffDismissed] = useState(false);
-  const affiliateRec = useMemo(() => {
-    if (affDismissed || isEditing) {return null;}
-    const recommender = new GetAffiliateRecommendation();
-    const walletCurrencies = wallets.map((w) => w.currency);
-    const walletNames = wallets.map((w) => w.name.toLowerCase());
-    return recommender.execute({
-      currencies: [...walletCurrencies, currency],
-      existingSources: walletNames,
-    });
-  }, [affDismissed, isEditing, wallets, currency]);
-
   const handleSave = useCallback(async () => {
     if (!canSave || isSaving) {return;}
-
-    if (!editWalletId) {
-      const maxWallets = entitlement.featureLimits.maxWallets;
-      if (maxWallets > 0 && wallets.length >= maxWallets) {
-        navigateToPaywall('wallet_limit', 'maxWallets');
-        return;
-      }
-    }
 
     setIsSaving(true);
 
@@ -183,8 +158,6 @@ export default function CreateWalletScreen() {
     editWalletId,
     updateWallet,
     isEditing,
-    entitlement.featureLimits.maxWallets,
-    wallets.length,
   ]);
 
   return (
@@ -284,19 +257,6 @@ export default function CreateWalletScreen() {
             })}
           </View>
         </View>
-
-        {affiliateRec && (
-          <View style={{marginTop: spacing.xl}}>
-            <AffiliateCard
-              partner={affiliateRec.partner}
-              context={affiliateRec.reason}
-              onDismiss={() => setAffDismissed(true)}
-              onLearnMore={() =>
-                void monetizationAnalytics.trackAffiliateClicked(affiliateRec.partner.id)
-              }
-            />
-          </View>
-        )}
 
         <View style={{marginTop: spacing['2xl']}}>
           <Button

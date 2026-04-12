@@ -14,9 +14,6 @@
 # WatermelonDB
 -keep class com.nozbe.watermelondb.** { *; }
 
-# RevenueCat
--keep class com.revenuecat.purchases.** { *; }
-
 # react-native-reanimated
 -keep class com.swmansion.reanimated.** { *; }
 

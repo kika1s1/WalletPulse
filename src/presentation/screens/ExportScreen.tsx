@@ -18,7 +18,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout';
-import {BackButton, Chip, PaywallGate} from '@presentation/components/common';
+import {BackButton, Chip} from '@presentation/components/common';
 import {
   formatTransactionsAsCsv,
   formatTransactionsAsJson,
@@ -266,7 +266,6 @@ export default function ExportScreen() {
           <View style={{width: 48}} />
         </View>
 
-        <PaywallGate feature="export" featureLabel="Data Export">
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -502,7 +501,6 @@ export default function ExportScreen() {
             </Text>
           </View>
         </ScrollView>
-        </PaywallGate>
       </ScreenContainer>
     </View>
   );

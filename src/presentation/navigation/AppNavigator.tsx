@@ -13,10 +13,6 @@ import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useTheme} from '@shared/theme';
 import {navigationRef} from './navigationRef';
 
-const PaywallScreen = React.lazy(
-  () => import('@presentation/screens/PaywallScreen'),
-);
-
 function LazyFallback() {
   return (
     <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -56,11 +52,6 @@ export default function AppNavigator() {
           ) : (
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           )}
-          <Stack.Screen
-            name="Paywall"
-            component={PaywallScreen}
-            options={{presentation: 'modal', animation: 'slide_from_bottom'}}
-          />
         </Stack.Navigator>
       </Suspense>
     </NavigationContainer>

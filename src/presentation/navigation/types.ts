@@ -44,10 +44,6 @@ export type AnalyticsStackParamList = {
 
 export type SettingsStackParamList = {
   SettingsMain: undefined;
-  ManageSubscription: undefined;
-  ParserPackStore: undefined;
-  ThemeStore: undefined;
-  MonetizationDebug: undefined;
   SetPin: undefined;
   CategoryManagement: undefined;
   CreateCategory: {editCategoryId?: string} | undefined;
@@ -79,15 +75,9 @@ export type TabParamList = {
   SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };
 
-export type PaywallScreenParams = {
-  source: string;
-  feature?: string;
-};
-
 export type RootStackParamList = {
   Onboarding: undefined;
   MainTabs: NavigatorScreenParams<TabParamList>;
-  Paywall: PaywallScreenParams | undefined;
 };
 
 export type HomeStackScreenProps<T extends keyof HomeStackParamList> = NativeStackScreenProps<

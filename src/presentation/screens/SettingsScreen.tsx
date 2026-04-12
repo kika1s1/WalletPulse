@@ -20,7 +20,6 @@ import {fontWeight} from '@shared/theme/typography';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {usePinStore} from '@presentation/stores/usePinStore';
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
-import {useEntitlement} from '@presentation/hooks/useEntitlement';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {
@@ -143,7 +142,6 @@ export default function SettingsScreen() {
   const settings = useSettingsStore();
   const isPinEnabled = usePinStore((s) => s.isPinEnabled);
   const removePin = usePinStore((s) => s.removePin);
-  const {currentPlanLabel, hasWalletPulsePro, isTrialing} = useEntitlement();
   const {
     isEnabled,
     isActive,
@@ -338,35 +336,6 @@ export default function SettingsScreen() {
                 value={settings.hideAmounts}
               />
             }
-          />
-        </View>
-
-        <SectionHeader title="WALLETPULSE PRO" />
-        <View style={{gap: spacing.sm}}>
-          <SettingsRow
-            description="Manage subscriptions, paywall, entitlements, and Customer Center"
-            icon="crown-outline"
-            label="Walletpulse Pro"
-            onPress={() => navigation.navigate('ManageSubscription')}
-            value={
-              hasWalletPulsePro
-                ? `${currentPlanLabel}${isTrialing ? ' trial' : ''}`
-                : 'Free'
-            }
-          />
-          <SettingsRow
-            description="Unlock extra bank and payment parsers"
-            icon="bank-plus"
-            label="Parser Packs"
-            onPress={() => navigation.navigate('ParserPackStore')}
-            value="Browse"
-          />
-          <SettingsRow
-            description="Customize your app with premium themes"
-            icon="palette-swatch-outline"
-            label="Theme Store"
-            onPress={() => navigation.navigate('ThemeStore')}
-            value="Browse"
           />
         </View>
 
@@ -599,21 +568,6 @@ export default function SettingsScreen() {
             value="Export"
           />
         </View>
-
-        {__DEV__ && (
-          <>
-            <SectionHeader title="DEVELOPER TOOLS" />
-            <View style={{gap: spacing.sm}}>
-              <SettingsRow
-                description="Test tiers, feature gates, IAP products, and analytics"
-                icon="bug-outline"
-                label="Monetization Debug"
-                onPress={() => navigation.navigate('MonetizationDebug')}
-                value="Dev"
-              />
-            </View>
-          </>
-        )}
 
         <SectionHeader title="ABOUT" />
         <View

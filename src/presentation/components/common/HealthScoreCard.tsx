@@ -7,7 +7,6 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {HealthScoreGauge} from '@presentation/components/charts/HealthScoreGauge';
 import {Card} from './Card';
-import {PaywallGate} from './PaywallGate';
 
 export type HealthScoreCardProps = {
   result: HealthScoreResult;
@@ -64,10 +63,6 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({
         : colors.danger;
 
   return (
-    <PaywallGate
-      feature="financialHealthScore"
-      featureLabel="Financial Health Score"
-    >
       <Animated.View entering={FadeInDown.duration(350).springify()}>
         <Card testID={testID ?? 'health-score-card'} style={styles.card}>
           <View style={styles.header}>
@@ -135,7 +130,6 @@ export const HealthScoreCard = React.memo(function HealthScoreCard({
           )}
         </Card>
       </Animated.View>
-    </PaywallGate>
   );
 });
 

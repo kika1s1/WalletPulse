@@ -11,7 +11,7 @@ module.exports = {
   },
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation|@nozbe|@shopify|@gorhom|@notifee|@revenuecat|@dr\\.pogodin|react-native-reanimated|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|react-native-vector-icons|react-native-svg|react-native-haptic-feedback|react-native-gifted-charts|react-native-config|react-native-purchases|react-native-purchases-ui|react-native-worklets|react-native-share|react-native-linear-gradient|react-native-image-picker|react-native-html-to-pdf|@react-native-async-storage|@react-native-community)/)',
+    'node_modules/(?!(react-native|@react-native|@react-navigation|@nozbe|@shopify|@gorhom|@notifee|@revenuecat|@dr\\.pogodin|react-native-reanimated|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|react-native-vector-icons|react-native-svg|react-native-haptic-feedback|react-native-gifted-charts|react-native-config|react-native-worklets|react-native-share|react-native-linear-gradient|react-native-image-picker|react-native-html-to-pdf|@react-native-async-storage|@react-native-community)/)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

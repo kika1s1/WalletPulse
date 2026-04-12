@@ -6,7 +6,7 @@ import {
 
 describe('onboarding-validation', () => {
   describe('getOnboardingSteps', () => {
-    it('returns 5 steps including pro trial', () => {
+    it('returns 5 steps including completion', () => {
       expect(getOnboardingSteps()).toHaveLength(5);
     });
 

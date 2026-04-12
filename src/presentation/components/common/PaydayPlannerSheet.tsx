@@ -10,7 +10,6 @@ import type {PaydayPlanResult} from '@domain/usecases/calculate-payday-plan';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Button} from './Button';
-import {PaywallGate} from './PaywallGate';
 
 export type PaydayPlannerSheetProps = {
   result: PaydayPlanResult;
@@ -82,7 +81,6 @@ export const PaydayPlannerSheet = forwardRef<BottomSheet, PaydayPlannerSheetProp
         handleIndicatorStyle={{backgroundColor: colors.border}}
       >
         <BottomSheetView style={[styles.content, {padding: spacing.base}]}>
-          <PaywallGate feature="paydayPlanner" featureLabel="Payday Planner">
             <View style={styles.header}>
               <View
                 style={[
@@ -183,7 +181,6 @@ export const PaydayPlannerSheet = forwardRef<BottomSheet, PaydayPlannerSheetProp
             <View style={{marginTop: spacing.md}}>
               <Button title="Got it" onPress={onDismiss} testID="payday-dismiss" />
             </View>
-          </PaywallGate>
         </BottomSheetView>
       </BottomSheet>
     );

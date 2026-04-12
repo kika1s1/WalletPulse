@@ -5,7 +5,6 @@ import type {SettingsStackParamList} from './types';
 import SettingsScreen from '@presentation/screens/SettingsScreen';
 
 const SetPinScreen = React.lazy(() => import('@presentation/screens/SetPinScreen'));
-const ManageSubscriptionScreen = React.lazy(() => import('@presentation/screens/ManageSubscriptionScreen'));
 const CategoryManagementScreen = React.lazy(() => import('@presentation/screens/CategoryManagementScreen'));
 const NotificationLogScreen = React.lazy(() => import('@presentation/screens/NotificationLogScreen'));
 const ParsingRulesScreen = React.lazy(() => import('@presentation/screens/ParsingRulesScreen'));
@@ -26,9 +25,6 @@ const SubscriptionsListScreen = React.lazy(() => import('@presentation/screens/S
 const CreateSubscriptionScreen = React.lazy(() => import('@presentation/screens/CreateSubscriptionScreen'));
 const TransactionDetailScreen = React.lazy(() => import('@presentation/screens/TransactionDetailScreen'));
 const EditTransactionScreen = React.lazy(() => import('@presentation/screens/EditTransactionScreen'));
-const ParserPackStoreScreen = React.lazy(() => import('@presentation/screens/ParserPackStoreScreen'));
-const ThemeStoreScreen = React.lazy(() => import('@presentation/screens/ThemeStoreScreen'));
-const MonetizationDebugScreen = React.lazy(() => import('@presentation/screens/MonetizationDebugScreen'));
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -45,7 +41,6 @@ export default function SettingsStack() {
     <Suspense fallback={<LazyFallback />}>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="SettingsMain" component={SettingsScreen} />
-        <Stack.Screen name="ManageSubscription" component={ManageSubscriptionScreen} />
         <Stack.Screen name="SetPin" component={SetPinScreen} />
         <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
         <Stack.Screen name="CreateCategory" component={CreateCategoryScreen} />
@@ -67,9 +62,6 @@ export default function SettingsStack() {
         <Stack.Screen name="CreateSubscription" component={CreateSubscriptionScreen} />
         <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
         <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
-        <Stack.Screen name="ParserPackStore" component={ParserPackStoreScreen} />
-        <Stack.Screen name="ThemeStore" component={ThemeStoreScreen} />
-        <Stack.Screen name="MonetizationDebug" component={MonetizationDebugScreen} />
       </Stack.Navigator>
     </Suspense>
   );

@@ -8,7 +8,6 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton} from '@presentation/components/common/BackButton';
 import {Card} from '@presentation/components/common/Card';
-import {PaywallGate} from '@presentation/components/common/PaywallGate';
 import {
   GenerateSpendingAutopsy,
   type AutopsyInsight,
@@ -120,14 +119,14 @@ export default function SpendingAutopsyScreen() {
         <View style={{width: 32}} />
       </View>
 
-      <PaywallGate feature="spendingAutopsy" featureLabel="Monthly Spending Autopsy">
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            {padding: spacing.base, paddingBottom: insets.bottom + spacing.xl},
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
+      <ScrollView
+        style={{flex: 1}}
+        contentContainerStyle={[
+          styles.scroll,
+          {padding: spacing.base, paddingBottom: insets.bottom + spacing.xl},
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
           <Animated.View entering={FadeInDown.duration(300)}>
             <Card style={styles.summaryCard}>
               <Text style={[typo.caption, {color: colors.textSecondary}]}>
@@ -205,8 +204,7 @@ export default function SpendingAutopsyScreen() {
               </Animated.View>
             );
           })}
-        </ScrollView>
-      </PaywallGate>
+      </ScrollView>
     </View>
   );
 }

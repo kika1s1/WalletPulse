@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState, Platform, StatusBar, View, StyleSheet, PermissionsAndroid} from 'react-native';
-import BottomSheet from '@gorhom/bottom-sheet';
 import {Providers} from './Providers';
 import AppNavigator from '@presentation/navigation/AppNavigator';
 import {SplashScreen} from '@presentation/components/SplashScreen';
@@ -17,9 +16,6 @@ import {scheduleSubscriptionNotifications, cancelAllSubscriptionNotifications} f
 import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {useTheme} from '@shared/theme';
-import {usePurchaseInitialization} from '@presentation/hooks/usePurchaseInitialization';
-import {WinbackOfferSheet} from '@presentation/components/common';
-import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 
 async function requestNotificationPermission(): Promise<void> {
   if (Platform.OS !== 'android' || Platform.Version < 33) {return;}
@@ -183,9 +179,6 @@ function AppContent() {
   const isPinEnabled = usePinStore((s) => s.isPinEnabled);
   const isLocked = usePinStore((s) => s.isLocked);
   const lock = usePinStore((s) => s.lock);
-  const winbackRef = useRef<BottomSheet>(null);
-
-  const {winbackOffer, dismissWinback} = usePurchaseInitialization();
   useGlobalNotificationListener();
   useRecurringScheduler(splashDone);
   useBillReminderNotifications(splashDone);
@@ -206,23 +199,6 @@ function AppContent() {
 
   const showLock = splashDone && isPinEnabled && isLocked;
 
-  useEffect(() => {
-    if (winbackOffer && splashDone && !showLock) {
-      winbackRef.current?.snapToIndex(0);
-    }
-  }, [winbackOffer, splashDone, showLock]);
-
-  const handleResubscribe = useCallback(() => {
-    winbackRef.current?.close();
-    dismissWinback();
-    navigateToPaywall('winback');
-  }, [dismissWinback]);
-
-  const handleDismissWinback = useCallback(() => {
-    winbackRef.current?.close();
-    dismissWinback();
-  }, [dismissWinback]);
-
   return (
     <View style={styles.root}>
       <StatusBar
@@ -232,14 +208,6 @@ function AppContent() {
       />
       {showLock ? <PinLockScreen /> : <AppNavigator />}
       {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
-      {winbackOffer && (
-        <WinbackOfferSheet
-          ref={winbackRef}
-          offer={winbackOffer}
-          onResubscribe={handleResubscribe}
-          onDismiss={handleDismissWinback}
-        />
-      )}
     </View>
   );
 }

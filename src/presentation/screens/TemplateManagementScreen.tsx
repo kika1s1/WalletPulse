@@ -16,7 +16,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {BackButton, PaywallGate} from '@presentation/components/common';
+import {BackButton} from '@presentation/components/common';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
 import {ScreenContainer} from '@presentation/components/layout';
 import {EmptyState} from '@presentation/components/feedback';
@@ -333,7 +333,6 @@ export default function TemplateManagementScreen() {
           </Pressable>
         </View>
 
-        <PaywallGate feature="templates" featureLabel="Quick Templates">
         <Animated.View
           entering={FadeIn.delay(100).duration(300)}
           style={[
@@ -402,7 +401,6 @@ export default function TemplateManagementScreen() {
             </View>
           </View>
         </ScrollView>
-        </PaywallGate>
       </ScreenContainer>
     </View>
   );

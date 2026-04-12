@@ -29,7 +29,6 @@ import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {useAppStore} from '@presentation/stores/useAppStore';
-import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 import {
   getOnboardingSteps,
   validateOnboardingStep,
@@ -297,22 +296,18 @@ function NotificationStep({
   );
 }
 
-const PRO_FEATURES = [
-  {icon: 'wallet-outline', label: 'Unlimited wallets and budgets'},
-  {icon: 'chart-bar', label: 'Full analytics and spending reports'},
+const READY_FEATURES = [
+  {icon: 'wallet-outline', label: 'Wallets and budgets'},
+  {icon: 'chart-bar', label: 'Analytics and spending reports'},
   {icon: 'export', label: 'CSV, JSON, and PDF export'},
   {icon: 'star-outline', label: 'Financial Health Score'},
 ];
 
-function ProTrialStep({colors, onStartTrial, onSkip}: {
-  colors: any;
-  onStartTrial: () => void;
-  onSkip: () => void;
-}) {
+function CompleteStep({colors, onGetStarted}: {colors: any; onGetStarted: () => void}) {
   return (
     <View style={styles.stepContent}>
       <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.iconCircle}>
-        <AppIcon name="crown-outline" size={64} color={colors.primary} />
+        <AppIcon name="check-circle-outline" size={64} color={colors.primary} />
       </Animated.View>
       <Animated.Text
         entering={FadeInUp.delay(300).duration(400)}
@@ -324,10 +319,10 @@ function ProTrialStep({colors, onStartTrial, onSkip}: {
         entering={FadeInUp.delay(400).duration(400)}
         style={[styles.heroSubtitle, {color: colors.textSecondary}]}
       >
-        Start your free trial of WalletPulse Pro and unlock the full experience.
+        WalletPulse is free. Explore wallets, budgets, exports, and insights whenever you are ready.
       </Animated.Text>
       <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.featureList}>
-        {PRO_FEATURES.map((f, idx) => (
+        {READY_FEATURES.map((f, idx) => (
           <Animated.View
             key={f.label}
             entering={FadeInDown.delay(600 + idx * 100).duration(300)}
@@ -343,22 +338,13 @@ function ProTrialStep({colors, onStartTrial, onSkip}: {
       <Animated.View entering={FadeInUp.delay(1000).duration(300)} style={styles.trialActions}>
         <Pressable
           accessibilityRole="button"
-          onPress={onStartTrial}
+          onPress={onGetStarted}
           style={({pressed}) => [
             styles.trialBtn,
             {backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1, borderRadius: 12},
           ]}
         >
-          <Text style={[styles.trialBtnText, {color: '#FFFFFF'}]}>Start Free Trial</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onSkip}
-          hitSlop={12}
-        >
-          <Text style={[styles.trialSkip, {color: colors.textTertiary}]}>
-            Continue with Free
-          </Text>
+          <Text style={[styles.trialBtnText, {color: '#FFFFFF'}]}>Get started</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -550,16 +536,12 @@ export default function OnboardingScreen() {
           />
         )}
         {currentStep === 4 && (
-          <ProTrialStep
-            colors={colors}
-            onStartTrial={() => navigateToPaywall('onboarding')}
-            onSkip={handleFinish}
-          />
+          <CompleteStep colors={colors} onGetStarted={handleFinish} />
         )}
       </ScrollView>
 
-      {/* Bottom CTA (hidden on Pro trial step which has its own buttons) */}
-      {steps[currentStep]?.id !== 'pro_trial' && (
+      {/* Bottom CTA (hidden on final step which has its own button) */}
+      {steps[currentStep]?.id !== 'complete' && (
         <View
           style={[
             styles.bottomBar,

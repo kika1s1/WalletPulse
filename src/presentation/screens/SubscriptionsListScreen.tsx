@@ -7,7 +7,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {BackButton, PaywallGate} from '@presentation/components/common';
+import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -194,7 +194,6 @@ export default function SubscriptionsListScreen() {
           </Pressable>
         </View>
 
-        <PaywallGate feature="subscriptionTracking" featureLabel="Subscription Tracking">
         {isLoading && subscriptions.length === 0 ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -325,7 +324,6 @@ export default function SubscriptionsListScreen() {
             )}
           </ScrollView>
         )}
-        </PaywallGate>
       </ScreenContainer>
     </View>
   );

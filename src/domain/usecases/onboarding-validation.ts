@@ -1,4 +1,4 @@
-export type OnboardingStepId = 'welcome' | 'currency' | 'wallet' | 'notifications' | 'pro_trial';
+export type OnboardingStepId = 'welcome' | 'currency' | 'wallet' | 'notifications' | 'complete';
 
 export type OnboardingStep = {
   id: OnboardingStepId;
@@ -46,10 +46,10 @@ export function getOnboardingSteps(): OnboardingStep[] {
       icon: 'bell',
     },
     {
-      id: 'pro_trial',
+      id: 'complete',
       title: 'You are all set!',
       description:
-        'Start your free trial of WalletPulse Pro and unlock the full experience.',
+        'You can start tracking transactions, budgets, and goals right away.',
       icon: 'star',
     },
   ];

@@ -5,7 +5,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {Spacer} from '@presentation/components/layout/Spacer';
-import {BackButton, Card, PaywallGate} from '@presentation/components/common';
+import {BackButton, Card} from '@presentation/components/common';
 import {AnalyzeCurrencyTiming} from '@domain/usecases/analyze-currency-timing';
 import {useAppStore} from '@presentation/stores/useAppStore';
 
@@ -62,7 +62,6 @@ export default function CurrencyTimingScreen() {
         <Spacer size={spacing.base} />
       </View>
 
-      <PaywallGate feature="currencyTimingAdvisor" featureLabel="Currency Timing Advisor">
         <ScrollView contentContainerStyle={{padding: spacing.base, paddingTop: 0}}>
           <Card padding="md">
             <Text style={[typo.caption, {color: colors.textSecondary}]}>
@@ -148,7 +147,6 @@ export default function CurrencyTimingScreen() {
           </Card>
           <Spacer size={spacing.xl} />
         </ScrollView>
-      </PaywallGate>
     </ScreenContainer>
   );
 }

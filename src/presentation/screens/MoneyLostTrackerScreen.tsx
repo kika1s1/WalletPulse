@@ -5,7 +5,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {Spacer} from '@presentation/components/layout/Spacer';
-import {BackButton, Card, PaywallGate} from '@presentation/components/common';
+import {BackButton, Card} from '@presentation/components/common';
 import {CalculateMoneyLost} from '@domain/usecases/calculate-money-lost';
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useAppStore} from '@presentation/stores/useAppStore';
@@ -52,9 +52,8 @@ export default function MoneyLostTrackerScreen() {
         <Spacer size={spacing.base} />
       </View>
 
-      <PaywallGate feature="moneyLostTracker" featureLabel="Money Lost Tracker">
         {isLoading && (
-          <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl}}>
+          <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing['4xl']}}>
             <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading transactions" />
           </View>
         )}
@@ -176,7 +175,6 @@ export default function MoneyLostTrackerScreen() {
           <Spacer size={spacing.xl} />
         </ScrollView>
         )}
-      </PaywallGate>
     </ScreenContainer>
   );
 }

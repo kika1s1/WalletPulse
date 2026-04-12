@@ -18,14 +18,10 @@ import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress, type BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
-import {BackButton, ProBadge} from '@presentation/components/common';
-import {UpgradePrompt} from '@presentation/components/common/UpgradePrompt';
+import {BackButton} from '@presentation/components/common';
 import {BudgetCard} from '@presentation/components/BudgetCard';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {AppIcon} from '@presentation/components/common/AppIcon';
-import {useEntitlement} from '@presentation/hooks/useEntitlement';
-import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
-
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'BudgetList'>;
 
 function OverviewCard({
@@ -108,9 +104,6 @@ export default function BudgetsScreen() {
   const {items, totalBudget, totalSpent, isLoading: progressLoading, refetch: refreshProgress} =
     useBudgetProgress(activeBudgets);
   const hide = useSettingsStore((s) => s.hideAmounts);
-  const {isFree, entitlement} = useEntitlement();
-  const maxBudgets = entitlement.featureLimits.maxBudgets;
-  const budgetLimitReached = isFree && activeBudgets.length >= maxBudgets;
 
   const currency = activeBudgets.length > 0 ? activeBudgets[0].currency : 'USD';
   const loading = isLoading || progressLoading;
@@ -152,19 +145,6 @@ export default function BudgetsScreen() {
   const header = useMemo(() => {
     const parts: React.ReactNode[] = [];
 
-    if (budgetLimitReached) {
-      parts.push(
-        <UpgradePrompt
-          key="budget-gate"
-          title={`You have reached the ${maxBudgets}-budget limit`}
-          description="Unlock unlimited budgets with Pro to track spending across all categories."
-          tier="pro"
-          onUpgrade={() => navigateToPaywall('budget_limit', 'maxBudgets')}
-          style={{marginBottom: 12}}
-        />,
-      );
-    }
-
     if (items.length > 0) {
       parts.push(
         <OverviewCard
@@ -179,7 +159,7 @@ export default function BudgetsScreen() {
     }
 
     return parts.length > 0 ? <>{parts}</> : null;
-  }, [budgetLimitReached, maxBudgets, currency, hide, items.length, totalBudget, totalSpent]);
+  }, [currency, hide, items.length, totalBudget, totalSpent]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -203,15 +183,10 @@ export default function BudgetsScreen() {
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => {
-              if (budgetLimitReached) {
-                navigateToPaywall('budget_limit', 'maxBudgets');
-              } else {
-                navigation.navigate('CreateBudget');
-              }
+              navigation.navigate('CreateBudget');
             }}
             style={styles.addBtnRow}>
             <Text style={[styles.addBtn, {color: colors.primary}]}>+ New</Text>
-            {isFree && <ProBadge tier="pro" size="small" />}
           </Pressable>
         </View>
       </View>
