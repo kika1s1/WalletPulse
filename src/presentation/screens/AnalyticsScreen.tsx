@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {BarChart, PieChart} from 'react-native-gifted-charts';
@@ -175,10 +175,12 @@ export default function AnalyticsScreen() {
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();
-    setTimeout(() => setRefreshing(false), 600);
+    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 600);
   }, [refetch]);
 
   const tabs: {id: TabId; label: string}[] = [
@@ -496,6 +498,87 @@ export default function AnalyticsScreen() {
                   </Text>
                   <Text style={[styles.converterLinkSub, {color: colors.textSecondary}]}>
                     Convert between 150+ currencies
+                  </Text>
+                </View>
+                <Text style={[styles.converterArrow, {color: colors.textTertiary}]}>
+                  ›
+                </Text>
+              </Pressable>
+
+              <Spacer size={spacing.sm} />
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('SpendingAutopsy')}
+                style={[
+                  styles.converterLink,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                  },
+                ]}>
+                <AppIcon name="chart-timeline-variant-shimmer" size={28} color={colors.expense} />
+                <View style={styles.converterLinkText}>
+                  <Text style={[styles.converterLinkTitle, {color: colors.text}]}>
+                    Spending Autopsy
+                  </Text>
+                  <Text style={[styles.converterLinkSub, {color: colors.textSecondary}]}>
+                    Monthly spending analysis with insights
+                  </Text>
+                </View>
+                <Text style={[styles.converterArrow, {color: colors.textTertiary}]}>
+                  ›
+                </Text>
+              </Pressable>
+
+              <Spacer size={spacing.sm} />
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('MoneyLostTracker')}
+                style={[
+                  styles.converterLink,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                  },
+                ]}>
+                <AppIcon name="cash-remove" size={28} color={colors.danger} />
+                <View style={styles.converterLinkText}>
+                  <Text style={[styles.converterLinkTitle, {color: colors.text}]}>
+                    Money Lost Tracker
+                  </Text>
+                  <Text style={[styles.converterLinkSub, {color: colors.textSecondary}]}>
+                    See how much FX fees cost you
+                  </Text>
+                </View>
+                <Text style={[styles.converterArrow, {color: colors.textTertiary}]}>
+                  ›
+                </Text>
+              </Pressable>
+
+              <Spacer size={spacing.sm} />
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('CurrencyTiming')}
+                style={[
+                  styles.converterLink,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                  },
+                ]}>
+                <AppIcon name="clock-check-outline" size={28} color={colors.success} />
+                <View style={styles.converterLinkText}>
+                  <Text style={[styles.converterLinkTitle, {color: colors.text}]}>
+                    Currency Timing
+                  </Text>
+                  <Text style={[styles.converterLinkSub, {color: colors.textSecondary}]}>
+                    Best time to convert currencies
                   </Text>
                 </View>
                 <Text style={[styles.converterArrow, {color: colors.textTertiary}]}>

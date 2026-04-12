@@ -34,7 +34,7 @@ function handleNotificationPress(data: Record<string, unknown> | undefined): voi
       navigationRef.navigate('MainTabs', {
         screen: 'SettingsTab',
         params: {
-          screen: 'Subscriptions',
+          screen: 'SubscriptionsList',
         },
       });
     } else {

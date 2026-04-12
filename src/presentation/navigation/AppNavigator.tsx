@@ -1,4 +1,5 @@
-import React, {useMemo} from 'react';
+import React, {Suspense, useMemo} from 'react';
+import {ActivityIndicator, View} from 'react-native';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -11,6 +12,18 @@ import TabNavigator from './TabNavigator';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useTheme} from '@shared/theme';
 import {navigationRef} from './navigationRef';
+
+const PaywallScreen = React.lazy(
+  () => import('@presentation/screens/PaywallScreen'),
+);
+
+function LazyFallback() {
+  return (
+    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <ActivityIndicator size="large" />
+    </View>
+  );
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,13 +49,20 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef} theme={navTheme}>
-      <Stack.Navigator screenOptions={{headerShown: false}}>
-        {onboardingCompleted ? (
-          <Stack.Screen name="MainTabs" component={TabNavigator} />
-        ) : (
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        )}
-      </Stack.Navigator>
+      <Suspense fallback={<LazyFallback />}>
+        <Stack.Navigator screenOptions={{headerShown: false}}>
+          {onboardingCompleted ? (
+            <Stack.Screen name="MainTabs" component={TabNavigator} />
+          ) : (
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          )}
+          <Stack.Screen
+            name="Paywall"
+            component={PaywallScreen}
+            options={{presentation: 'modal', animation: 'slide_from_bottom'}}
+          />
+        </Stack.Navigator>
+      </Suspense>
     </NavigationContainer>
   );
 }

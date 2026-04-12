@@ -6,8 +6,8 @@ import {
 
 describe('onboarding-validation', () => {
   describe('getOnboardingSteps', () => {
-    it('returns 4 steps', () => {
-      expect(getOnboardingSteps()).toHaveLength(4);
+    it('returns 5 steps including pro trial', () => {
+      expect(getOnboardingSteps()).toHaveLength(5);
     });
 
     it('steps have required fields', () => {

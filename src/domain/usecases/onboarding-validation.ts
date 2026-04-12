@@ -1,4 +1,4 @@
-export type OnboardingStepId = 'welcome' | 'currency' | 'wallet' | 'notifications';
+export type OnboardingStepId = 'welcome' | 'currency' | 'wallet' | 'notifications' | 'pro_trial';
 
 export type OnboardingStep = {
   id: OnboardingStepId;
@@ -44,6 +44,13 @@ export function getOnboardingSteps(): OnboardingStep[] {
       description:
         'WalletPulse can read your bank notifications and automatically log transactions. You can enable or disable this anytime.',
       icon: 'bell',
+    },
+    {
+      id: 'pro_trial',
+      title: 'You are all set!',
+      description:
+        'Start your free trial of WalletPulse Pro and unlock the full experience.',
+      icon: 'star',
     },
   ];
 }

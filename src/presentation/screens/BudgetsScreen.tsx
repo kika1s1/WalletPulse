@@ -18,10 +18,13 @@ import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useBudgetProgress, type BudgetProgressItem} from '@presentation/hooks/useBudgetProgress';
-import {BackButton} from '@presentation/components/common';
+import {BackButton, ProBadge} from '@presentation/components/common';
+import {UpgradePrompt} from '@presentation/components/common/UpgradePrompt';
 import {BudgetCard} from '@presentation/components/BudgetCard';
 import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {useEntitlement} from '@presentation/hooks/useEntitlement';
+import {navigateToPaywall} from '@presentation/navigation/paywall-navigation';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'BudgetList'>;
 
@@ -102,9 +105,12 @@ export default function BudgetsScreen() {
   const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const {activeBudgets, isLoading, error, refetch} = useBudgets();
-  const {items, overallItem, totalBudget, totalSpent, isLoading: progressLoading, refetch: refreshProgress} =
+  const {items, totalBudget, totalSpent, isLoading: progressLoading, refetch: refreshProgress} =
     useBudgetProgress(activeBudgets);
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const {isFree, entitlement} = useEntitlement();
+  const maxBudgets = entitlement.featureLimits.maxBudgets;
+  const budgetLimitReached = isFree && activeBudgets.length >= maxBudgets;
 
   const currency = activeBudgets.length > 0 ? activeBudgets[0].currency : 'USD';
   const loading = isLoading || progressLoading;
@@ -144,19 +150,36 @@ export default function BudgetsScreen() {
   const keyExtractor = useCallback((item: BudgetProgressItem) => item.budget.id, []);
 
   const header = useMemo(() => {
-    if (items.length === 0) {
-      return null;
+    const parts: React.ReactNode[] = [];
+
+    if (budgetLimitReached) {
+      parts.push(
+        <UpgradePrompt
+          key="budget-gate"
+          title={`You have reached the ${maxBudgets}-budget limit`}
+          description="Unlock unlimited budgets with Pro to track spending across all categories."
+          tier="pro"
+          onUpgrade={() => navigateToPaywall('budget_limit', 'maxBudgets')}
+          style={{marginBottom: 12}}
+        />,
+      );
     }
-    return (
-      <OverviewCard
-        count={items.length}
-        currency={currency}
-        hide={hide}
-        totalBudget={totalBudget}
-        totalSpent={totalSpent}
-      />
-    );
-  }, [currency, hide, items.length, totalBudget, totalSpent]);
+
+    if (items.length > 0) {
+      parts.push(
+        <OverviewCard
+          key="overview"
+          count={items.length}
+          currency={currency}
+          hide={hide}
+          totalBudget={totalBudget}
+          totalSpent={totalSpent}
+        />,
+      );
+    }
+
+    return parts.length > 0 ? <>{parts}</> : null;
+  }, [budgetLimitReached, maxBudgets, currency, hide, items.length, totalBudget, totalSpent]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -179,8 +202,16 @@ export default function BudgetsScreen() {
             accessibilityLabel="Create budget"
             accessibilityRole="button"
             hitSlop={12}
-            onPress={() => navigation.navigate('CreateBudget')}>
+            onPress={() => {
+              if (budgetLimitReached) {
+                navigateToPaywall('budget_limit', 'maxBudgets');
+              } else {
+                navigation.navigate('CreateBudget');
+              }
+            }}
+            style={styles.addBtnRow}>
             <Text style={[styles.addBtn, {color: colors.primary}]}>+ New</Text>
+            {isFree && <ProBadge tier="pro" size="small" />}
           </Pressable>
         </View>
       </View>
@@ -263,6 +294,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
   addBtn: {fontSize: 16, fontWeight: fontWeight.semibold},
+  addBtnRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
   overviewCard: {borderWidth: StyleSheet.hairlineWidth},
   overviewTitle: {fontSize: 18, fontWeight: fontWeight.bold},
   overviewSub: {fontSize: 13, marginTop: 2},

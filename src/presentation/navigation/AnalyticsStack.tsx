@@ -5,6 +5,9 @@ import type {AnalyticsStackParamList} from './types';
 import AnalyticsScreen from '@presentation/screens/AnalyticsScreen';
 
 const CurrencyConverterScreen = React.lazy(() => import('@presentation/screens/CurrencyConverterScreen'));
+const SpendingAutopsyScreen = React.lazy(() => import('@presentation/screens/SpendingAutopsyScreen'));
+const MoneyLostTrackerScreen = React.lazy(() => import('@presentation/screens/MoneyLostTrackerScreen'));
+const CurrencyTimingScreen = React.lazy(() => import('@presentation/screens/CurrencyTimingScreen'));
 
 const Stack = createNativeStackNavigator<AnalyticsStackParamList>();
 
@@ -22,6 +25,9 @@ export default function AnalyticsStack() {
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="AnalyticsOverview" component={AnalyticsScreen} />
         <Stack.Screen name="CurrencyConverter" component={CurrencyConverterScreen} />
+        <Stack.Screen name="SpendingAutopsy" component={SpendingAutopsyScreen} />
+        <Stack.Screen name="MoneyLostTracker" component={MoneyLostTrackerScreen} />
+        <Stack.Screen name="CurrencyTiming" component={CurrencyTimingScreen} />
       </Stack.Navigator>
     </Suspense>
   );
