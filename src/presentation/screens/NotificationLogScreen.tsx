@@ -96,6 +96,7 @@ function LogItem({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{expanded}}
       onPress={() => setExpanded((e) => !e)}
       style={[
         styles.logCard,

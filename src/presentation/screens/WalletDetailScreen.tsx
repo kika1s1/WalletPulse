@@ -20,9 +20,9 @@ import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {AppIcon, resolveIconName} from '@presentation/components/common/AppIcon';
-import {Button} from '@presentation/components/common/Button';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
+import {navigateToTab} from '@presentation/navigation/navigateToTab';
 import {transactionLedgerDeltaCentsFromTransaction} from '@domain/value-objects/WalletTransferNotes';
 
 type WalletDetailRoute = RouteProp<WalletsStackParamList, 'WalletDetail'>;
@@ -44,11 +44,18 @@ export default function WalletDetailScreen() {
       return {
         name: cat?.name ?? 'Other',
         icon: cat?.icon ?? '?',
-        color: cat?.color ?? '#B2BEC3',
+        color: cat?.color ?? colors.textTertiary,
       };
     },
-    [categories],
+    [categories, colors.textTertiary],
   );
+
+  const openAllTransactions = useCallback(() => {
+    navigateToTab(navigation, 'TransactionsTab', {
+      screen: 'TransactionsList',
+      params: {filterWalletId: walletId},
+    });
+  }, [navigation, walletId]);
 
   const {wallets, isLoading: walletLoading, refetch: walletRefetch, deleteWallet} = useWallets();
   const wallet = useMemo(
@@ -99,7 +106,7 @@ export default function WalletDetailScreen() {
     [deleteTransaction],
   );
 
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -349,37 +356,69 @@ export default function WalletDetailScreen() {
 
         {txError ? (
           <ErrorState message={txError} onRetry={txRefetch} />
+        ) : txLoading && transactions.length === 0 ? (
+          <View style={styles.txSkeletonCol}>
+            <Skeleton borderRadius={radius.md} height={72} width="100%" />
+            <View style={{height: spacing.sm}} />
+            <Skeleton borderRadius={radius.md} height={72} width="100%" />
+            <View style={{height: spacing.sm}} />
+            <Skeleton borderRadius={radius.md} height={72} width="100%" />
+            <View style={{height: spacing.sm}} />
+            <Skeleton borderRadius={radius.md} height={72} width="100%" />
+          </View>
         ) : transactions.length === 0 && !isLoading ? (
           <EmptyState
             title="No transactions"
             message="Transactions in this wallet will appear here."
           />
         ) : (
-          transactions.slice(0, 20).map((tx) => {
-            const cat = resolveCategory(tx.categoryId);
-            return (
-              <View key={tx.id} style={styles.txGap}>
-                <TransactionCard
-                  id={tx.id}
-                  amount={tx.amount}
-                  currency={tx.currency}
-                  type={tx.type}
-                  categoryName={cat.name}
-                  categoryIcon={cat.icon}
-                  categoryColor={cat.color}
-                  description={tx.description}
-                  merchant={tx.merchant}
-                  notes={tx.notes}
-                  transactionDate={tx.transactionDate}
-                  source={tx.source}
-                  hideAmounts={hide}
-                  onPress={openTxDetail}
-                  onEdit={openTxEdit}
-                  onDelete={confirmTxDelete}
-                />
-              </View>
-            );
-          })
+          <>
+            {transactions.slice(0, 20).map((tx) => {
+              const cat = resolveCategory(tx.categoryId);
+              return (
+                <View key={tx.id} style={styles.txGap}>
+                  <TransactionCard
+                    id={tx.id}
+                    amount={tx.amount}
+                    currency={tx.currency}
+                    type={tx.type}
+                    categoryName={cat.name}
+                    categoryIcon={cat.icon}
+                    categoryColor={cat.color}
+                    description={tx.description}
+                    merchant={tx.merchant}
+                    notes={tx.notes}
+                    transactionDate={tx.transactionDate}
+                    source={tx.source}
+                    hideAmounts={hide}
+                    onPress={openTxDetail}
+                    onEdit={openTxEdit}
+                    onDelete={confirmTxDelete}
+                  />
+                </View>
+              );
+            })}
+            {transactions.length > 0 ? (
+              <Pressable
+                accessibilityLabel="View all transactions for this wallet"
+                accessibilityRole="button"
+                onPress={openAllTransactions}
+                style={({pressed}) => [
+                  styles.viewAllBtn,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                    marginTop: spacing.md,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}>
+                <Text style={[styles.viewAllBtnText, {color: colors.primary}]}>
+                  View All Transactions
+                </Text>
+              </Pressable>
+            ) : null}
+          </>
         )}
       </View>
 
@@ -485,5 +524,17 @@ const styles = StyleSheet.create({
   historyLinkSub: {
     fontSize: 12,
     marginTop: 2,
+  },
+  txSkeletonCol: {
+    marginTop: 4,
+  },
+  viewAllBtn: {
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+  },
+  viewAllBtnText: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
   },
 });

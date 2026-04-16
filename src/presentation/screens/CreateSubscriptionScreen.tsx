@@ -45,6 +45,29 @@ const SUB_COLORS = [
   '#F39C12', '#1ABC9C',
 ];
 
+const SUB_COLOR_ACCESSIBILITY: Record<string, string> = {
+  '#6C5CE7': 'Purple',
+  '#00B894': 'Green',
+  '#0984E3': 'Blue',
+  '#E17055': 'Coral',
+  '#FD79A8': 'Pink',
+  '#636E72': 'Gray',
+  '#E74C3C': 'Red',
+  '#2ECC71': 'Emerald green',
+  '#3498DB': 'Sky blue',
+  '#9B59B6': 'Violet',
+  '#F39C12': 'Orange',
+  '#1ABC9C': 'Turquoise',
+};
+
+function subscriptionIconAccessibilityLabel(key: string): string {
+  const label = key
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+  return `${label} icon`;
+}
+
 const SUB_ICONS: {key: string; mdi: string}[] = [
   {key: 'play-circle', mdi: 'play-circle-outline'},
   {key: 'music', mdi: 'music'},
@@ -299,6 +322,9 @@ export default function CreateSubscriptionScreen() {
               return (
                 <Pressable
                   key={o.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={subscriptionIconAccessibilityLabel(o.key)}
+                  accessibilityState={{selected: active}}
                   onPress={() => setIcon(o.key)}
                   style={[
                     styles.iconCell,
@@ -323,6 +349,9 @@ export default function CreateSubscriptionScreen() {
               return (
                 <Pressable
                   key={c}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${SUB_COLOR_ACCESSIBILITY[c] ?? 'Color'} color`}
+                  accessibilityState={{selected: active}}
                   onPress={() => setColor(c)}
                   style={[styles.colorCell, {backgroundColor: c, borderColor: active ? colors.text : 'transparent', borderWidth: active ? 3 : 0}]}>
                   {active && <Text style={styles.colorCheck}>✓</Text>}

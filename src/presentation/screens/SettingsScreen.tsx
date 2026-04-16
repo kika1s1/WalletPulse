@@ -28,6 +28,7 @@ import {
   restoreBackup,
   type BackupFileInfo,
 } from '@infrastructure/backup/backup-service';
+import {useAuthStore} from '@presentation/stores/useAuthStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>;
 
@@ -181,7 +182,9 @@ export default function SettingsScreen() {
   const runCreateBackup = useCallback(async () => {
     setBackupBusy(true);
     try {
-      const path = await createBackup();
+      const uid = useAuthStore.getState().user?.id;
+      if (!uid) { throw new Error('Not signed in'); }
+      const path = await createBackup(uid);
       Alert.alert('Backup saved', path);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -202,7 +205,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             setRestoreBusy(true);
-            const result = await restoreBackup(filePath);
+            const uid = useAuthStore.getState().user?.id;
+            if (!uid) { setRestoreBusy(false); return; }
+            const result = await restoreBackup(filePath, uid);
             setRestoreBusy(false);
             if (result.ok) {
               Alert.alert('Restore complete', 'Your data was restored from the backup.');
@@ -300,6 +305,16 @@ export default function SettingsScreen() {
           paddingBottom: insets.bottom + 24,
         }}
         showsVerticalScrollIndicator={false}>
+        <SectionHeader title="ACCOUNT" />
+        <View style={{gap: spacing.sm}}>
+          <SettingsRow
+            icon="account-circle-outline"
+            label="Profile"
+            description="Manage your name, password, and account"
+            onPress={() => navigation.navigate('Profile')}
+          />
+        </View>
+
         <SectionHeader title="APPEARANCE" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow

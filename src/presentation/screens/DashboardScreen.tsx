@@ -15,6 +15,7 @@ import {QuickActions, type QuickAction} from '@presentation/components/QuickActi
 import {MiniBarChart} from '@presentation/components/charts/MiniBarChart';
 import {InsightCard} from '@presentation/components/InsightCard';
 import {TransactionCard} from '@presentation/components/TransactionCard';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {
   HealthScoreCard,
   PaydayPlannerSheet,
@@ -33,12 +34,13 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {CalculateHealthScore} from '@domain/usecases/calculate-health-score';
 import {CalculatePaydayPlan} from '@domain/usecases/calculate-payday-plan';
 import type {HomeStackParamList} from '@presentation/navigation/types';
+import {navigateToTab} from '@presentation/navigation/navigateToTab';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 
 export default function DashboardScreen() {
-  const {colors, spacing} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const [refreshing, setRefreshing] = useState(false);
   const {categories} = useCategories();
@@ -86,13 +88,21 @@ export default function DashboardScreen() {
   const paydaySheetRef = useRef<BottomSheet>(null);
   const [paydayDismissed, setPaydayDismissed] = useState(false);
 
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();
-    refreshTimerRef.current = setTimeout(() => setRefreshing(false), 600);
   }, [refetch]);
+
+  const wasRefreshing = useRef(false);
+  if (refreshing && !isLoading) {
+    if (wasRefreshing.current) {
+      setRefreshing(false);
+      wasRefreshing.current = false;
+    }
+  }
+  if (refreshing && isLoading) {
+    wasRefreshing.current = true;
+  }
 
   const handleTransactionPress = useCallback(
     (id: string) => {
@@ -108,7 +118,7 @@ export default function DashboardScreen() {
         icon: 'arrow-down-circle-outline',
         color: colors.expense,
         onPress: () =>
-          navigation.getParent()?.navigate('TransactionsTab', {
+          navigateToTab(navigation, 'TransactionsTab', {
             screen: 'AddTransaction',
             params: {type: 'expense', walletId: selectedWalletId ?? undefined},
           }),
@@ -118,7 +128,7 @@ export default function DashboardScreen() {
         icon: 'arrow-up-circle-outline',
         color: colors.income,
         onPress: () =>
-          navigation.getParent()?.navigate('TransactionsTab', {
+          navigateToTab(navigation, 'TransactionsTab', {
             screen: 'AddTransaction',
             params: {type: 'income', walletId: selectedWalletId ?? undefined},
           }),
@@ -128,7 +138,7 @@ export default function DashboardScreen() {
         icon: 'swap-horizontal',
         color: colors.transfer,
         onPress: () =>
-          navigation.getParent()?.navigate('TransactionsTab', {
+          navigateToTab(navigation, 'TransactionsTab', {
             screen: 'AddTransaction',
             params: {type: 'transfer', walletId: selectedWalletId ?? undefined},
           }),
@@ -138,7 +148,7 @@ export default function DashboardScreen() {
         icon: 'wallet-outline',
         color: colors.primary,
         onPress: () =>
-          navigation.getParent()?.navigate('WalletsTab', {
+          navigateToTab(navigation, 'WalletsTab', {
             screen: 'WalletsList',
           }),
       },
@@ -270,7 +280,7 @@ export default function DashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel="Search transactions"
             onPress={() =>
-              navigation.getParent()?.navigate('TransactionsTab', {
+              navigateToTab(navigation, 'TransactionsTab', {
                 screen: 'Search',
               })
             }
@@ -324,7 +334,7 @@ export default function DashboardScreen() {
           accessibilityRole="button"
           accessibilityLabel="View balance history"
           onPress={() =>
-            navigation.getParent()?.navigate('AnalyticsTab', {
+            navigateToTab(navigation, 'AnalyticsTab', {
               screen: 'BalanceHistory',
             })
           }
@@ -358,7 +368,7 @@ export default function DashboardScreen() {
             totalSpent={totalSpent}
             currency={displayCurrency}
             onPress={() =>
-              navigation.getParent()?.navigate('SettingsTab', {
+              navigateToTab(navigation, 'SettingsTab', {
                 screen: 'BudgetList',
               })
             }
@@ -397,15 +407,22 @@ export default function DashboardScreen() {
           title="Recent Transactions"
           actionLabel="See All"
           onAction={() =>
-            navigation.getParent()?.navigate('TransactionsTab', {
+            navigateToTab(navigation, 'TransactionsTab', {
               screen: 'TransactionsList',
             })
           }
         />
-        {recentTransactions.length === 0 && !isLoading ? (
+        {isLoading && recentTransactions.length === 0 ? (
+          <View style={{gap: spacing.sm}}>
+            <Skeleton width="100%" height={68} borderRadius={radius.md} />
+            <Skeleton width="100%" height={68} borderRadius={radius.md} />
+            <Skeleton width="100%" height={68} borderRadius={radius.md} />
+          </View>
+        ) : recentTransactions.length === 0 ? (
           <EmptyState
             title="No transactions yet"
             message="Tap the + button to add your first transaction"
+            icon="cash-register"
           />
         ) : (
           recentTransactions.map((tx) => {

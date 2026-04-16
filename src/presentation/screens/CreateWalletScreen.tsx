@@ -27,8 +27,8 @@ import {useAppStore} from '@presentation/stores/useAppStore';
 import {useWallets} from '@presentation/hooks/useWallets';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
-type Nav = NativeStackNavigationProp<WalletsStackParamList, 'CreateWallet' | 'EditWallet'>;
-type WalletFormRoute = RouteProp<WalletsStackParamList, 'CreateWallet' | 'EditWallet'>;
+type Nav = NativeStackNavigationProp<WalletsStackParamList, 'CreateWallet'>;
+type WalletFormRoute = RouteProp<WalletsStackParamList, 'CreateWallet'>;
 
 function iconKeyFromStored(stored: string): string {
   const byMdi = WALLET_ICONS.find((i) => i.mdi === stored);
@@ -43,6 +43,32 @@ const WALLET_COLORS = [
   '#636E72', '#E74C3C', '#2ECC71', '#3498DB', '#9B59B6',
   '#F39C12', '#1ABC9C',
 ];
+
+const WALLET_COLOR_ACCESSIBILITY: Record<string, string> = {
+  '#6C5CE7': 'Purple',
+  '#00B894': 'Green',
+  '#0984E3': 'Blue',
+  '#E17055': 'Coral',
+  '#FD79A8': 'Pink',
+  '#636E72': 'Gray',
+  '#E74C3C': 'Red',
+  '#2ECC71': 'Emerald green',
+  '#3498DB': 'Sky blue',
+  '#9B59B6': 'Violet',
+  '#F39C12': 'Orange',
+  '#1ABC9C': 'Turquoise',
+};
+
+function walletIconAccessibilityLabel(o: {key: string; label?: string}): string {
+  if (o.label) {
+    return `${o.label} icon`;
+  }
+  const label = o.key
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+  return `${label} icon`;
+}
 
 const WALLET_ICONS: {key: string; mdi: string; label?: string}[] = [
   {key: 'wallet', mdi: 'wallet-outline'},
@@ -71,9 +97,7 @@ export default function CreateWalletScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading: walletsLoading, updateWallet} = useWallets();
 
-  const p = route.params;
-  const editWalletId: string | undefined =
-    p === undefined || p === null ? undefined : 'walletId' in p ? p.walletId : p.editWalletId;
+  const editWalletId: string | undefined = route.params?.editWalletId;
   const isEditing = Boolean(editWalletId);
 
   const [name, setName] = useState('');
@@ -225,6 +249,9 @@ export default function CreateWalletScreen() {
               return (
                 <Pressable
                   key={o.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={walletIconAccessibilityLabel(o)}
+                  accessibilityState={{selected: active}}
                   onPress={() => setIcon(o.key)}
                   style={[
                     styles.iconCell,
@@ -249,6 +276,9 @@ export default function CreateWalletScreen() {
               return (
                 <Pressable
                   key={c}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${WALLET_COLOR_ACCESSIBILITY[c] ?? 'Color'} color`}
+                  accessibilityState={{selected: active}}
                   onPress={() => setColor(c)}
                   style={[styles.colorCell, {backgroundColor: c, borderColor: active ? colors.text : 'transparent', borderWidth: active ? 3 : 0}]}>
                   {active && <Text style={styles.colorCheck}>✓</Text>}

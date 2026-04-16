@@ -304,6 +304,8 @@ export default function CreateBillReminderScreen() {
               return (
                 <Pressable
                   key={r.key}
+                  accessibilityRole="radio"
+                  accessibilityState={{selected: active}}
                   onPress={() => setRecurrence(r.key)}
                   style={[
                     styles.cycleChip,
@@ -330,6 +332,8 @@ export default function CreateBillReminderScreen() {
               return (
                 <Pressable
                   key={opt.days}
+                  accessibilityRole="radio"
+                  accessibilityState={{selected: active}}
                   onPress={() => setRemindDaysBefore(opt.days)}
                   style={[
                     styles.remindRow,

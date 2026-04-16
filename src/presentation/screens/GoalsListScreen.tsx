@@ -8,6 +8,7 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton} from '@presentation/components/common';
+import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {ScreenContainer} from '@presentation/components/layout';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -154,18 +155,22 @@ export default function GoalsListScreen() {
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
-              {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
+              {
+                paddingHorizontal: spacing.base,
+                paddingBottom: insets.bottom + 24,
+                flexGrow: 1,
+              },
             ]}
             showsVerticalScrollIndicator={false}
           >
             {goals.length === 0 ? (
-              <View style={styles.emptyState}>
-                <AppIcon name="flag-outline" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyTitle, {color: colors.text}]}>No goals yet</Text>
-                <Text style={[styles.emptyText, {color: colors.textTertiary}]}>
-                  Set savings goals to track your progress.
-                </Text>
-              </View>
+              <EmptyState
+                actionLabel="Add a goal"
+                icon="flag-outline"
+                message="Set savings goals to track your progress."
+                title="No goals yet"
+                onAction={() => navigation.navigate('CreateGoal')}
+              />
             ) : (
               <>
                 <Animated.View
@@ -176,25 +181,31 @@ export default function GoalsListScreen() {
                     shadows.md,
                   ]}
                 >
-                  <Text style={styles.overviewLabel}>Total Saved</Text>
-                  <Text style={styles.overviewAmount}>{formatAmountMasked(totalSaved, baseCurrency, hide)}</Text>
-                  <View style={[styles.overviewProgressTrack, {backgroundColor: '#FFFFFF30', borderRadius: 3}]}>
+                  <Text style={[styles.overviewLabel, {color: `${colors.onPrimary}CC`}]}>Total Saved</Text>
+                  <Text style={[styles.overviewAmount, {color: colors.onPrimary}]}>
+                    {formatAmountMasked(totalSaved, baseCurrency, hide)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.overviewProgressTrack,
+                      {backgroundColor: `${colors.onPrimary}30`, borderRadius: 3},
+                    ]}>
                     <View
                       style={[
                         styles.overviewProgressFill,
                         {
                           width: `${Math.round(totalProgress * 100)}%`,
-                          backgroundColor: '#FFFFFF',
+                          backgroundColor: colors.onPrimary,
                           borderRadius: 3,
                         },
                       ]}
                     />
                   </View>
                   <View style={styles.overviewRow}>
-                    <Text style={styles.overviewSub}>
+                    <Text style={[styles.overviewSub, {color: `${colors.onPrimary}AA`}]}>
                       {Math.round(totalProgress * 100)}% of {formatAmountMasked(totalTarget, baseCurrency, hide)} target
                     </Text>
-                    <Text style={styles.overviewSub}>
+                    <Text style={[styles.overviewSub, {color: `${colors.onPrimary}AA`}]}>
                       {goals.length} goal{goals.length !== 1 ? 's' : ''}
                     </Text>
                   </View>
@@ -221,13 +232,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
-  emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
-  emptyText: {fontSize: 13, textAlign: 'center'},
   scrollContent: {gap: 16, paddingTop: 12},
   overviewCard: {padding: 20, gap: 10},
-  overviewLabel: {color: '#FFFFFFCC', fontSize: 13, fontWeight: fontWeight.medium},
-  overviewAmount: {color: '#FFFFFF', fontSize: 28, fontWeight: '700'},
+  overviewLabel: {fontSize: 13, fontWeight: fontWeight.medium},
+  overviewAmount: {fontSize: 28, fontWeight: '700'},
   overviewProgressTrack: {height: 6},
   overviewProgressFill: {height: 6},
   overviewRow: {
@@ -235,7 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
   },
-  overviewSub: {color: '#FFFFFFAA', fontSize: 12},
+  overviewSub: {fontSize: 12},
   goalCard: {
     padding: 14,
     borderWidth: StyleSheet.hairlineWidth,

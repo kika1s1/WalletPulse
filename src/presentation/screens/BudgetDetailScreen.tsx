@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -15,6 +15,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {BackButton} from '@presentation/components/common';
+import {ErrorState} from '@presentation/components/feedback/ErrorState';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {formatAmountMasked} from '@shared/utils/format-currency';
@@ -23,6 +25,7 @@ import {ProgressBar} from '@presentation/components/common/ProgressBar';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
+import {useCategories} from '@presentation/hooks/useCategories';
 import {useStableNow} from '@presentation/hooks/useStableNow';
 import type {Budget} from '@domain/entities/Budget';
 import {isOverallBudget} from '@domain/entities/Budget';
@@ -88,7 +91,29 @@ export default function BudgetDetailScreen() {
   const [category, setCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [budgetRefreshing, setBudgetRefreshing] = useState(false);
   const mountedRef = useRef(true);
+  const hasBudgetDataRef = useRef(false);
+
+  const {categories} = useCategories();
+
+  const categoryById = useMemo(() => {
+    const map = new Map<string, {name: string; icon: string; color: string}>();
+    for (const c of categories) {
+      map.set(c.id, {name: c.name, icon: c.icon, color: c.color});
+    }
+    return map;
+  }, [categories]);
+
+  const resolveTxCategory = useCallback(
+    (categoryId: string) =>
+      categoryById.get(categoryId) ?? {
+        name: 'Other',
+        icon: 'help-circle-outline',
+        color: colors.textTertiary,
+      },
+    [categoryById, colors.textTertiary],
+  );
 
   const filter = useMemo(() => {
     if (!budget) {
@@ -141,13 +166,19 @@ export default function BudgetDetailScreen() {
   const hide = useSettingsStore((s) => s.hideAmounts);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
+    if (!hasBudgetDataRef.current) {
+      setIsLoading(true);
+    } else {
+      setBudgetRefreshing(true);
+    }
     try {
       const ds = getLocalDataSource();
       const b = await ds.budgets.findById(budgetId);
       if (!b || !mountedRef.current) {
+        hasBudgetDataRef.current = false;
         return;
       }
+      hasBudgetDataRef.current = true;
       setBudget(b);
 
       const calc = makeCalculateBudgetProgress({
@@ -170,16 +201,19 @@ export default function BudgetDetailScreen() {
     } finally {
       if (mountedRef.current) {
         setIsLoading(false);
+        setBudgetRefreshing(false);
       }
     }
   }, [budgetId]);
 
   useEffect(() => {
+    hasBudgetDataRef.current = false;
+    mountedRef.current = true;
     fetchData();
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchData]);
+  }, [budgetId, fetchData]);
 
   const handleDelete = useCallback(() => {
     Alert.alert('Delete Budget', 'Are you sure you want to delete this budget?', [
@@ -209,24 +243,179 @@ export default function BudgetDetailScreen() {
     refetchTx();
   }, [fetchData, refetchTx]);
 
-  if (isLoading || !budget || !progress) {
-    return (
-      <View style={[styles.container, {backgroundColor: colors.background}]}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </View>
-    );
-  }
+  const showBudgetSkeleton = isLoading && (!budget || !progress);
+  const loadFailed = !isLoading && (!budget || !progress);
+  const showMainContent = Boolean(budget && progress);
 
-  const barColor = statusColor(progress.status, colors);
-  const pct = progress.percentage.value;
+  const barColor = progress && budget ? statusColor(progress.status, colors) : colors.primary;
+  const pct = progress?.percentage.value ?? 0;
   const catName = category?.name ?? 'Overall';
   const catColor = category?.color ?? colors.primary;
-  const days = daysRemaining(budget.endDate, stableNow);
-  const dailyRemaining = days > 0 && progress.remaining > 0
-    ? Math.round(progress.remaining / days)
-    : 0;
+  const days = budget ? daysRemaining(budget.endDate, stableNow) : 0;
+  const dailyRemaining =
+    budget && progress && days > 0 && progress.remaining > 0
+      ? Math.round(progress.remaining / days)
+      : 0;
+
+  const listHeader = showMainContent && budget && progress ? (
+    <View style={{gap: spacing.md}}>
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.borderLight,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+          },
+          shadows.md,
+        ]}>
+        <View style={styles.heroTopRow}>
+          <View style={[styles.heroDot, {backgroundColor: catColor}]} />
+          <Text numberOfLines={1} style={[styles.heroName, {color: colors.text}]}>
+            {catName}
+          </Text>
+          <View
+            style={[
+              styles.heroStatusPill,
+              {backgroundColor: `${barColor}22`},
+            ]}>
+            <Text style={[styles.heroStatusText, {color: barColor}]}>
+              {statusLabel(progress.status)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.heroAmountRow, {marginTop: spacing.lg}]}>
+          <Text style={[styles.heroSpentLabel, {color: colors.textTertiary}]}>
+            Spent
+          </Text>
+          <Text style={[styles.heroSpent, {color: barColor}]}>
+            {formatAmountMasked(progress.spent, budget.currency, hide)}
+          </Text>
+          <Text style={[styles.heroOf, {color: colors.textSecondary}]}>
+            of {formatAmountMasked(budget.amount, budget.currency, hide)}
+          </Text>
+        </View>
+
+        <View style={{marginTop: spacing.md}}>
+          <ProgressBar
+            color={barColor}
+            height={14}
+            progress={Math.min(pct / 100, 1)}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.heroPct,
+            {color: colors.textSecondary, marginTop: spacing.sm},
+          ]}>
+          {Math.round(pct)}% used
+        </Text>
+      </View>
+
+      <View style={[styles.statsRow, {gap: spacing.sm}]}>
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.borderLight,
+              borderRadius: radius.md,
+              padding: spacing.md,
+            },
+          ]}>
+          <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
+            Remaining
+          </Text>
+          <Text
+            style={[
+              styles.statValue,
+              {color: progress.remaining >= 0 ? colors.success : colors.danger},
+            ]}>
+            {formatAmountMasked(Math.abs(progress.remaining), budget.currency, hide)}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.borderLight,
+              borderRadius: radius.md,
+              padding: spacing.md,
+            },
+          ]}>
+          <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
+            Days Left
+          </Text>
+          <Text style={[styles.statValue, {color: colors.text}]}>{days}</Text>
+        </View>
+
+        <View
+          style={[
+            styles.statCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.borderLight,
+              borderRadius: radius.md,
+              padding: spacing.md,
+            },
+          ]}>
+          <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
+            Daily Limit
+          </Text>
+          <Text style={[styles.statValue, {color: colors.text}]}>
+            {dailyRemaining > 0
+              ? formatAmountMasked(dailyRemaining, budget.currency, hide)
+              : '--'}
+          </Text>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.metaCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.borderLight,
+            borderRadius: radius.md,
+            padding: spacing.md,
+          },
+        ]}>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Period</Text>
+          <Text style={[styles.metaValue, {color: colors.text}]}>
+            {budget.period === 'monthly' ? 'Monthly' : 'Weekly'}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Date Range</Text>
+          <Text style={[styles.metaValue, {color: colors.text}]}>
+            {formatDateRange(budget.startDate, budget.endDate)}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Rollover</Text>
+          <Text style={[styles.metaValue, {color: colors.text}]}>
+            {budget.rollover ? 'Enabled' : 'Disabled'}
+          </Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Transactions</Text>
+          <Text style={[styles.metaValue, {color: colors.text}]}>{transactions.length}</Text>
+        </View>
+      </View>
+
+      {transactions.length > 0 && (
+        <Text style={[styles.txHeader, {color: colors.text, marginTop: spacing.sm}]}>
+          Transactions in this budget
+        </Text>
+      )}
+    </View>
+  ) : null;
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -242,224 +431,116 @@ export default function BudgetDetailScreen() {
         ]}>
         <View style={styles.headerRow}>
           <BackButton />
-          <Text style={[styles.headerTitle, {color: colors.text}]}>
-            Budget Detail
-          </Text>
-          <View style={{flexDirection: 'row', gap: 16}}>
-            <Pressable
-              accessibilityLabel="Edit budget"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() =>
-                navigation.navigate('CreateBudget', {editBudgetId: budgetId})
-              }>
-              <Text style={[styles.deleteBtn, {color: colors.primary}]}>Edit</Text>
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Delete budget"
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={handleDelete}>
-              <Text style={[styles.deleteBtn, {color: colors.danger}]}>
-                {isDeleting ? '...' : 'Delete'}
-              </Text>
-            </Pressable>
-          </View>
+          <Text style={[styles.headerTitle, {color: colors.text}]}>Budget Detail</Text>
+          {budget ? (
+            <View style={{flexDirection: 'row', gap: 16}}>
+              <Pressable
+                accessibilityLabel="Edit budget"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={() =>
+                  navigation.navigate('CreateBudget', {editBudgetId: budgetId})
+                }>
+                <Text style={[styles.deleteBtn, {color: colors.primary}]}>Edit</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Delete budget"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={handleDelete}>
+                <Text style={[styles.deleteBtn, {color: colors.danger}]}>
+                  {isDeleting ? '...' : 'Delete'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.headerActionsPlaceholder} />
+          )}
         </View>
       </View>
 
-      <FlatList
-        ListHeaderComponent={
-          <View style={{gap: spacing.md}}>
-            <View
-              style={[
-                styles.heroCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.borderLight,
-                  borderRadius: radius.lg,
-                  padding: spacing.lg,
-                },
-                shadows.md,
-              ]}>
-              <View style={styles.heroTopRow}>
-                <View style={[styles.heroDot, {backgroundColor: catColor}]} />
-                <Text numberOfLines={1} style={[styles.heroName, {color: colors.text}]}>
-                  {catName}
-                </Text>
-                <View
-                  style={[
-                    styles.heroStatusPill,
-                    {backgroundColor: `${barColor}22`},
-                  ]}>
-                  <Text style={[styles.heroStatusText, {color: barColor}]}>
-                    {statusLabel(progress.status)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.heroAmountRow, {marginTop: spacing.lg}]}>
-                <Text style={[styles.heroSpentLabel, {color: colors.textTertiary}]}>
-                  Spent
-                </Text>
-                <Text style={[styles.heroSpent, {color: barColor}]}>
-                  {formatAmountMasked(progress.spent, budget.currency, hide)}
-                </Text>
-                <Text style={[styles.heroOf, {color: colors.textSecondary}]}>
-                  of {formatAmountMasked(budget.amount, budget.currency, hide)}
-                </Text>
-              </View>
-
-              <View style={{marginTop: spacing.md}}>
-                <ProgressBar
-                  color={barColor}
-                  height={14}
-                  progress={Math.min(pct / 100, 1)}
-                />
-              </View>
-
-              <Text
-                style={[
-                  styles.heroPct,
-                  {color: colors.textSecondary, marginTop: spacing.sm},
-                ]}>
-                {Math.round(pct)}% used
-              </Text>
+      {showBudgetSkeleton ? (
+        <ScrollView
+          contentContainerStyle={{
+            padding: spacing.base,
+            paddingBottom: insets.bottom + 24,
+            gap: spacing.md,
+          }}
+          refreshControl={
+            <RefreshControl
+              colors={[colors.primary]}
+              onRefresh={handleRefresh}
+              refreshing={isLoading || txLoading || budgetRefreshing}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}>
+          <Skeleton width="100%" height={140} borderRadius={radius.lg} />
+          <View style={[styles.statsRow, {gap: spacing.sm}]}>
+            <View style={{flex: 1}}>
+              <Skeleton width="100%" height={72} borderRadius={radius.md} />
             </View>
-
-            <View style={[styles.statsRow, {gap: spacing.sm}]}>
-              <View
-                style={[
-                  styles.statCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.borderLight,
-                    borderRadius: radius.md,
-                    padding: spacing.md,
-                  },
-                ]}>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
-                  Remaining
-                </Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    {color: progress.remaining >= 0 ? colors.success : colors.danger},
-                  ]}>
-                  {formatAmountMasked(Math.abs(progress.remaining), budget.currency, hide)}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.statCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.borderLight,
-                    borderRadius: radius.md,
-                    padding: spacing.md,
-                  },
-                ]}>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
-                  Days Left
-                </Text>
-                <Text style={[styles.statValue, {color: colors.text}]}>
-                  {days}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.statCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.borderLight,
-                    borderRadius: radius.md,
-                    padding: spacing.md,
-                  },
-                ]}>
-                <Text style={[styles.statLabel, {color: colors.textTertiary}]}>
-                  Daily Limit
-                </Text>
-                <Text style={[styles.statValue, {color: colors.text}]}>
-                  {dailyRemaining > 0
-                    ? formatAmountMasked(dailyRemaining, budget.currency, hide)
-                    : '--'}
-                </Text>
-              </View>
+            <View style={{flex: 1}}>
+              <Skeleton width="100%" height={72} borderRadius={radius.md} />
             </View>
-
-            <View style={[styles.metaCard, {backgroundColor: colors.card, borderColor: colors.borderLight, borderRadius: radius.md, padding: spacing.md}]}>
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Period</Text>
-                <Text style={[styles.metaValue, {color: colors.text}]}>
-                  {budget.period === 'monthly' ? 'Monthly' : 'Weekly'}
-                </Text>
-              </View>
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Date Range</Text>
-                <Text style={[styles.metaValue, {color: colors.text}]}>
-                  {formatDateRange(budget.startDate, budget.endDate)}
-                </Text>
-              </View>
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Rollover</Text>
-                <Text style={[styles.metaValue, {color: colors.text}]}>
-                  {budget.rollover ? 'Enabled' : 'Disabled'}
-                </Text>
-              </View>
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaLabel, {color: colors.textTertiary}]}>Transactions</Text>
-                <Text style={[styles.metaValue, {color: colors.text}]}>
-                  {transactions.length}
-                </Text>
-              </View>
+            <View style={{flex: 1}}>
+              <Skeleton width="100%" height={72} borderRadius={radius.md} />
             </View>
-
-            {transactions.length > 0 && (
-              <Text style={[styles.txHeader, {color: colors.text, marginTop: spacing.sm}]}>
-                Transactions in this budget
-              </Text>
-            )}
           </View>
-        }
-        contentContainerStyle={{
-          padding: spacing.base,
-          gap: spacing.sm,
-          paddingBottom: insets.bottom + 24,
-        }}
-        data={transactions}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl
-            colors={[colors.primary]}
-            onRefresh={handleRefresh}
-            refreshing={isLoading || txLoading}
-            tintColor={colors.primary}
-          />
-        }
-        renderItem={({item}) => (
-          <TransactionCard
-            amount={item.amount}
-            categoryColor={catColor}
-            categoryIcon="cash-multiple"
-            categoryName={catName}
-            currency={item.currency}
-            description={item.description}
-            id={item.id}
-            merchant={item.merchant}
-            notes={item.notes}
-            source={item.source}
-            transactionDate={item.transactionDate}
-            type={item.type}
-            hideAmounts={hide}
-            onPress={openTxDetail}
-            onEdit={openTxEdit}
-            onDelete={confirmTxDelete}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-      />
+          <Skeleton width="100%" height={100} borderRadius={radius.md} />
+          <Text style={[styles.txHeader, {color: colors.text}]}>Transactions</Text>
+          <Skeleton width="100%" height={72} borderRadius={radius.md} />
+          <Skeleton width="100%" height={72} borderRadius={radius.md} />
+          <Skeleton width="100%" height={72} borderRadius={radius.md} />
+        </ScrollView>
+      ) : loadFailed ? (
+        <View style={{flex: 1, paddingHorizontal: spacing.base}}>
+          <ErrorState message="We could not load this budget." onRetry={fetchData} />
+        </View>
+      ) : (
+        <FlatList
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={{
+            padding: spacing.base,
+            gap: spacing.sm,
+            paddingBottom: insets.bottom + 24,
+          }}
+          data={transactions}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              colors={[colors.primary]}
+              onRefresh={handleRefresh}
+              refreshing={isLoading || txLoading || budgetRefreshing}
+              tintColor={colors.primary}
+            />
+          }
+          renderItem={({item}) => {
+            const txCat = resolveTxCategory(item.categoryId);
+            return (
+              <TransactionCard
+                amount={item.amount}
+                categoryColor={txCat.color}
+                categoryIcon={txCat.icon}
+                categoryName={txCat.name}
+                currency={item.currency}
+                description={item.description}
+                id={item.id}
+                merchant={item.merchant}
+                notes={item.notes}
+                source={item.source}
+                transactionDate={item.transactionDate}
+                type={item.type}
+                hideAmounts={hide}
+                onPress={openTxDetail}
+                onEdit={openTxEdit}
+                onDelete={confirmTxDelete}
+              />
+            );
+          }}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -476,8 +557,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {fontSize: 18, fontWeight: fontWeight.semibold},
+  headerActionsPlaceholder: {minWidth: 88, height: 24},
   deleteBtn: {fontSize: 14, fontWeight: fontWeight.semibold},
-  center: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   heroCard: {borderWidth: StyleSheet.hairlineWidth},
   heroTopRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
   heroDot: {width: 14, height: 14, borderRadius: 7},

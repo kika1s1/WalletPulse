@@ -129,7 +129,7 @@ export function Input({
         {rightIcon ? (
           <View
             importantForAccessibility="no-hide-descendants"
-            pointerEvents="none"
+            pointerEvents="box-none"
             style={[styles.iconRight, {right: iconInset}]}>
             {rightIcon}
           </View>

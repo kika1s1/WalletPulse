@@ -1,14 +1,17 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
+import {ErrorState} from '@presentation/components/feedback/ErrorState';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {
@@ -44,6 +47,7 @@ type SubCardItemProps = {
   sub: Subscription;
   now: number;
   hide: boolean;
+  highlighted: boolean;
   categoryLabel: string;
   onEdit: (id: string) => void;
   onCancel: (sub: Subscription) => void;
@@ -54,6 +58,7 @@ const SubCardItem = React.memo(function SubCardItem({
   sub,
   now,
   hide,
+  highlighted,
   categoryLabel,
   onEdit,
   onCancel,
@@ -81,9 +86,9 @@ const SubCardItem = React.memo(function SubCardItem({
         style={[
           styles.subCard,
           {
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: highlighted ? colors.primary + '08' : colors.surfaceElevated,
             borderRadius: radius.lg,
-            borderColor: colors.border,
+            borderColor: highlighted ? colors.primary : colors.border,
           },
           shadows.sm,
         ]}
@@ -120,11 +125,13 @@ const SubCardItem = React.memo(function SubCardItem({
 
 export default function SubscriptionsListScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'SubscriptionsList'>>();
+  const highlightSubscriptionId = route.params?.highlightSubscriptionId ?? null;
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('active');
-  const {subscriptions, isLoading, error} = useSubscriptions();
+  const {subscriptions, isLoading, error, refetch} = useSubscriptions();
   const {cancelSubscription, deleteSubscription} = useSubscriptionActions();
   const {categories} = useCategories();
   const categoryMap = useMemo(() => {
@@ -195,12 +202,20 @@ export default function SubscriptionsListScreen() {
         </View>
 
         {isLoading && subscriptions.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.primary} />
+          <View style={[styles.skeletonWrap, {paddingHorizontal: spacing.base}]}>
+            <Skeleton width="100%" height={110} borderRadius={radius.lg} />
+            <View style={{height: 12}} />
+            <Skeleton width="100%" height={80} borderRadius={radius.lg} />
+            <View style={{height: 12}} />
+            <Skeleton width="100%" height={48} borderRadius={radius.md} />
+            <View style={{height: 12}} />
+            <Skeleton width="100%" height={72} borderRadius={radius.lg} />
+            <View style={{height: 8}} />
+            <Skeleton width="100%" height={72} borderRadius={radius.lg} />
           </View>
         ) : error && subscriptions.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={{color: colors.danger}}>{error}</Text>
+            <ErrorState message={error} onRetry={refetch} />
           </View>
         ) : (
           <ScrollView
@@ -209,6 +224,14 @@ export default function SubscriptionsListScreen() {
               {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
             ]}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading && subscriptions.length > 0}
+                onRefresh={refetch}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
           >
             {subscriptions.length === 0 ? (
               <View style={styles.emptyState}>
@@ -217,6 +240,16 @@ export default function SubscriptionsListScreen() {
                 <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
                   Track recurring payments like Netflix, Spotify, and more.
                 </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add your first subscription"
+                  onPress={() => navigation.navigate('CreateSubscription')}
+                  style={({pressed}) => [
+                    styles.emptyCta,
+                    {backgroundColor: colors.primary, borderRadius: radius.md, opacity: pressed ? 0.85 : 1},
+                  ]}>
+                  <Text style={[styles.emptyCtaText, {color: colors.onPrimary}]}>Add a subscription</Text>
+                </Pressable>
               </View>
             ) : (
               <>
@@ -258,7 +291,7 @@ export default function SubscriptionsListScreen() {
                     {breakdown.map((b) => (
                       <View key={b.categoryId} style={styles.breakdownRow}>
                         <Text style={[styles.breakdownCategory, {color: colors.textSecondary}]}>
-                          {b.categoryId}
+                          {categoryMap.get(b.categoryId) ?? b.categoryId}
                         </Text>
                         <Text style={[styles.breakdownValue, {color: colors.text}]}>
                           {formatAmountMasked(b.monthlyTotal, baseCurrency, hide)}/mo
@@ -312,6 +345,7 @@ export default function SubscriptionsListScreen() {
                         sub={sub}
                         now={now}
                         hide={hide}
+                        highlighted={sub.id === highlightSubscriptionId}
                         categoryLabel={categoryMap.get(sub.categoryId) ?? sub.categoryId}
                         onEdit={navigateToEditSub}
                         onCancel={handleCancelSubscription}
@@ -338,6 +372,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  skeletonWrap: {paddingTop: 16},
   emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
   emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
   emptyDesc: {fontSize: 13, textAlign: 'center'},
@@ -373,4 +408,6 @@ const styles = StyleSheet.create({
   cancelledBadge: {paddingHorizontal: 6, paddingVertical: 2, marginTop: 2},
   cancelledText: {fontSize: 10, fontWeight: fontWeight.semibold},
   addBtn: {fontSize: 15, fontWeight: fontWeight.semibold},
+  emptyCta: {paddingHorizontal: 24, paddingVertical: 12, marginTop: 4},
+  emptyCtaText: {fontSize: 15, fontWeight: '600'},
 });

@@ -152,6 +152,8 @@ export const TransactionCard = React.memo(function TransactionCard({
     <Animated.View style={animatedStyle}>
       <Pressable
         accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={`${titleText}, ${signedAmount}, ${subtitleText}`}
+        accessibilityHint={onEdit ? 'Swipe left to edit or delete' : undefined}
         disabled={!onPress}
         onPress={handlePress}
         onPressIn={handlePressIn}

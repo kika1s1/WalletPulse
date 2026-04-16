@@ -1,32 +1,44 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, Pressable} from 'react-native';
+import Animated, {FadeIn, BounceIn} from 'react-native-reanimated';
 import {useTheme} from '@shared/theme';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 
 type Props = {
   message: string;
+  title?: string;
   onRetry?: () => void;
 };
 
-export function ErrorState({message, onRetry}: Props) {
+export function ErrorState({message, title, onRetry}: Props) {
   const {colors, radius} = useTheme();
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.iconContainer, {backgroundColor: colors.dangerLight, borderRadius: radius.lg}]}>
-        <AppIcon name="alert-circle-outline" size={32} color={colors.danger} />
-      </View>
-      <Text style={[styles.title, {color: colors.text}]}>Something went wrong</Text>
+    <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
+      <Animated.View entering={BounceIn.delay(100).duration(400)}>
+        <View style={[styles.iconContainer, {backgroundColor: colors.dangerLight, borderRadius: radius.full}]}>
+          <AppIcon name="alert-circle-outline" size={32} color={colors.danger} />
+        </View>
+      </Animated.View>
+      <Text style={[styles.title, {color: colors.text}]}>{title ?? 'Something went wrong'}</Text>
       <Text style={[styles.message, {color: colors.textSecondary}]}>{message}</Text>
       {onRetry && (
-        <TouchableOpacity
-          style={[styles.button, {backgroundColor: colors.danger, borderRadius: radius.md}]}
-          onPress={onRetry}
-          activeOpacity={0.8}>
-          <Text style={styles.buttonText}>Try Again</Text>
-        </TouchableOpacity>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry"
+          style={({pressed}) => [
+            styles.button,
+            {
+              backgroundColor: colors.danger,
+              borderRadius: radius.md,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+          onPress={onRetry}>
+          <Text style={[styles.buttonText, {color: colors.onPrimary}]}>Try Again</Text>
+        </Pressable>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -44,18 +56,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  icon: {
-    fontSize: 32,
-  },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
   },
   message: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
     marginBottom: 24,
   },
   button: {
@@ -63,7 +72,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
   },

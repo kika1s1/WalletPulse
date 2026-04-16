@@ -1,14 +1,17 @@
 import React, {useCallback, useMemo, useState} from 'react';
-import {ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
+import {ErrorState} from '@presentation/components/feedback/ErrorState';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -45,6 +48,7 @@ type BillCardItemProps = {
   bill: BillReminder;
   now: number;
   hide: boolean;
+  highlighted: boolean;
   categoryLabel: string;
   walletLabel: string;
   onEdit: (id: string) => void;
@@ -56,6 +60,7 @@ const BillCardItem = React.memo(function BillCardItem({
   bill,
   now,
   hide,
+  highlighted,
   categoryLabel,
   walletLabel,
   onEdit,
@@ -82,9 +87,9 @@ const BillCardItem = React.memo(function BillCardItem({
         style={[
           styles.billCard,
           {
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: highlighted ? colors.primary + '08' : colors.surfaceElevated,
             borderRadius: radius.lg,
-            borderColor: isOverdueItem ? colors.danger + '40' : colors.border,
+            borderColor: highlighted ? colors.primary : isOverdueItem ? colors.danger + '40' : colors.border,
             borderLeftColor: isOverdueItem ? colors.danger : colors.primary,
           },
           shadows.sm,
@@ -129,11 +134,13 @@ const BillCardItem = React.memo(function BillCardItem({
 
 export default function BillRemindersScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'BillReminders'>>();
+  const highlightBillId = route.params?.highlightBillId ?? null;
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const [tab, setTab] = useState<Tab>('upcoming');
-  const {bills, isLoading, error} = useBillReminders();
+  const {bills, isLoading, error, refetch} = useBillReminders();
   const {markPaid, deleteBill} = useBillReminderActions();
   const {categories} = useCategories();
   const {wallets} = useWallets();
@@ -241,12 +248,18 @@ export default function BillRemindersScreen() {
         </View>
 
         {isLoading && bills.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.primary} />
+          <View style={[styles.skeletonWrap, {paddingHorizontal: spacing.base}]}>
+            <Skeleton width="100%" height={130} borderRadius={radius.lg} />
+            <View style={{height: 12}} />
+            <Skeleton width="100%" height={48} borderRadius={radius.md} />
+            <View style={{height: 12}} />
+            <Skeleton width="100%" height={80} borderRadius={radius.lg} />
+            <View style={{height: 8}} />
+            <Skeleton width="100%" height={80} borderRadius={radius.lg} />
           </View>
         ) : error && bills.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={{color: colors.danger}}>{error}</Text>
+            <ErrorState message={error} onRetry={refetch} />
           </View>
         ) : (
           <ScrollView
@@ -255,6 +268,14 @@ export default function BillRemindersScreen() {
               {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 24},
             ]}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading && bills.length > 0}
+                onRefresh={refetch}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
           >
             {bills.length === 0 ? (
               <View style={styles.emptyState}>
@@ -263,6 +284,16 @@ export default function BillRemindersScreen() {
                 <Text style={[styles.emptyDesc, {color: colors.textTertiary}]}>
                   Add your recurring bills to track due dates and never miss a payment.
                 </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add your first bill"
+                  onPress={() => navigation.navigate('CreateBillReminder')}
+                  style={({pressed}) => [
+                    styles.emptyCta,
+                    {backgroundColor: colors.primary, borderRadius: radius.md, opacity: pressed ? 0.85 : 1},
+                  ]}>
+                  <Text style={[styles.emptyCtaText, {color: colors.onPrimary}]}>Add a bill</Text>
+                </Pressable>
               </View>
             ) : (
               <>
@@ -353,6 +384,7 @@ export default function BillRemindersScreen() {
                       bill={bill}
                       now={now}
                       hide={hide}
+                      highlighted={bill.id === highlightBillId}
                       categoryLabel={categoryMap.get(bill.categoryId) ?? bill.categoryId}
                       walletLabel={walletMap.get(bill.walletId) ?? 'Unknown wallet'}
                       onEdit={navigateToEdit}
@@ -380,6 +412,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   centered: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  skeletonWrap: {paddingTop: 16, gap: 0},
   emptyState: {alignItems: 'center', paddingVertical: 60, gap: 12},
   emptyTitle: {fontSize: 17, fontWeight: fontWeight.semibold},
   emptyDesc: {fontSize: 13, textAlign: 'center'},
@@ -426,4 +459,6 @@ const styles = StyleSheet.create({
   dueBadgeText: {fontSize: 11, fontWeight: fontWeight.semibold},
   remindText: {fontSize: 11},
   addBtn: {fontSize: 15, fontWeight: fontWeight.semibold},
+  emptyCta: {paddingHorizontal: 24, paddingVertical: 12, marginTop: 4},
+  emptyCtaText: {fontSize: 15, fontWeight: '600'},
 });

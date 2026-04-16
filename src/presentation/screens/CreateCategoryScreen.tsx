@@ -70,6 +70,33 @@ const COLOR_PALETTE = [
   '#E74C3C', '#2ECC71', '#3498DB', '#9B59B6',
 ];
 
+const CATEGORY_COLOR_ACCESSIBILITY: Record<string, string> = {
+  '#FF6B6B': 'Coral red',
+  '#E17055': 'Orange coral',
+  '#4ECDC4': 'Teal',
+  '#45B7D1': 'Sky blue',
+  '#96CEB4': 'Sage green',
+  '#FFEAA7': 'Cream yellow',
+  '#DDA0DD': 'Plum',
+  '#98D8C8': 'Mint green',
+  '#6C5CE7': 'Purple',
+  '#FD79A8': 'Pink',
+  '#74B9FF': 'Light blue',
+  '#FDA7DF': 'Rose pink',
+  '#FF9FF3': 'Lavender pink',
+  '#55EFC4': 'Aqua mint',
+  '#636E72': 'Gray',
+  '#00B894': 'Green',
+  '#0984E3': 'Blue',
+  '#E056A0': 'Magenta',
+  '#B2BEC3': 'Silver gray',
+  '#F39C12': 'Amber',
+  '#E74C3C': 'Red',
+  '#2ECC71': 'Emerald green',
+  '#3498DB': 'Bright blue',
+  '#9B59B6': 'Violet',
+};
+
 const TYPE_OPTIONS: {key: CategoryKind; label: string}[] = [
   {key: 'expense', label: 'Expense'},
   {key: 'income', label: 'Income'},
@@ -325,7 +352,7 @@ export default function CreateCategoryScreen() {
               const active = color === c;
               return (
                 <Pressable
-                  accessibilityLabel={c}
+                  accessibilityLabel={`${CATEGORY_COLOR_ACCESSIBILITY[c] ?? 'Color'} color`}
                   accessibilityRole="radio"
                   accessibilityState={{selected: active}}
                   key={c}

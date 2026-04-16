@@ -16,6 +16,7 @@ import {ScreenContainer} from '@presentation/components/layout/ScreenContainer';
 import {Spacer} from '@presentation/components/layout/Spacer';
 import {Card} from '@presentation/components/common/Card';
 import {Button} from '@presentation/components/common/Button';
+import {BackButton} from '@presentation/components/common/BackButton';
 import {AmountInput} from '@presentation/components/common/AmountInput';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
 import {useFxRates, useConvertCurrency} from '@presentation/hooks/useFxRates';
@@ -156,9 +157,13 @@ export default function CurrencyConverterScreen() {
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.base} />
 
-        <Text style={[styles.screenTitle, {color: colors.text}]}>
-          Currency Converter
-        </Text>
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={[styles.screenTitle, {color: colors.text}]}>
+            Currency Converter
+          </Text>
+          <View style={{width: 32}} />
+        </View>
 
         <View style={styles.statusRow}>
           <Text style={[styles.statusText, {color: colors.textSecondary}]}>
@@ -371,10 +376,15 @@ const styles = StyleSheet.create({
   padded: {
     alignSelf: 'stretch',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   screenTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 18,
+    fontWeight: '600',
   },
   statusRow: {
     flexDirection: 'row',

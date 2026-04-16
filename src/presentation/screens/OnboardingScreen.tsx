@@ -35,11 +35,6 @@ import {
   type OnboardingState,
 } from '@domain/usecases/onboarding-validation';
 import {POPULAR_CURRENCIES} from '@shared/constants/currencies';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import database from '@data/database';
-import {makeCreateWallet} from '@domain/usecases/create-wallet';
-import {generateId} from '@shared/utils/hash';
-import {seedDefaultCategories} from '@data/seed/categories';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
@@ -399,55 +394,14 @@ export default function OnboardingScreen() {
       return;
     }
 
-    try {
-      const ds = getLocalDataSource();
-
-      await seedDefaultCategories(database);
-
-      const create = makeCreateWallet({walletRepo: ds.wallets});
-      const now = Date.now();
-      await create({
-        id: generateId(),
-        name: walletName.trim() || 'Main Account',
-        currency: currency.toUpperCase(),
-        balance: 0,
-        isActive: true,
-        icon: 'wallet',
-        color: '#6C5CE7',
-        sortOrder: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } catch (_e) {
-      // Non-blocking: wallet or categories may already exist
-    }
-
     useSettingsStore.getState().setNotificationEnabled(enableNotifications);
+    useSettingsStore.getState().setOnboardingWalletName(walletName.trim() || 'Main Account');
+    useSettingsStore.getState().setOnboardingCurrency(currency.toUpperCase());
     setBaseCurrency(currency);
     setOnboardingCompleted(true);
   }, [currentStep, steps, state, walletName, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted]);
 
   const handleSkip = useCallback(async () => {
-    try {
-      const ds = getLocalDataSource();
-      await seedDefaultCategories(database);
-      const create = makeCreateWallet({walletRepo: ds.wallets});
-      const now = Date.now();
-      await create({
-        id: generateId(),
-        name: 'Main Account',
-        currency: 'USD',
-        balance: 0,
-        isActive: true,
-        icon: 'wallet',
-        color: '#6C5CE7',
-        sortOrder: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } catch {
-      // Categories or wallet may already exist
-    }
     useSettingsStore.getState().setNotificationEnabled(false);
     setBaseCurrency('USD');
     setOnboardingCompleted(true);
@@ -486,6 +440,7 @@ export default function OnboardingScreen() {
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
           onPress={handleSkip}
           hitSlop={12}
         >

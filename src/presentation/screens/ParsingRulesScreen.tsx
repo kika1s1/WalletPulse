@@ -15,7 +15,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
-import {EmptyState} from '@presentation/components/feedback';
+import {EmptyState, ErrorState} from '@presentation/components/feedback';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {useParsingRules} from '@presentation/hooks/useParsingRules';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
@@ -37,7 +37,7 @@ export default function ParsingRulesScreen() {
   const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
   const insets = useSafeAreaInsets();
-  const {rules, isLoading, toggleRule, refetch} = useParsingRules();
+  const {rules, isLoading, error, toggleRule, refetch} = useParsingRules();
 
   useFocusEffect(
     useCallback(() => {
@@ -137,6 +137,10 @@ export default function ParsingRulesScreen() {
               Loading rules…
             </Text>
           </View>
+        ) : error && rules.length === 0 ? (
+          <View style={[styles.errorWrap, {paddingHorizontal: spacing.base}]}>
+            <ErrorState message={error} onRetry={refetch} />
+          </View>
         ) : (
           <FlatList
             contentContainerStyle={{
@@ -219,6 +223,10 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'center',
     padding: 24,
+  },
+  errorWrap: {
+    flex: 1,
+    justifyContent: 'center',
   },
   loadingText: {
     fontSize: 14,

@@ -1,5 +1,5 @@
-import React, {useCallback, useMemo} from 'react';
-import {Alert, Pressable, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {Alert, Pressable, RefreshControl, SectionList, StyleSheet, Text, View, ScrollView} from 'react-native';
 import type {CompositeNavigationProp, RouteProp} from '@react-navigation/native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
@@ -22,8 +22,10 @@ import type {TabParamList, TransactionsStackParamList} from '@presentation/navig
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useTransactionActions} from '@presentation/hooks/useTransactionActions';
 import {useCategories} from '@presentation/hooks/useCategories';
+import {useWallets} from '@presentation/hooks/useWallets';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 
 const MS_PER_DAY = 86400000;
 
@@ -73,6 +75,7 @@ export default function TransactionsScreen() {
   const navigation = useNavigation<TransactionsNav>();
   const route = useRoute<RouteProp<TransactionsStackParamList, 'TransactionsList'>>();
   const filterCategoryId = route.params?.filterCategoryId;
+  const filterWalletId = route.params?.filterWalletId;
   const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -82,12 +85,24 @@ export default function TransactionsScreen() {
   const {transactions: allTransactions, isLoading, error, refetch} = useTransactions();
   const {deleteTransaction} = useTransactionActions();
   const {categories} = useCategories();
+  const {wallets} = useWallets();
   const hideAmounts = useSettingsStore((s) => s.hideAmounts);
 
   const transactions = useMemo(() => {
-    if (!filterCategoryId) {return allTransactions;}
-    return allTransactions.filter((t) => t.categoryId === filterCategoryId);
-  }, [allTransactions, filterCategoryId]);
+    let list = allTransactions;
+    if (filterCategoryId) {
+      list = list.filter((t) => t.categoryId === filterCategoryId);
+    }
+    if (filterWalletId) {
+      list = list.filter((t) => t.walletId === filterWalletId);
+    }
+    return list;
+  }, [allTransactions, filterCategoryId, filterWalletId]);
+
+  const filterWalletLabel = useMemo(() => {
+    if (!filterWalletId) {return null;}
+    return wallets.find((w) => w.id === filterWalletId)?.name ?? 'Wallet';
+  }, [filterWalletId, wallets]);
 
   const categoryById = useMemo(() => {
     const map = new Map<string, {name: string; icon: string; color: string}>();
@@ -213,6 +228,13 @@ export default function TransactionsScreen() {
     setTypeFilter(next);
   }, [setTypeFilter]);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+    setTimeout(() => setRefreshing(false), 800);
+  }, [refetch]);
+
   const showInitialLoading = isLoading && transactions.length === 0;
   const showFatalError = Boolean(error) && !isLoading && transactions.length === 0;
 
@@ -226,9 +248,12 @@ export default function TransactionsScreen() {
               accessibilityRole="button"
               accessibilityLabel="Search transactions"
               onPress={openSearch}
-              style={[styles.searchBtn, {backgroundColor: colors.surfaceElevated, borderRadius: radius.sm}]}
+              style={({pressed}) => [
+                styles.searchBtn,
+                {backgroundColor: colors.surfaceElevated, borderRadius: radius.full, opacity: pressed ? 0.7 : 1},
+              ]}
             >
-              <Text style={[styles.searchBtnIcon, {color: colors.textSecondary}]}>Search</Text>
+              <AppIcon name="magnify" size={20} color={colors.textSecondary} />
             </Pressable>
           </View>
           <ScrollView
@@ -261,7 +286,25 @@ export default function TransactionsScreen() {
               <Text style={{color: colors.primary, fontSize: 13, flex: 1}} numberOfLines={1}>
                 Filtered: {categoryById.get(filterCategoryId)?.name ?? filterCategoryId}
               </Text>
-              <Pressable hitSlop={8} onPress={() => navigation.setParams({filterCategoryId: undefined})}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear category filter"
+                hitSlop={8}
+                onPress={() => navigation.setParams({filterCategoryId: undefined})}>
+                <Text style={{color: colors.primary, fontSize: 13, fontWeight: '600'}}>Clear</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {filterWalletId ? (
+            <View style={[styles.filterBanner, {backgroundColor: `${colors.primary}12`, borderRadius: radius.md, marginHorizontal: spacing.base, marginTop: spacing.xs, padding: spacing.sm}]}>
+              <Text style={{color: colors.primary, fontSize: 13, flex: 1}} numberOfLines={1}>
+                Wallet: {filterWalletLabel}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear wallet filter"
+                hitSlop={8}
+                onPress={() => navigation.setParams({filterWalletId: undefined})}>
                 <Text style={{color: colors.primary, fontSize: 13, fontWeight: '600'}}>Clear</Text>
               </Pressable>
             </View>
@@ -295,6 +338,14 @@ export default function TransactionsScreen() {
             maxToRenderPerBatch={10}
             windowSize={7}
             removeClippedSubviews
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
             contentContainerStyle={{
               flexGrow: 1,
               paddingBottom: insets.bottom + 88,
@@ -327,12 +378,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   searchBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  searchBtnIcon: {
-    fontSize: 13,
-    fontWeight: '600',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterBanner: {
     flexDirection: 'row',

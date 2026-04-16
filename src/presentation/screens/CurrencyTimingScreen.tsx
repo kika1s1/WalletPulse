@@ -12,12 +12,6 @@ import {useAppStore} from '@presentation/stores/useAppStore';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 
-const REC_ICONS: Record<string, {name: string; color: string}> = {
-  buy_now: {name: 'arrow-down-circle', color: '#27ae60'},
-  wait: {name: 'clock-outline', color: '#e67e22'},
-  neutral: {name: 'minus-circle-outline', color: '#7f8c8d'},
-};
-
 const TREND_LABELS: Record<string, string> = {
   rising: 'Rising',
   falling: 'Falling',
@@ -111,7 +105,19 @@ export default function CurrencyTimingScreen() {
     });
   }, [baseCurrency, targetCurrency, historicalRates]);
 
-  const recStyle = result ? (REC_ICONS[result.recommendation] ?? REC_ICONS.neutral) : REC_ICONS.neutral;
+  const recStyle = useMemo(() => {
+    if (!result) {
+      return {name: 'minus-circle-outline' as const, color: colors.primary};
+    }
+    switch (result.recommendation) {
+      case 'buy_now':
+        return {name: 'arrow-down-circle' as const, color: colors.success};
+      case 'wait':
+        return {name: 'clock-outline' as const, color: colors.warning};
+      default:
+        return {name: 'minus-circle-outline' as const, color: colors.primary};
+    }
+  }, [result, colors.primary, colors.success, colors.warning]);
 
   const availableCurrencies = walletCurrencies.length > 0
     ? walletCurrencies
@@ -151,7 +157,11 @@ export default function CurrencyTimingScreen() {
                     borderRadius: radius.md,
                   },
                 ]}>
-                <Text style={[styles.currencyChipText, {color: active ? '#FFFFFF' : colors.text}]}>
+                <Text
+                  style={[
+                    styles.currencyChipText,
+                    {color: active ? colors.onPrimary : colors.text},
+                  ]}>
                   {baseCurrency} / {c}
                 </Text>
               </Pressable>
