@@ -175,6 +175,7 @@ export default function SettingsScreen() {
   const [disablePinDraft, setDisablePinDraft] = useState('');
   const [disablePinError, setDisablePinError] = useState<string | null>(null);
   const [disablePinBusy, setDisablePinBusy] = useState(false);
+  const [disablePinLength, setDisablePinLength] = useState<PinLength>(4);
   const [biometricPinLength, setBiometricPinLength] = useState<PinLength>(4);
   const screenshotSupported = useMemo(() => isScreenshotProtectionAvailable(), []);
 
@@ -420,7 +421,10 @@ export default function SettingsScreen() {
                   } else {
                     setDisablePinDraft('');
                     setDisablePinError(null);
-                    setDisablePinModalVisible(true);
+                    void getStoredPinLength().then((len) => {
+                      setDisablePinLength(len ?? 4);
+                      setDisablePinModalVisible(true);
+                    });
                   }
                 }}
                 thumbColor={isPinEnabled ? colors.primary : colors.border}
@@ -863,75 +867,63 @@ export default function SettingsScreen() {
       </Modal>
 
       <Modal
-        animationType="fade"
-        transparent
+        animationType="slide"
         visible={disablePinModalVisible}
         onRequestClose={() => setDisablePinModalVisible(false)}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close confirm PIN"
-          onPress={() => setDisablePinModalVisible(false)}
-          style={styles.modalBackdrop}>
+        <View
+          style={[
+            styles.fullScreenModal,
+            {backgroundColor: colors.background},
+          ]}>
           <Pressable
-            onPress={() => {}}
+            accessibilityLabel="Cancel"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => setDisablePinModalVisible(false)}
             style={[
-              styles.modalSheet,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.borderLight,
-                padding: spacing.base,
-              },
+              styles.fullScreenCloseBtn,
+              {top: insets.top + 12},
             ]}>
-            <Text style={[styles.modalTitle, {color: colors.text}]}>
-              Remove PIN lock?
-            </Text>
-            <Text
-              style={[
-                styles.modalSubtitle,
-                {color: colors.textSecondary, marginBottom: spacing.md},
-              ]}>
-              Enter your current PIN to turn off the app lock. Anyone will be
-              able to open WalletPulse without a PIN afterwards.
-            </Text>
-            <View style={{height: 400}}>
-              <PinPad
-                title=""
-                subtitle=""
-                pin={disablePinDraft}
-                length={6}
-                error={disablePinError}
-                onPinChange={async (next) => {
-                  if (disablePinBusy) {
+            <AppIcon name="close" size={24} color={colors.text} />
+          </Pressable>
+          <PinPad
+            title="Remove PIN lock"
+            subtitle="Enter your current PIN to turn off the app lock"
+            pin={disablePinDraft}
+            length={disablePinLength}
+            error={disablePinError}
+            onPinChange={(next) => {
+              if (disablePinBusy) {
+                return;
+              }
+              setDisablePinError(null);
+              setDisablePinDraft(next);
+              if (next.length !== disablePinLength) {
+                return;
+              }
+              setDisablePinBusy(true);
+              void (async () => {
+                try {
+                  const result = await removePinWithVerification(next);
+                  if (!result.ok) {
+                    setDisablePinError('Wrong PIN');
+                    setDisablePinDraft('');
                     return;
                   }
-                  setDisablePinDraft(next);
-                  if (next.length >= 4) {
-                    setDisablePinBusy(true);
-                    try {
-                      const result = await removePinWithVerification(next);
-                      if (!result.ok) {
-                        if (next.length >= 6) {
-                          setDisablePinError('Wrong PIN');
-                          setDisablePinDraft('');
-                        }
-                        return;
-                      }
-                      setDisablePinModalVisible(false);
-                      setDisablePinDraft('');
-                      setDisablePinError(null);
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : String(e);
-                      setDisablePinError(msg);
-                      setDisablePinDraft('');
-                    } finally {
-                      setDisablePinBusy(false);
-                    }
-                  }
-                }}
-              />
-            </View>
-          </Pressable>
-        </Pressable>
+                  setDisablePinModalVisible(false);
+                  setDisablePinDraft('');
+                  setDisablePinError(null);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  setDisablePinError(msg);
+                  setDisablePinDraft('');
+                } finally {
+                  setDisablePinBusy(false);
+                }
+              })();
+            }}
+          />
+        </View>
       </Modal>
 
       <Modal
