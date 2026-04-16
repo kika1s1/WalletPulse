@@ -21,6 +21,7 @@ import {useAnalytics} from '@presentation/hooks/useAnalytics';
 import type {AnalyticsDateRange} from '@presentation/hooks/useAnalytics';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import type {AnalyticsStackParamList} from '@presentation/navigation/types';
+import {navigateToTab} from '@presentation/navigation/navigateToTab';
 
 type Nav = NativeStackNavigationProp<AnalyticsStackParamList>;
 
@@ -676,7 +677,7 @@ export default function AnalyticsScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={`${cat.categoryName}, ${cat.percentage.toFixed(0)}%`}
                         onPress={() => {
-                          navigation.getParent()?.navigate('TransactionsTab', {
+                          navigateToTab(navigation, 'TransactionsTab', {
                             screen: 'TransactionsList',
                             params: {filterCategoryId: cat.categoryId},
                           });

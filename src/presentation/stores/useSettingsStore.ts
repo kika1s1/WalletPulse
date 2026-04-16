@@ -13,6 +13,9 @@ type SettingsState = {
   subscriptionNotificationsEnabled: boolean;
   onboardingCompleted: boolean;
   hideAmounts: boolean;
+  onboardingWalletName: string;
+  onboardingCurrency: string;
+  pendingSeedComplete: boolean;
   setThemeMode: (mode: 'light' | 'dark' | 'system') => void;
   setActiveThemeId: (id: ThemeId) => void;
   setDateFormat: (format: 'US' | 'EU' | 'ISO') => void;
@@ -22,6 +25,9 @@ type SettingsState = {
   setSubscriptionNotificationsEnabled: (enabled: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => void;
   toggleHideAmounts: () => void;
+  setOnboardingWalletName: (name: string) => void;
+  setOnboardingCurrency: (currency: string) => void;
+  setPendingSeedComplete: (done: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -36,6 +42,9 @@ export const useSettingsStore = create<SettingsState>()(
       subscriptionNotificationsEnabled: true,
       onboardingCompleted: false,
       hideAmounts: false,
+      onboardingWalletName: 'Main Account',
+      onboardingCurrency: 'USD',
+      pendingSeedComplete: false,
       setThemeMode: (mode) => set({themeMode: mode}),
       setActiveThemeId: (id) => set({activeThemeId: id}),
       setDateFormat: (format) => set({dateFormat: format}),
@@ -45,6 +54,9 @@ export const useSettingsStore = create<SettingsState>()(
       setSubscriptionNotificationsEnabled: (enabled) => set({subscriptionNotificationsEnabled: enabled}),
       setOnboardingCompleted: (completed) => set({onboardingCompleted: completed}),
       toggleHideAmounts: () => set((s) => ({hideAmounts: !s.hideAmounts})),
+      setOnboardingWalletName: (name) => set({onboardingWalletName: name}),
+      setOnboardingCurrency: (currency) => set({onboardingCurrency: currency}),
+      setPendingSeedComplete: (done) => set({pendingSeedComplete: done}),
     }),
     {
       name: 'walletpulse-settings',

@@ -26,7 +26,6 @@ export default function WalletsStack() {
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="WalletsList" component={WalletsScreen} />
         <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
-        <Stack.Screen name="EditWallet" component={CreateWalletScreen} />
         <Stack.Screen name="WalletDetail" component={WalletDetailScreen} />
         <Stack.Screen name="WalletBalanceHistory" component={BalanceHistoryScreen} />
         <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />

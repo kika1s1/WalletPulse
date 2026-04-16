@@ -4,6 +4,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from './types';
 import SettingsScreen from '@presentation/screens/SettingsScreen';
 
+const ProfileScreen = React.lazy(() => import('@presentation/screens/ProfileScreen'));
 const SetPinScreen = React.lazy(() => import('@presentation/screens/SetPinScreen'));
 const CategoryManagementScreen = React.lazy(() => import('@presentation/screens/CategoryManagementScreen'));
 const NotificationLogScreen = React.lazy(() => import('@presentation/screens/NotificationLogScreen'));
@@ -41,6 +42,7 @@ export default function SettingsStack() {
     <Suspense fallback={<LazyFallback />}>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="SettingsMain" component={SettingsScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="SetPin" component={SetPinScreen} />
         <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
         <Stack.Screen name="CreateCategory" component={CreateCategoryScreen} />

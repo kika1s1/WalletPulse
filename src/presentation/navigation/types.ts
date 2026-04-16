@@ -8,7 +8,7 @@ export type HomeStackParamList = {
 };
 
 export type TransactionsStackParamList = {
-  TransactionsList: {filterCategoryId?: string} | undefined;
+  TransactionsList: {filterCategoryId?: string; filterWalletId?: string} | undefined;
   AddTransaction:
     | {
         type?: 'income' | 'expense' | 'transfer';
@@ -28,7 +28,6 @@ export type TransactionsStackParamList = {
 export type WalletsStackParamList = {
   WalletsList: undefined;
   CreateWallet: {editWalletId?: string} | undefined;
-  EditWallet: {walletId: string};
   WalletDetail: {walletId: string};
   WalletBalanceHistory: {walletId: string};
   TransactionDetail: {transactionId: string};
@@ -47,6 +46,7 @@ export type AnalyticsStackParamList = {
 export type SettingsStackParamList = {
   SettingsMain: undefined;
   SetPin: undefined;
+  Profile: undefined;
   CategoryManagement: undefined;
   CreateCategory: {editCategoryId?: string} | undefined;
   NotificationLog: undefined;
@@ -58,15 +58,22 @@ export type SettingsStackParamList = {
   TemplateManagement: undefined;
   CreateTemplate: undefined;
   Export: undefined;
-  BillReminders: undefined;
+  BillReminders: {highlightBillId?: string} | undefined;
   CreateBillReminder: {editBillId?: string} | undefined;
   GoalsList: undefined;
   CreateGoal: {editGoalId?: string} | undefined;
   GoalDetail: {goalId: string};
-  SubscriptionsList: undefined;
+  SubscriptionsList: {highlightSubscriptionId?: string} | undefined;
   CreateSubscription: {editSubscriptionId?: string} | undefined;
   TransactionDetail: {transactionId: string};
   EditTransaction: {transactionId: string};
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: {email: string};
 };
 
 export type TabParamList = {
@@ -79,6 +86,7 @@ export type TabParamList = {
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  Auth: NavigatorScreenParams<AuthStackParamList>;
   MainTabs: NavigatorScreenParams<TabParamList>;
 };
 
@@ -94,4 +102,6 @@ export type AnalyticsStackScreenProps<T extends keyof AnalyticsStackParamList> =
   NativeStackScreenProps<AnalyticsStackParamList, T>;
 export type SettingsStackScreenProps<T extends keyof SettingsStackParamList> =
   NativeStackScreenProps<SettingsStackParamList, T>;
+export type AuthStackScreenProps<T extends keyof AuthStackParamList> =
+  NativeStackScreenProps<AuthStackParamList, T>;
 export type TabScreenProps<T extends keyof TabParamList> = BottomTabScreenProps<TabParamList, T>;

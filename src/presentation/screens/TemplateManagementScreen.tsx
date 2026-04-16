@@ -28,6 +28,7 @@ import {
 } from '@domain/usecases/quick-action-templates';
 import {buildAddTransactionParamsFromApplied} from '@presentation/navigation/build-add-transaction-params';
 import type {SettingsStackParamList, TabParamList} from '@presentation/navigation/types';
+import {navigateToTab} from '@presentation/navigation/navigateToTab';
 import {useTemplates} from '@presentation/hooks/useTemplates';
 import {useCategories} from '@presentation/hooks/useCategories';
 
@@ -79,7 +80,7 @@ export default function TemplateManagementScreen() {
         void incrementUsage(item.id);
       }
       const applied = applyTemplate(item);
-      navigation.getParent()?.navigate('TransactionsTab', {
+      navigateToTab(navigation, 'TransactionsTab', {
         screen: 'AddTransaction',
         params: buildAddTransactionParamsFromApplied(applied),
       });

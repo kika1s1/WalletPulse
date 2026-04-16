@@ -19,26 +19,30 @@ function handleNotificationPress(data: Record<string, unknown> | undefined): voi
   if (!data) {return;}
 
   if (data.type === 'bill_reminder') {
+    const billId = (data.billId as string) ?? undefined;
     if (navigationRef.isReady()) {
       navigationRef.navigate('MainTabs', {
         screen: 'SettingsTab',
         params: {
           screen: 'BillReminders',
+          params: billId ? {highlightBillId: billId} : undefined,
         },
       });
     } else {
-      pendingBillNav = (data.billId as string) ?? null;
+      pendingBillNav = billId ?? null;
     }
   } else if (data.type === 'subscription_reminder') {
+    const subscriptionId = (data.subscriptionId as string) ?? undefined;
     if (navigationRef.isReady()) {
       navigationRef.navigate('MainTabs', {
         screen: 'SettingsTab',
         params: {
           screen: 'SubscriptionsList',
+          params: subscriptionId ? {highlightSubscriptionId: subscriptionId} : undefined,
         },
       });
     } else {
-      pendingSubscriptionNav = (data.subscriptionId as string) ?? null;
+      pendingSubscriptionNav = subscriptionId ?? null;
     }
   }
 }
