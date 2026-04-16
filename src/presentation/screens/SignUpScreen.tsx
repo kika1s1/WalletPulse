@@ -7,6 +7,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Input} from '@presentation/components/common';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {useAuthStore} from '@presentation/stores/useAuthStore';
 import type {AuthStackScreenProps} from '@presentation/navigation/types';
 
@@ -116,6 +117,10 @@ export default function SignUpScreen({navigation}: AuthStackScreenProps<'SignUp'
             style={styles.backBtn}>
             <AppIcon name="arrow-left" size={24} color={colors.text} />
           </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.logoContainer}>
+          <WalletPulseLogoMark size={72} />
         </Animated.View>
 
         <Animated.Text
@@ -281,6 +286,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     marginBottom: 16,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   backBtn: {
     padding: 4,
