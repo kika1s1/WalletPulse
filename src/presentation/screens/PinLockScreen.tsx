@@ -1,9 +1,9 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
 import {PinPad} from '@presentation/components/PinPad';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {usePinStore} from '@presentation/stores/usePinStore';
-import {getStoredPinLength, type PinLength} from '@infrastructure/security/pin-service';
+import {getStoredPinLength, hasPin, type PinLength} from '@infrastructure/security/pin-service';
 import {
   isBiometricAvailable,
   unlockWithBiometric,
@@ -34,11 +34,16 @@ export default function PinLockScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [storedLen, supported] = await Promise.all([
+      const [storedLen, supported, pinExists] = await Promise.all([
         getStoredPinLength(),
         isBiometricAvailable(),
+        hasPin(),
       ]);
       if (cancelled) {
+        return;
+      }
+      if (!pinExists) {
+        await usePinStore.getState().removePin();
         return;
       }
       if (storedLen) {
@@ -92,6 +97,10 @@ export default function PinLockScreen() {
           setPin('');
         }
       })
+      .catch(() => {
+        setError('PIN verification failed. Try again.');
+        setPin('');
+      })
       .finally(() => setIsVerifying(false));
   }, [pin, pinLength, verifyPin, unlock, attempts, isVerifying]);
 
@@ -120,6 +129,33 @@ export default function PinLockScreen() {
   const handleChange = useCallback((val: string) => {
     setError(null);
     setPin(val);
+  }, []);
+
+  const handleForgotPin = useCallback(() => {
+    Alert.alert(
+      'Forgot PIN?',
+      'If you cleared app cache or data, your PIN may no longer be recoverable. ' +
+        'You can reset the PIN lock, but this will remove PIN protection.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reset PIN Lock',
+          style: 'destructive',
+          onPress: async () => {
+            const stillHasPin = await hasPin();
+            if (!stillHasPin) {
+              await usePinStore.getState().removePin();
+              return;
+            }
+            Alert.alert(
+              'PIN data still exists',
+              'Your PIN is still stored. Please enter the correct PIN to unlock, ' +
+                'or clear app data from Android Settings to fully reset.',
+            );
+          },
+        },
+      ],
+    );
   }, []);
 
   const subtitleText = locked
@@ -152,6 +188,7 @@ export default function PinLockScreen() {
         length={pinLength}
         onPinChange={locked ? () => {} : handleChange}
         error={error}
+        onForgotPin={handleForgotPin}
         footerSlot={biometricAction}
       />
     </View>
