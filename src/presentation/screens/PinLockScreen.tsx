@@ -1,21 +1,28 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Alert, StyleSheet, View} from 'react-native';
 import {PinPad} from '@presentation/components/PinPad';
 import {usePinStore} from '@presentation/stores/usePinStore';
 
 const PIN_LENGTH = 4;
 const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
 
 export default function PinLockScreen() {
-  const verifyPin = usePinStore((s) => s.verifyPin);
-  const unlock = usePinStore((s) => s.unlock);
+  const verifyPin = usePinStore(s => s.verifyPin);
+  const unlock = usePinStore(s => s.unlock);
+  const removePin = usePinStore(s => s.removePin);
 
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
+  const [countdown, setCountdown] = useState(0);
+
+  const locked = attempts >= MAX_ATTEMPTS;
 
   useEffect(() => {
-    if (pin.length < PIN_LENGTH) {return;}
+    if (pin.length < PIN_LENGTH) {
+      return;
+    }
 
     if (verifyPin(pin)) {
       unlock();
@@ -23,7 +30,7 @@ export default function PinLockScreen() {
       const next = attempts + 1;
       setAttempts(next);
       if (next >= MAX_ATTEMPTS) {
-        setError(`Too many attempts. Try again later.`);
+        setError('Too many attempts');
       } else {
         setError(`Wrong PIN. ${MAX_ATTEMPTS - next} attempts remaining.`);
       }
@@ -31,30 +38,64 @@ export default function PinLockScreen() {
     }
   }, [pin, verifyPin, unlock, attempts]);
 
+  useEffect(() => {
+    if (!locked) {
+      return;
+    }
+    let remaining = LOCKOUT_SECONDS;
+    setCountdown(remaining);
+
+    const timer = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setCountdown(0);
+        setAttempts(0);
+        setError(null);
+      } else {
+        setCountdown(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [locked]);
+
   const handleChange = useCallback((val: string) => {
     setError(null);
     setPin(val);
   }, []);
 
-  const locked = attempts >= MAX_ATTEMPTS;
+  const handleForgotPin = useCallback(() => {
+    Alert.alert(
+      'Reset PIN',
+      'This will remove your PIN lock. You can set a new PIN from Settings.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            removePin();
+            unlock();
+          },
+        },
+      ],
+    );
+  }, [removePin, unlock]);
 
-  useEffect(() => {
-    if (!locked) {return;}
-    const timer = setTimeout(() => {
-      setAttempts(0);
-      setError(null);
-    }, 30000);
-    return () => clearTimeout(timer);
-  }, [locked]);
+  const subtitleText = locked
+    ? `Try again in ${countdown}s`
+    : 'Enter your 4-digit PIN to continue';
 
   return (
     <View style={styles.root}>
       <PinPad
         title="Enter PIN"
-        subtitle={locked ? 'Locked for 30 seconds' : 'Enter your 4-digit PIN to continue'}
+        subtitle={subtitleText}
         pin={pin}
         onPinChange={locked ? () => {} : handleChange}
         error={error}
+        onForgotPin={handleForgotPin}
       />
     </View>
   );
