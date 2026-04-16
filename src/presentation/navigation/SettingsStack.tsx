@@ -44,7 +44,11 @@ export default function SettingsStack() {
       <Stack.Navigator screenOptions={{headerShown: false}}>
         <Stack.Screen name="SettingsMain" component={SettingsScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="SetPin" component={SetPinScreen} />
+        <Stack.Screen
+          name="SetPin"
+          component={SetPinScreen}
+          options={{presentation: 'fullScreenModal', animation: 'slide_from_bottom'}}
+        />
         <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
         <Stack.Screen name="CreateCategory" component={CreateCategoryScreen} />
         <Stack.Screen name="NotificationLog" component={NotificationLogScreen} />
