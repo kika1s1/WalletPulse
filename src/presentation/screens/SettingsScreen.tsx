@@ -17,6 +17,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
+import {APP_VERSION} from '@shared/constants/app';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {
   AUTO_LOCK_TIMEOUT_OPTIONS,
@@ -712,7 +713,7 @@ export default function SettingsScreen() {
               WalletPulse
             </Text>
             <Text style={[styles.aboutVersion, {color: colors.textSecondary}]}>
-              Version 1.1.1
+              Version {APP_VERSION}
             </Text>
             <Text style={[styles.aboutDesc, {color: colors.textTertiary}]}>
               Smart, offline-first expense tracker
