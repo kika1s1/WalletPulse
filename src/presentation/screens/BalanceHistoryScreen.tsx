@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Dimensions, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {LineChart} from 'react-native-gifted-charts';
 import {useRoute} from '@react-navigation/native';
@@ -106,6 +106,11 @@ function smartSample(
   return sampled;
 }
 
+function PointerSync({index, onIndex}: {index: number; onIndex: (i: number) => void}) {
+  useEffect(() => { onIndex(index); }, [index, onIndex]);
+  return null;
+}
+
 export default function BalanceHistoryScreen() {
   const {colors, spacing, radius, isDark} = useTheme();
   const hide = useSettingsStore((s) => s.hideAmounts);
@@ -180,14 +185,20 @@ export default function BalanceHistoryScreen() {
     };
   }, [chartData]);
 
-  const handlePointerMove = useCallback(
-    (items: {index: number}[]) => {
-      const idx = items?.[0]?.index;
-      if (idx != null && chartData[idx]) {
-        setFocusedIdx(chartData[idx].originalIdx);
+  const handlePointerIndex = useCallback(
+    (index: number) => {
+      if (index != null && chartData[index]) {
+        setFocusedIdx(chartData[index].originalIdx);
       }
     },
     [chartData],
+  );
+
+  const pointerLabelRenderer = useCallback(
+    (_items: unknown, _secondary: unknown, index: number) => (
+      <PointerSync index={index} onIndex={handlePointerIndex} />
+    ),
+    [handlePointerIndex],
   );
 
   const displayBalance = focusedPoint ? focusedPoint.balance : currentBalance;
@@ -453,8 +464,7 @@ export default function BalanceHistoryScreen() {
                       activatePointersOnLongPress: false,
                       autoAdjustPointerLabelPosition: false,
                       pointerVanishDelay: 3000,
-                      pointerLabelComponent: () => null,
-                      onPointerMoved: handlePointerMove,
+                      pointerLabelComponent: pointerLabelRenderer,
                     }}
                   />
                 ) : (

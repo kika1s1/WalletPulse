@@ -151,9 +151,14 @@ export function useBalanceHistory(options?: UseBalanceHistoryOptions): UseBalanc
     [transactions, period, periodStart],
   );
 
+  const periodEnd = useMemo(() => startOfDay(Date.now()), [period]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const points = useMemo(
-    () => computeBalanceHistory(historyInputs, displayCurrency, effectiveRates),
-    [historyInputs, displayCurrency, effectiveRates],
+    () =>
+      computeBalanceHistory(historyInputs, displayCurrency, effectiveRates, {
+        periodEndMs: periodEnd,
+      }),
+    [historyInputs, displayCurrency, effectiveRates, periodEnd],
   );
 
   const currentBalance = useMemo(() => {

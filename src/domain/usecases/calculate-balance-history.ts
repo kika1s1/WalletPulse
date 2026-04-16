@@ -49,15 +49,24 @@ function convertToBase(
   return Math.round(amount * rate);
 }
 
+export type BalanceHistoryOptions = {
+  /** Extend the timeline forward to this date (carry last balance to today). */
+  periodEndMs?: number;
+};
+
 /**
  * Replays all transactions chronologically to produce a daily running balance.
  * Each point represents the end-of-day balance, with gaps filled by carrying
  * the previous balance forward.
+ *
+ * When `periodEndMs` is provided the timeline extends to that date so the
+ * latest known balance is carried forward (e.g. to "today").
  */
 export function computeBalanceHistory(
   transactions: BalanceHistoryTransaction[],
   baseCurrency: string,
   rates: RateMap,
+  options?: BalanceHistoryOptions,
 ): BalanceHistoryPoint[] {
   if (transactions.length === 0) {
     return [];
@@ -80,23 +89,27 @@ export function computeBalanceHistory(
   }
 
   const firstDay = startOfDayMs(sorted[0].transactionDate);
-  const lastDay = startOfDayMs(sorted[sorted.length - 1].transactionDate);
+  const lastTxDay = startOfDayMs(sorted[sorted.length - 1].transactionDate);
+  const rangeEnd = options?.periodEndMs != null
+    ? Math.max(startOfDayMs(options.periodEndMs), lastTxDay)
+    : lastTxDay;
 
   const points: BalanceHistoryPoint[] = [];
   let runningBalance = 0;
-  let cursor = firstDay;
+  const cursor = new Date(firstDay);
 
-  while (cursor <= lastDay) {
-    const delta = dayDeltas.get(cursor) ?? 0;
+  while (cursor.getTime() <= rangeEnd) {
+    const dayMs = cursor.getTime();
+    const delta = dayDeltas.get(dayMs) ?? 0;
     runningBalance += delta;
 
     points.push({
-      dateMs: cursor,
-      dateLabel: formatDateLabel(cursor),
+      dateMs: dayMs,
+      dateLabel: formatDateLabel(dayMs),
       balance: runningBalance,
     });
 
-    cursor += MS_PER_DAY;
+    cursor.setDate(cursor.getDate() + 1);
   }
 
   return points;
