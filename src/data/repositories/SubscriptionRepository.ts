@@ -1,127 +1,94 @@
-import type {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
-import type {Subscription} from '@domain/entities/Subscription';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {BillingCycle, Subscription} from '@domain/entities/Subscription';
 import type {ISubscriptionRepository} from '@domain/repositories/ISubscriptionRepository';
-import {
-  toDomain,
-  toRaw,
-  type SubscriptionRaw,
-} from '@data/mappers/subscription-mapper';
-import SubscriptionModel from '@data/database/models/SubscriptionModel';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): Subscription {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    amount: Number(row.amount),
+    currency: row.currency as string,
+    billingCycle: row.billing_cycle as BillingCycle,
+    nextDueDate: Number(row.next_due_date),
+    categoryId: row.category_id as string,
+    isActive: row.is_active as boolean,
+    cancelledAt: row.cancelled_at != null ? Number(row.cancelled_at) : undefined,
+    icon: row.icon as string,
+    color: row.color as string,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class SubscriptionRepository implements ISubscriptionRepository {
-  constructor(private readonly db: Database) {}
-
-  private get collection() {
-    return this.db.collections.get<SubscriptionModel>('subscriptions');
-  }
-
-  private modelToDomain(model: SubscriptionModel): Subscription {
-    const raw: SubscriptionRaw = {
-      id: model.id,
-      name: model.name,
-      amount: model.amount,
-      currency: model.currency,
-      billingCycle: model.billingCycle,
-      nextDueDate: model.nextDueDate,
-      categoryId: model.categoryId,
-      isActive: model.isActive,
-      cancelledAt: model.cancelledAt,
-      icon: model.icon,
-      color: model.color,
-      createdAt: model.createdAt.getTime(),
-      updatedAt: model.updatedAt.getTime(),
-    };
-    return toDomain(raw);
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findById(id: string): Promise<Subscription | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('subscriptions').select('*')
+      .eq('id', id).eq('user_id', this.userId).maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAll(): Promise<Subscription[]> {
-    const rows = await this.collection.query().fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('subscriptions').select('*').eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findActive(): Promise<Subscription[]> {
-    const rows = await this.collection
-      .query(Q.where('is_active', true))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('subscriptions').select('*')
+      .eq('user_id', this.userId).eq('is_active', true);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findCancelled(): Promise<Subscription[]> {
-    const rows = await this.collection
-      .query(Q.where('is_active', false))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('subscriptions').select('*')
+      .eq('user_id', this.userId).eq('is_active', false);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async save(subscription: Subscription): Promise<void> {
-    const raw = toRaw(subscription);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = subscription.id;
-        record.name = raw.name;
-        record.amount = raw.amount;
-        record.currency = raw.currency;
-        record.billingCycle = raw.billingCycle;
-        record.nextDueDate = raw.nextDueDate;
-        record.categoryId = raw.categoryId;
-        record.isActive = raw.isActive;
-        record.cancelledAt = raw.cancelledAt;
-        record.icon = raw.icon;
-        record.color = raw.color;
-        record._setRaw('created_at', raw.createdAt);
-        record._setRaw('updated_at', raw.updatedAt);
-      });
+    const {error} = await this.supabase.from('subscriptions').insert({
+      id: subscription.id, user_id: this.userId,
+      name: subscription.name, amount: subscription.amount,
+      currency: subscription.currency, billing_cycle: subscription.billingCycle,
+      next_due_date: subscription.nextDueDate, category_id: subscription.categoryId,
+      is_active: subscription.isActive, cancelled_at: subscription.cancelledAt ?? null,
+      icon: subscription.icon, color: subscription.color,
+      created_at: subscription.createdAt, updated_at: subscription.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(subscription: Subscription): Promise<void> {
-    const raw = toRaw(subscription);
-    await this.db.write(async () => {
-      const model = await this.collection.find(subscription.id);
-      await model.update((record) => {
-        record.name = raw.name;
-        record.amount = raw.amount;
-        record.currency = raw.currency;
-        record.billingCycle = raw.billingCycle;
-        record.nextDueDate = raw.nextDueDate;
-        record.categoryId = raw.categoryId;
-        record.isActive = raw.isActive;
-        record.cancelledAt = raw.cancelledAt;
-        record.icon = raw.icon;
-        record.color = raw.color;
-        record._setRaw('updated_at', raw.updatedAt);
-      });
-    });
+    const {error} = await this.supabase.from('subscriptions').update({
+      name: subscription.name, amount: subscription.amount,
+      currency: subscription.currency, billing_cycle: subscription.billingCycle,
+      next_due_date: subscription.nextDueDate, category_id: subscription.categoryId,
+      is_active: subscription.isActive, cancelled_at: subscription.cancelledAt ?? null,
+      icon: subscription.icon, color: subscription.color,
+      updated_at: subscription.updatedAt,
+    }).eq('id', subscription.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async cancel(id: string, cancelledAt: number): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((record) => {
-        record.isActive = false;
-        record.cancelledAt = cancelledAt;
-      });
-    });
+    const {error} = await this.supabase.from('subscriptions').update({
+      is_active: false, cancelled_at: cancelledAt, updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* not found */
-      }
-    });
+    await this.supabase.from('subscriptions').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 }

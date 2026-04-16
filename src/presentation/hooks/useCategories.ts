@@ -1,8 +1,6 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
-import database from '@data/database';
-import CategoryModel from '@data/database/models/CategoryModel';
-import {Q} from '@nozbe/watermelondb';
+import {useState, useEffect, useCallback} from 'react';
 import type {Category} from '@domain/entities/Category';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 
 export type UseCategoriesReturn = {
   categories: Category[];
@@ -12,56 +10,39 @@ export type UseCategoriesReturn = {
   refetch: () => void;
 };
 
-function modelToDomain(model: CategoryModel): Category {
-  return {
-    id: model.id,
-    name: model.name,
-    icon: model.icon,
-    color: model.color,
-    type: model.type as Category['type'],
-    parentId: model.parentId || undefined,
-    isDefault: model.isDefault,
-    isArchived: model.isArchived,
-    sortOrder: model.sortOrder,
-    createdAt: model.createdAt?.getTime() ?? Date.now(),
-    updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-  };
-}
-
 export function useCategories(): UseCategoriesReturn {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
-  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
   }, []);
 
   useEffect(() => {
-    const collection = database.get<CategoryModel>('categories');
-    const query = collection.query(
-      Q.where('is_archived', false),
-      Q.sortBy('sort_order', Q.asc),
-    );
-
-    if (!hasData.current) {setIsLoading(true);}
+    let cancelled = false;
+    setIsLoading(true);
     setError(null);
 
-    const subscription = query.observe().subscribe({
-      next: (models) => {
-        hasData.current = true;
-        setCategories(models.map(modelToDomain));
-        setIsLoading(false);
-      },
-      error: (err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setIsLoading(false);
-      },
-    });
+    (async () => {
+      try {
+        const ds = getLocalDataSource();
+        const data = await ds.categories.findAll();
+        const nonArchived = data.filter((c) => !c.isArchived);
+        if (!cancelled) {
+          setCategories(nonArchived);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setIsLoading(false);
+        }
+      }
+    })();
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; };
   }, [refetchKey]);
 
   const expenseCategories = categories.filter(

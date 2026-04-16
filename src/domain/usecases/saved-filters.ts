@@ -1,6 +1,6 @@
 import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import {generateId} from '@shared/utils/hash';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getLocalDataSource, isDataSourceReady} from '@data/datasources/LocalDataSource';
 
 export type SavedFilter = {
   id: string;
@@ -34,6 +34,7 @@ async function ensureLoaded(): Promise<void> {
   if (initialized) {
     return;
   }
+  if (!isDataSourceReady()) { return; }
   try {
     const ds = getLocalDataSource();
     const recentRaw = await ds.settings.get('recent_searches');

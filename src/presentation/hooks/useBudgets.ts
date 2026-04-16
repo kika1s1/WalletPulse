@@ -1,9 +1,6 @@
-import {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import database from '@data/database';
-import BudgetModel from '@data/database/models/BudgetModel';
-import {Q} from '@nozbe/watermelondb';
-import {toDomain} from '@data/mappers/budget-mapper';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import type {Budget} from '@domain/entities/Budget';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 
 export type UseBudgetsReturn = {
   budgets: Budget[];
@@ -13,54 +10,38 @@ export type UseBudgetsReturn = {
   refetch: () => void;
 };
 
-function modelToDomain(model: BudgetModel): Budget {
-  return toDomain({
-    id: model.id,
-    categoryId: model.categoryId,
-    amount: model.amount,
-    currency: model.currency,
-    period: model.period,
-    startDate: model.startDate,
-    endDate: model.endDate,
-    rollover: model.rollover,
-    isActive: model.isActive,
-    createdAt: model.createdAt?.getTime() ?? Date.now(),
-    updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-  });
-}
-
 export function useBudgets(): UseBudgetsReturn {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
-  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
   }, []);
 
   useEffect(() => {
-    const collection = database.get<BudgetModel>('budgets');
-    const query = collection.query(Q.sortBy('created_at', Q.desc));
-
-    if (!hasData.current) {setIsLoading(true);}
+    let cancelled = false;
+    setIsLoading(true);
     setError(null);
 
-    const subscription = query.observe().subscribe({
-      next: (models) => {
-        hasData.current = true;
-        setBudgets(models.map(modelToDomain));
-        setIsLoading(false);
-        setError(null);
-      },
-      error: (err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setIsLoading(false);
-      },
-    });
+    (async () => {
+      try {
+        const ds = getLocalDataSource();
+        const data = await ds.budgets.findAll();
+        if (!cancelled) {
+          setBudgets(data);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setIsLoading(false);
+        }
+      }
+    })();
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; };
   }, [refetchKey]);
 
   const activeBudgets = useMemo(

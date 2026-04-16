@@ -1,39 +1,45 @@
-import {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
-import CategoryModel from '@data/database/models/CategoryModel';
+import {getSupabaseClient} from '@data/datasources/supabase-client';
 import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
 
-export async function seedDefaultCategories(db: Database): Promise<void> {
-  const collection = db.get<CategoryModel>('categories');
+export async function seedDefaultCategories(userId: string): Promise<void> {
+  const supabase = getSupabaseClient();
 
-  const existingDefaults = await collection
-    .query(Q.where('is_default', true))
-    .fetchCount();
+  const {count} = await supabase
+    .from('categories')
+    .select('id', {count: 'exact', head: true})
+    .eq('user_id', userId)
+    .eq('is_default', true);
 
-  if (existingDefaults > 0) {
+  if (count && count > 0) {
     return;
   }
 
-  await db.write(async () => {
-    const batch = DEFAULT_CATEGORIES.map((cat, index) =>
-      collection.prepareCreate((record) => {
-        record.name = cat.name;
-        record.icon = cat.icon;
-        record.color = cat.color;
-        record.type = cat.type;
-        record.isDefault = true;
-        record.isArchived = false;
-        record.sortOrder = index;
-      }),
-    );
-    await db.batch(...batch);
-  });
+  const now = Date.now();
+  const rows = DEFAULT_CATEGORIES.map((cat, index) => ({
+    user_id: userId,
+    name: cat.name,
+    icon: cat.icon,
+    color: cat.color,
+    type: cat.type,
+    is_default: true,
+    is_archived: false,
+    sort_order: index,
+    created_at: now,
+    updated_at: now,
+  }));
+
+  const {error} = await supabase.from('categories').insert(rows);
+  if (error) {
+    throw new Error(`Failed to seed categories: ${error.message}`);
+  }
 }
 
-export async function isCategorySeeded(db: Database): Promise<boolean> {
-  const collection = db.get<CategoryModel>('categories');
-  const count = await collection
-    .query(Q.where('is_default', true))
-    .fetchCount();
-  return count > 0;
+export async function isCategorySeeded(userId: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  const {count} = await supabase
+    .from('categories')
+    .select('id', {count: 'exact', head: true})
+    .eq('user_id', userId)
+    .eq('is_default', true);
+  return (count ?? 0) > 0;
 }

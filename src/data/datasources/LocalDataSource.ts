@@ -1,4 +1,4 @@
-import database from '@data/database';
+import {getSupabaseClient} from './supabase-client';
 import {TransactionRepository} from '@data/repositories/TransactionRepository';
 import {WalletRepository} from '@data/repositories/WalletRepository';
 import {CategoryRepository} from '@data/repositories/CategoryRepository';
@@ -43,29 +43,46 @@ export type LocalDataSource = {
   templates: ITransactionTemplateRepository;
 };
 
+let cachedUserId: string | null = null;
 let instance: LocalDataSource | null = null;
 
-export function getLocalDataSource(): LocalDataSource {
-  if (!instance) {
-    instance = {
-      transactions: new TransactionRepository(database),
-      wallets: new WalletRepository(database),
-      categories: new CategoryRepository(database),
-      budgets: new BudgetRepository(database),
-      goals: new GoalRepository(database),
-      subscriptions: new SubscriptionRepository(database),
-      billReminders: new BillReminderRepository(database),
-      fxRates: new FxRateRepository(database),
-      notificationLogs: new NotificationLogRepository(database),
-      settings: new SettingsRepository(database),
-      tags: new TagRepository(database),
-      parsingRules: new ParsingRuleRepository(database),
-      templates: new TransactionTemplateRepository(database),
-    };
+export function isDataSourceReady(): boolean {
+  return instance !== null && cachedUserId !== null;
+}
+
+export function getLocalDataSource(userId?: string): LocalDataSource {
+  const uid = userId ?? cachedUserId;
+  if (!uid) {
+    throw new Error('getLocalDataSource requires a userId on first call');
   }
+
+  if (instance && cachedUserId === uid) {
+    return instance;
+  }
+
+  const supabase = getSupabaseClient();
+  cachedUserId = uid;
+
+  instance = {
+    transactions: new TransactionRepository(supabase, uid),
+    wallets: new WalletRepository(supabase, uid),
+    categories: new CategoryRepository(supabase, uid),
+    budgets: new BudgetRepository(supabase, uid),
+    goals: new GoalRepository(supabase, uid),
+    subscriptions: new SubscriptionRepository(supabase, uid),
+    billReminders: new BillReminderRepository(supabase, uid),
+    fxRates: new FxRateRepository(supabase),
+    notificationLogs: new NotificationLogRepository(supabase, uid),
+    settings: new SettingsRepository(supabase, uid),
+    tags: new TagRepository(supabase, uid),
+    parsingRules: new ParsingRuleRepository(supabase, uid),
+    templates: new TransactionTemplateRepository(supabase, uid),
+  };
+
   return instance;
 }
 
 export function resetLocalDataSource(): void {
   instance = null;
+  cachedUserId = null;
 }

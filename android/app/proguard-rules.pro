@@ -11,8 +11,6 @@
 -keep class com.facebook.hermes.unicode.** { *; }
 -keep class com.facebook.jni.** { *; }
 
-# WatermelonDB
--keep class com.nozbe.watermelondb.** { *; }
 
 # react-native-reanimated
 -keep class com.swmansion.reanimated.** { *; }

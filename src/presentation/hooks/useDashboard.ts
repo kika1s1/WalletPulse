@@ -165,12 +165,16 @@ export function useDashboard(): DashboardData {
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const [insights, setInsights] = useState<InsightCardProps[]>([]);
 
-  const generateInsightsApi = useMemo(() => {
-    const ds = getLocalDataSource();
-    return makeGenerateInsights({
-      transactionRepo: ds.transactions,
-      walletRepo: ds.wallets,
-    });
+  const generateInsightsApiRef = useRef<ReturnType<typeof makeGenerateInsights> | null>(null);
+  const getInsightsApi = useCallback(() => {
+    if (!generateInsightsApiRef.current) {
+      const ds = getLocalDataSource();
+      generateInsightsApiRef.current = makeGenerateInsights({
+        transactionRepo: ds.transactions,
+        walletRepo: ds.wallets,
+      });
+    }
+    return generateInsightsApiRef.current;
   }, []);
 
   const {
@@ -319,7 +323,7 @@ export function useDashboard(): DashboardData {
         cancelled = true;
       };
     }
-    void generateInsightsApi.execute(Date.now()).then((list) => {
+    void getInsightsApi().execute(Date.now()).then((list) => {
       if (cancelled) {
         return;
       }
@@ -339,7 +343,7 @@ export function useDashboard(): DashboardData {
     return () => {
       cancelled = true;
     };
-  }, [generateInsightsApi, walletLoading, txLoading, wallets, txFingerprint]);
+  }, [getInsightsApi, walletLoading, txLoading, wallets, txFingerprint]);
 
   const isLoading = txLoading || walletLoading;
   const error = txError ?? walletError;

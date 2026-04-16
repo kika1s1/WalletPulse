@@ -1,32 +1,9 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
-import database from '@data/database';
-import SubscriptionModel from '@data/database/models/SubscriptionModel';
-import {Q} from '@nozbe/watermelondb';
+import {useState, useEffect, useCallback} from 'react';
 import type {Subscription, CreateSubscriptionInput} from '@domain/entities/Subscription';
 import {createSubscription} from '@domain/entities/Subscription';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import {toDomain, type SubscriptionRaw} from '@data/mappers/subscription-mapper';
 import {scheduleSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-
-function modelToDomain(model: SubscriptionModel): Subscription {
-  const raw: SubscriptionRaw = {
-    id: model.id,
-    name: model.name,
-    amount: model.amount,
-    currency: model.currency,
-    billingCycle: model.billingCycle,
-    nextDueDate: model.nextDueDate,
-    categoryId: model.categoryId,
-    isActive: model.isActive,
-    cancelledAt: model.cancelledAt,
-    icon: model.icon,
-    color: model.color,
-    createdAt: model.createdAt?.getTime() ?? Date.now(),
-    updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-  };
-  return toDomain(raw);
-}
 
 export type UseSubscriptionsReturn = {
   subscriptions: Subscription[];
@@ -40,32 +17,33 @@ export function useSubscriptions(): UseSubscriptionsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
-  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
   }, []);
 
   useEffect(() => {
-    const collection = database.get<SubscriptionModel>('subscriptions');
-    const query = collection.query(Q.sortBy('next_due_date', Q.asc));
-
-    if (!hasData.current) {setIsLoading(true);}
+    let cancelled = false;
+    setIsLoading(true);
     setError(null);
 
-    const subscription = query.observe().subscribe({
-      next: (models) => {
-        hasData.current = true;
-        setSubscriptions(models.map(modelToDomain));
-        setIsLoading(false);
-      },
-      error: (err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setIsLoading(false);
-      },
-    });
+    (async () => {
+      try {
+        const ds = getLocalDataSource();
+        const data = await ds.subscriptions.findAll();
+        if (!cancelled) {
+          setSubscriptions(data);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setIsLoading(false);
+        }
+      }
+    })();
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; };
   }, [refetchKey]);
 
   return {subscriptions, isLoading, error, refetch};
@@ -82,14 +60,12 @@ export type UseSubscriptionActionsReturn = {
 
 async function rescheduleSubscriptionNotifications(): Promise<void> {
   const subNotifEnabled = useSettingsStore.getState().subscriptionNotificationsEnabled;
-  if (!subNotifEnabled) {return;}
+  if (!subNotifEnabled) { return; }
   try {
     const ds = getLocalDataSource();
     const active = await ds.subscriptions.findActive();
     await scheduleSubscriptionNotifications(active);
-  } catch {
-    /* non-fatal */
-  }
+  } catch { /* non-fatal */ }
 }
 
 export function useSubscriptionActions(): UseSubscriptionActionsReturn {

@@ -1,136 +1,101 @@
-import type {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
-import type {Goal} from '@domain/entities/Goal';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {Goal, GoalCategory} from '@domain/entities/Goal';
 import type {IGoalRepository} from '@domain/repositories/IGoalRepository';
-import {
-  toDomain as goalToDomain,
-  toRaw as goalToRaw,
-  type GoalRaw,
-} from '@data/mappers/goal-mapper';
-import GoalModel from '@data/database/models/GoalModel';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): Goal {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    targetAmount: Number(row.target_amount),
+    currentAmount: Number(row.current_amount),
+    currency: row.currency as string,
+    deadline: Number(row.deadline),
+    icon: row.icon as string,
+    color: row.color as string,
+    category: row.category as GoalCategory,
+    isCompleted: row.is_completed as boolean,
+    completedAt: row.completed_at != null ? Number(row.completed_at) : undefined,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class GoalRepository implements IGoalRepository {
-  constructor(private readonly db: Database) {}
-
-  private get collection() {
-    return this.db.collections.get<GoalModel>('goals');
-  }
-
-  private modelToDomain(model: GoalModel): Goal {
-    const raw: GoalRaw = {
-      id: model.id,
-      name: model.name,
-      targetAmount: model.targetAmount,
-      currentAmount: model.currentAmount,
-      currency: model.currency,
-      deadline: model.deadline,
-      icon: model.icon,
-      color: model.color,
-      category: model.category,
-      isCompleted: model.isCompleted,
-      completedAt: model.completedAt ?? null,
-      createdAt: model.createdAt.getTime(),
-      updatedAt: model.updatedAt.getTime(),
-    };
-    return goalToDomain(raw);
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findById(id: string): Promise<Goal | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('goals').select('*')
+      .eq('id', id).eq('user_id', this.userId).maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAll(): Promise<Goal[]> {
-    const rows = await this.collection.query().fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('goals').select('*').eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findActive(): Promise<Goal[]> {
-    const rows = await this.collection
-      .query(Q.where('is_completed', false))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('goals').select('*')
+      .eq('user_id', this.userId).eq('is_completed', false);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findCompleted(): Promise<Goal[]> {
-    const rows = await this.collection
-      .query(Q.where('is_completed', true))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('goals').select('*')
+      .eq('user_id', this.userId).eq('is_completed', true);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async save(goal: Goal): Promise<void> {
-    const raw = goalToRaw(goal);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = goal.id;
-        record.name = raw.name;
-        record.targetAmount = raw.targetAmount;
-        record.currentAmount = raw.currentAmount;
-        record.currency = raw.currency;
-        record.deadline = raw.deadline;
-        record.icon = raw.icon;
-        record.color = raw.color;
-        record.category = raw.category;
-        record.isCompleted = raw.isCompleted;
-        record.completedAt = raw.completedAt;
-        record._setRaw('created_at', raw.createdAt);
-        record._setRaw('updated_at', raw.updatedAt);
-      });
+    const {error} = await this.supabase.from('goals').insert({
+      id: goal.id, user_id: this.userId,
+      name: goal.name, target_amount: goal.targetAmount,
+      current_amount: goal.currentAmount, currency: goal.currency,
+      deadline: goal.deadline, icon: goal.icon, color: goal.color,
+      category: goal.category, is_completed: goal.isCompleted,
+      completed_at: goal.completedAt ?? null,
+      created_at: goal.createdAt, updated_at: goal.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(goal: Goal): Promise<void> {
-    const raw = goalToRaw(goal);
-    await this.db.write(async () => {
-      const model = await this.collection.find(goal.id);
-      await model.update((record) => {
-        record.name = raw.name;
-        record.targetAmount = raw.targetAmount;
-        record.currentAmount = raw.currentAmount;
-        record.currency = raw.currency;
-        record.deadline = raw.deadline;
-        record.icon = raw.icon;
-        record.color = raw.color;
-        record.category = raw.category;
-        record.isCompleted = raw.isCompleted;
-        record.completedAt = raw.completedAt;
-        record._setRaw('updated_at', raw.updatedAt);
-      });
-    });
+    const {error} = await this.supabase.from('goals').update({
+      name: goal.name, target_amount: goal.targetAmount,
+      current_amount: goal.currentAmount, currency: goal.currency,
+      deadline: goal.deadline, icon: goal.icon, color: goal.color,
+      category: goal.category, is_completed: goal.isCompleted,
+      completed_at: goal.completedAt ?? null,
+      updated_at: goal.updatedAt,
+    }).eq('id', goal.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async updateProgress(id: string, currentAmount: number): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((record) => {
-        record.currentAmount = currentAmount;
-      });
-    });
+    const {error} = await this.supabase.from('goals').update({
+      current_amount: currentAmount, updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async markCompleted(id: string, completedAt: number): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((record) => {
-        record.isCompleted = true;
-        record.completedAt = completedAt;
-      });
-    });
+    const {error} = await this.supabase.from('goals').update({
+      is_completed: true, completed_at: completedAt, updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* not found */
-      }
-    });
+    await this.supabase.from('goals').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 }

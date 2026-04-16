@@ -1,9 +1,7 @@
 import React from 'react';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {DatabaseProvider} from '@nozbe/watermelondb/react';
 import {ThemeProvider} from '@shared/theme';
-import database from '@data/database';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
 type Props = {
@@ -19,11 +17,9 @@ export function Providers({children}: Props) {
   return (
     <GestureHandlerRootView style={ROOT_STYLE}>
       <SafeAreaProvider>
-        <DatabaseProvider database={database}>
-          <ThemeProvider themeMode={themeMode} themeId={activeThemeId}>
-            {children}
-          </ThemeProvider>
-        </DatabaseProvider>
+        <ThemeProvider themeMode={themeMode} themeId={activeThemeId}>
+          {children}
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

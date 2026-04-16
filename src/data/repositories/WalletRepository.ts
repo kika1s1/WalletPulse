@@ -1,109 +1,102 @@
-import {Database, Q} from '@nozbe/watermelondb';
+import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
-import WalletModel from '@data/database/models/WalletModel';
-import {toDomain, toRaw} from '@data/mappers/wallet-mapper';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): Wallet {
+  return {
+    id: row.id as string,
+    currency: row.currency as string,
+    name: row.name as string,
+    balance: Number(row.balance),
+    isActive: row.is_active as boolean,
+    icon: row.icon as string,
+    color: row.color as string,
+    sortOrder: Number(row.sort_order),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class WalletRepository implements IWalletRepository {
-  private db: Database;
-
-  constructor(db: Database) {
-    this.db = db;
-  }
-
-  private get collection() {
-    return this.db.get<WalletModel>('wallets');
-  }
-
-  private modelToDomain(model: WalletModel): Wallet {
-    return toDomain({
-      id: model.id,
-      currency: model.currency,
-      name: model.name,
-      balance: model.balance,
-      isActive: model.isActive,
-      icon: model.icon,
-      color: model.color,
-      sortOrder: model.sortOrder,
-      createdAt: model.createdAt?.getTime() ?? Date.now(),
-      updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-    });
-  }
-
-  private applyRawToRecord(record: WalletModel, raw: ReturnType<typeof toRaw>): void {
-    record.currency = raw.currency;
-    record.name = raw.name;
-    record.balance = raw.balance;
-    record.isActive = raw.isActive;
-    record.icon = raw.icon;
-    record.color = raw.color;
-    record.sortOrder = raw.sortOrder;
-    record._setRaw('created_at', raw.createdAt);
-    record._setRaw('updated_at', raw.updatedAt);
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findById(id: string): Promise<Wallet | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('wallets').select('*')
+      .eq('id', id).eq('user_id', this.userId)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAll(): Promise<Wallet[]> {
-    const models = await this.collection.query().fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('wallets').select('*')
+      .eq('user_id', this.userId)
+      .order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findActive(): Promise<Wallet[]> {
-    const models = await this.collection.query(Q.where('is_active', true)).fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('wallets').select('*')
+      .eq('user_id', this.userId).eq('is_active', true)
+      .order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByCurrency(currency: string): Promise<Wallet | null> {
-    const models = await this.collection.query(Q.where('currency', currency)).fetch();
-    const first = models[0];
-    return first ? this.modelToDomain(first) : null;
+    const {data} = await this.supabase
+      .from('wallets').select('*')
+      .eq('user_id', this.userId).eq('currency', currency)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async save(wallet: Wallet): Promise<void> {
-    const raw = toRaw(wallet);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = wallet.id;
-        this.applyRawToRecord(record, raw);
-      });
+    const {error} = await this.supabase.from('wallets').insert({
+      id: wallet.id,
+      user_id: this.userId,
+      currency: wallet.currency,
+      name: wallet.name,
+      balance: wallet.balance,
+      is_active: wallet.isActive,
+      icon: wallet.icon,
+      color: wallet.color,
+      sort_order: wallet.sortOrder,
+      created_at: wallet.createdAt,
+      updated_at: wallet.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(wallet: Wallet): Promise<void> {
-    const raw = toRaw(wallet);
-    await this.db.write(async () => {
-      const model = await this.collection.find(wallet.id);
-      await model.update((rec) => {
-        this.applyRawToRecord(rec, raw);
-      });
-    });
+    const {error} = await this.supabase.from('wallets').update({
+      currency: wallet.currency,
+      name: wallet.name,
+      balance: wallet.balance,
+      is_active: wallet.isActive,
+      icon: wallet.icon,
+      color: wallet.color,
+      sort_order: wallet.sortOrder,
+      updated_at: wallet.updatedAt,
+    }).eq('id', wallet.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* record missing */
-      }
-    });
+    await this.supabase.from('wallets').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 
   async updateBalance(id: string, newBalance: number): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((rec) => {
-        rec.balance = newBalance;
-      });
-    });
+    const {error} = await this.supabase.from('wallets').update({
+      balance: newBalance,
+      updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 }

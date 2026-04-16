@@ -1,86 +1,74 @@
-import type {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
+import type {SupabaseClient} from '@supabase/supabase-js';
 import type {IParsingRuleRepository} from '@domain/repositories/IParsingRuleRepository';
 import type {ParsingRule, CreateParsingRuleInput} from '@domain/entities/ParsingRule';
-import type ParsingRuleModel from '@data/database/models/ParsingRuleModel';
-import {toDomain} from '@data/mappers/parsing-rule-mapper';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): ParsingRule {
+  return {
+    id: row.id as string,
+    sourceApp: row.source_app as string,
+    packageName: row.package_name as string,
+    ruleName: row.rule_name as string,
+    pattern: row.pattern as string,
+    transactionType: row.transaction_type as 'income' | 'expense',
+    isActive: row.is_active as boolean,
+    priority: Number(row.priority),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class ParsingRuleRepository implements IParsingRuleRepository {
-  constructor(private db: Database) {}
-
-  private toEntity(r: ParsingRuleModel): ParsingRule {
-    return toDomain({
-      id: r.id,
-      sourceApp: r.sourceApp,
-      packageName: r.packageName,
-      ruleName: r.ruleName,
-      pattern: r.pattern,
-      transactionType: r.transactionType,
-      isActive: r.isActive,
-      priority: r.priority,
-      createdAt: r.createdAt.getTime(),
-      updatedAt: r.updatedAt.getTime(),
-    });
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findAll(): Promise<ParsingRule[]> {
-    const records = await this.db
-      .get<ParsingRuleModel>('parsing_rules')
-      .query()
-      .fetch();
-    return records.map((r) => this.toEntity(r));
+    const {data, error} = await this.supabase
+      .from('parsing_rules').select('*').eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByPackageName(packageName: string): Promise<ParsingRule[]> {
-    const records = await this.db
-      .get<ParsingRuleModel>('parsing_rules')
-      .query(Q.where('package_name', packageName), Q.where('is_active', true))
-      .fetch();
-    return records
-      .map((r) => this.toEntity(r))
-      .sort((a, b) => b.priority - a.priority);
+    const {data, error} = await this.supabase
+      .from('parsing_rules').select('*')
+      .eq('user_id', this.userId).eq('package_name', packageName).eq('is_active', true);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain).sort((a, b) => b.priority - a.priority);
   }
 
   async create(input: CreateParsingRuleInput): Promise<void> {
-    await this.db.write(async () => {
-      await this.db
-        .get<ParsingRuleModel>('parsing_rules')
-        .create((rec) => {
-          rec._raw.id = input.id;
-          rec.sourceApp = input.sourceApp.trim();
-          rec.packageName = input.packageName.trim();
-          rec.ruleName = input.ruleName.trim();
-          rec.pattern = input.pattern;
-          rec.transactionType = input.transactionType;
-          rec.isActive = input.isActive;
-          rec.priority = input.priority;
-        });
+    const now = Date.now();
+    const {error} = await this.supabase.from('parsing_rules').insert({
+      id: input.id, user_id: this.userId,
+      source_app: input.sourceApp.trim(),
+      package_name: input.packageName.trim(),
+      rule_name: input.ruleName.trim(),
+      pattern: input.pattern,
+      transaction_type: input.transactionType,
+      is_active: input.isActive, priority: input.priority,
+      created_at: now, updated_at: now,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(id: string, input: Partial<CreateParsingRuleInput>): Promise<void> {
-    const record = await this.db
-      .get<ParsingRuleModel>('parsing_rules')
-      .find(id);
-    await this.db.write(async () => {
-      await record.update((rec) => {
-        if (input.sourceApp !== undefined) {rec.sourceApp = input.sourceApp.trim();}
-        if (input.packageName !== undefined) {rec.packageName = input.packageName.trim();}
-        if (input.ruleName !== undefined) {rec.ruleName = input.ruleName.trim();}
-        if (input.pattern !== undefined) {rec.pattern = input.pattern;}
-        if (input.transactionType !== undefined) {rec.transactionType = input.transactionType;}
-        if (input.isActive !== undefined) {rec.isActive = input.isActive;}
-        if (input.priority !== undefined) {rec.priority = input.priority;}
-      });
-    });
+    const updates: Record<string, unknown> = {updated_at: Date.now()};
+    if (input.sourceApp !== undefined) { updates.source_app = input.sourceApp.trim(); }
+    if (input.packageName !== undefined) { updates.package_name = input.packageName.trim(); }
+    if (input.ruleName !== undefined) { updates.rule_name = input.ruleName.trim(); }
+    if (input.pattern !== undefined) { updates.pattern = input.pattern; }
+    if (input.transactionType !== undefined) { updates.transaction_type = input.transactionType; }
+    if (input.isActive !== undefined) { updates.is_active = input.isActive; }
+    if (input.priority !== undefined) { updates.priority = input.priority; }
+
+    const {error} = await this.supabase.from('parsing_rules').update(updates)
+      .eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    const record = await this.db
-      .get<ParsingRuleModel>('parsing_rules')
-      .find(id);
-    await this.db.write(async () => {
-      await record.markAsDeleted();
-    });
+    await this.supabase.from('parsing_rules').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 }

@@ -1,8 +1,4 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
-import database from '@data/database';
-import WalletModel from '@data/database/models/WalletModel';
-import {Q} from '@nozbe/watermelondb';
-import {toDomain} from '@data/mappers/wallet-mapper';
+import {useState, useEffect, useCallback} from 'react';
 import type {Wallet} from '@domain/entities/Wallet';
 import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 import {makeUpdateWallet} from '@domain/usecases/update-wallet';
@@ -17,27 +13,11 @@ export type UseWalletsReturn = {
   deleteWallet: (id: string) => Promise<void>;
 };
 
-function walletModelToDomain(model: WalletModel): Wallet {
-  return toDomain({
-    id: model.id,
-    currency: model.currency,
-    name: model.name,
-    balance: model.balance,
-    isActive: model.isActive,
-    icon: model.icon,
-    color: model.color,
-    sortOrder: model.sortOrder,
-    createdAt: model.createdAt?.getTime() ?? Date.now(),
-    updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-  });
-}
-
 export function useWallets(): UseWalletsReturn {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
-  const hasData = useRef(false);
 
   const refetch = useCallback(() => {
     setRefetchKey((k) => k + 1);
@@ -46,36 +26,39 @@ export function useWallets(): UseWalletsReturn {
   const updateWallet = useCallback(async (id: string, fields: UpdateWalletFields) => {
     const ds = getLocalDataSource();
     const execute = makeUpdateWallet({walletRepo: ds.wallets});
-    return execute(id, fields);
-  }, []);
+    const result = await execute(id, fields);
+    refetch();
+    return result;
+  }, [refetch]);
 
   const deleteWallet = useCallback(async (id: string) => {
     const ds = getLocalDataSource();
     await ds.wallets.delete(id);
-  }, []);
+    refetch();
+  }, [refetch]);
 
   useEffect(() => {
-    const collection = database.get<WalletModel>('wallets');
-    const query = collection.query(Q.sortBy('sort_order', Q.asc));
-
-    if (!hasData.current) {setIsLoading(true);}
+    let cancelled = false;
+    setIsLoading(true);
     setError(null);
 
-    const subscription = query.observe().subscribe({
-      next: (models) => {
-        hasData.current = true;
-        setWallets(models.map(walletModelToDomain));
-        setIsLoading(false);
-        setError(null);
-      },
-      error: (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        setError(message);
-        setIsLoading(false);
-      },
-    });
+    (async () => {
+      try {
+        const ds = getLocalDataSource();
+        const data = await ds.wallets.findAll();
+        if (!cancelled) {
+          setWallets(data);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setIsLoading(false);
+        }
+      }
+    })();
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; };
   }, [refetchKey]);
 
   return {wallets, isLoading, error, refetch, updateWallet, deleteWallet};

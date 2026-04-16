@@ -1,274 +1,204 @@
-import {Database, Q} from '@nozbe/watermelondb';
-import type {Where} from '@nozbe/watermelondb/QueryDescription';
-import type {Transaction} from '@domain/entities/Transaction';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {Transaction, TransactionSource, TransactionType} from '@domain/entities/Transaction';
 import type {
   ITransactionRepository,
   TransactionFilter,
   TransactionSort,
   TransactionSortField,
 } from '@domain/repositories/ITransactionRepository';
-import TransactionModel from '@data/database/models/TransactionModel';
-import {toDomain, toRaw} from '@data/mappers/transaction-mapper';
+
+type Row = Record<string, unknown>;
+
+function parseTagsJson(tagsJson: string): string[] {
+  if (!tagsJson) { return []; }
+  try {
+    const parsed = JSON.parse(tagsJson);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch { return []; }
+}
+
+function rowToDomain(row: Row): Transaction {
+  return {
+    id: row.id as string,
+    walletId: row.wallet_id as string,
+    categoryId: row.category_id as string,
+    amount: Number(row.amount),
+    currency: row.currency as string,
+    type: row.type as TransactionType,
+    description: (row.description as string) ?? '',
+    merchant: (row.merchant as string) ?? '',
+    source: (row.source as TransactionSource) ?? 'manual',
+    sourceHash: (row.source_hash as string) ?? '',
+    tags: parseTagsJson((row.tags as string) ?? '[]'),
+    receiptUri: (row.receipt_uri as string) ?? '',
+    isRecurring: (row.is_recurring as boolean) ?? false,
+    recurrenceRule: (row.recurrence_rule as string) ?? '',
+    confidence: Number(row.confidence ?? 1),
+    locationLat: row.location_lat != null ? Number(row.location_lat) : undefined,
+    locationLng: row.location_lng != null ? Number(row.location_lng) : undefined,
+    locationName: (row.location_name as string | null) ?? undefined,
+    notes: (row.notes as string) ?? '',
+    isTemplate: (row.is_template as boolean) ?? false,
+    templateName: (row.template_name as string) ?? '',
+    transactionDate: Number(row.transaction_date),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 function sortColumnForField(field: TransactionSortField): string {
   switch (field) {
-    case 'transactionDate':
-      return 'transaction_date';
-    case 'amount':
-      return 'amount';
-    case 'createdAt':
-      return 'created_at';
-    default: {
-      const _exhaustive: never = field;
-      return _exhaustive;
-    }
+    case 'transactionDate': return 'transaction_date';
+    case 'amount': return 'amount';
+    case 'createdAt': return 'created_at';
+    default: { const _exhaustive: never = field; return _exhaustive; }
   }
 }
 
 export class TransactionRepository implements ITransactionRepository {
-  private db: Database;
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
-  constructor(db: Database) {
-    this.db = db;
+  private toInsertRow(t: Transaction) {
+    return {
+      id: t.id,
+      user_id: this.userId,
+      wallet_id: t.walletId,
+      category_id: t.categoryId,
+      amount: t.amount,
+      currency: t.currency,
+      type: t.type,
+      description: t.description,
+      merchant: t.merchant,
+      source: t.source,
+      source_hash: t.sourceHash,
+      tags: JSON.stringify(t.tags),
+      receipt_uri: t.receiptUri,
+      is_recurring: t.isRecurring,
+      recurrence_rule: t.recurrenceRule,
+      confidence: t.confidence,
+      location_lat: t.locationLat ?? null,
+      location_lng: t.locationLng ?? null,
+      location_name: t.locationName ?? null,
+      notes: t.notes,
+      is_template: t.isTemplate,
+      template_name: t.templateName,
+      transaction_date: t.transactionDate,
+      created_at: t.createdAt,
+      updated_at: t.updatedAt,
+    };
   }
 
-  private get collection() {
-    return this.db.get<TransactionModel>('transactions');
-  }
-
-  private buildQueryConditions(filter?: TransactionFilter): Where[] {
-    if (!filter) {
-      return [];
+  private applyFilters(
+    query: any,
+    filter?: TransactionFilter,
+  ) {
+    let q = query;
+    if (!filter) { return q; }
+    if (filter.walletId) { q = q.eq('wallet_id', filter.walletId); }
+    if (filter.categoryId) { q = q.eq('category_id', filter.categoryId); }
+    if (filter.type) { q = q.eq('type', filter.type); }
+    if (filter.source) { q = q.eq('source', filter.source); }
+    if (filter.currency) { q = q.eq('currency', filter.currency); }
+    if (filter.merchant) { q = q.eq('merchant', filter.merchant); }
+    if (filter.dateRange) {
+      q = q.gte('transaction_date', filter.dateRange.startMs)
+           .lte('transaction_date', filter.dateRange.endMs);
     }
-    const conditions: Where[] = [];
-
-    if (filter.walletId !== undefined) {
-      conditions.push(Q.where('wallet_id', filter.walletId));
+    if (filter.minAmount !== undefined) { q = q.gte('amount', filter.minAmount); }
+    if (filter.maxAmount !== undefined) { q = q.lte('amount', filter.maxAmount); }
+    if (filter.searchQuery?.trim()) {
+      const term = `%${filter.searchQuery.trim()}%`;
+      q = q.or(`description.ilike.${term},merchant.ilike.${term},notes.ilike.${term}`);
     }
-    if (filter.categoryId !== undefined) {
-      conditions.push(Q.where('category_id', filter.categoryId));
-    }
-    if (filter.type !== undefined) {
-      conditions.push(Q.where('type', filter.type));
-    }
-    if (filter.source !== undefined) {
-      conditions.push(Q.where('source', filter.source));
-    }
-    if (filter.currency !== undefined) {
-      conditions.push(Q.where('currency', filter.currency));
-    }
-    if (filter.merchant !== undefined) {
-      conditions.push(Q.where('merchant', filter.merchant));
-    }
-    if (filter.dateRange !== undefined) {
-      conditions.push(
-        Q.where(
-          'transaction_date',
-          Q.between(filter.dateRange.startMs, filter.dateRange.endMs),
-        ),
-      );
-    }
-    if (filter.minAmount !== undefined) {
-      conditions.push(Q.where('amount', Q.gte(filter.minAmount)));
-    }
-    if (filter.maxAmount !== undefined) {
-      conditions.push(Q.where('amount', Q.lte(filter.maxAmount)));
-    }
-    if (filter.searchQuery !== undefined && filter.searchQuery.trim() !== '') {
-      const safe = Q.sanitizeLikeString(filter.searchQuery.trim());
-      conditions.push(
-        Q.or(
-          Q.where('description', Q.like(`%${safe}%`)),
-          Q.where('merchant', Q.like(`%${safe}%`)),
-          Q.where('notes', Q.like(`%${safe}%`)),
-        ),
-      );
-    }
-    if (filter.tags !== undefined && filter.tags.length > 0) {
-      for (const tag of filter.tags) {
-        const safe = Q.sanitizeLikeString(tag);
-        conditions.push(Q.where('tags', Q.like(`%${safe}%`)));
-      }
-    }
-
-    return conditions;
-  }
-
-  private whereClauseFromConditions(conditions: Where[]): Where[] {
-    if (conditions.length === 0) {
-      return [];
-    }
-    if (conditions.length === 1) {
-      return [conditions[0]];
-    }
-    return [Q.and(...conditions)];
-  }
-
-  private modelToDomain(model: TransactionModel): Transaction {
-    return toDomain({
-      id: model.id,
-      walletId: model.walletId,
-      categoryId: model.categoryId,
-      amount: model.amount,
-      currency: model.currency,
-      type: model.type,
-      description: model.description,
-      merchant: model.merchant,
-      source: model.source,
-      sourceHash: model.sourceHash,
-      tags: model.tags,
-      receiptUri: model.receiptUri,
-      isRecurring: model.isRecurring,
-      recurrenceRule: model.recurrenceRule,
-      confidence: model.confidence,
-      locationLat: model.locationLat,
-      locationLng: model.locationLng,
-      locationName: model.locationName,
-      notes: model.notes,
-      isTemplate: model.isTemplate,
-      templateName: model.templateName,
-      transactionDate: model.transactionDate,
-      createdAt: model.createdAt?.getTime() ?? Date.now(),
-      updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-    });
-  }
-
-  private applyRawToRecord(record: TransactionModel, raw: ReturnType<typeof toRaw>): void {
-    record.walletId = raw.walletId;
-    record.categoryId = raw.categoryId;
-    record.amount = raw.amount;
-    record.currency = raw.currency;
-    record.type = raw.type;
-    record.description = raw.description;
-    record.merchant = raw.merchant;
-    record.source = raw.source;
-    record.sourceHash = raw.sourceHash;
-    record.tags = raw.tags;
-    record.receiptUri = raw.receiptUri;
-    record.isRecurring = raw.isRecurring;
-    record.recurrenceRule = raw.recurrenceRule;
-    record.confidence = raw.confidence;
-    record.locationLat = raw.locationLat;
-    record.locationLng = raw.locationLng;
-    record.locationName = raw.locationName;
-    record.notes = raw.notes;
-    record.isTemplate = raw.isTemplate;
-    record.templateName = raw.templateName;
-    record.transactionDate = raw.transactionDate;
-    record._setRaw('created_at', raw.createdAt);
-    record._setRaw('updated_at', raw.updatedAt);
+    return q;
   }
 
   async findById(id: string): Promise<Transaction | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('transactions').select('*')
+      .eq('id', id).eq('user_id', this.userId)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
-  async findAll(
-    filter?: TransactionFilter,
-    sort?: TransactionSort,
-  ): Promise<Transaction[]> {
-    const conditions = this.buildQueryConditions(filter);
-    const wherePart = this.whereClauseFromConditions(conditions);
-    const query =
-      sort !== undefined
-        ? this.collection.query(
-            ...wherePart,
-            Q.sortBy(
-              sortColumnForField(sort.field),
-              sort.direction === 'desc' ? Q.desc : Q.asc,
-            ),
-          )
-        : wherePart.length > 0
-          ? this.collection.query(...wherePart)
-          : this.collection.query();
-
-    const models = await query.fetch();
-    return models.map((m) => this.modelToDomain(m));
+  async findAll(filter?: TransactionFilter, sort?: TransactionSort): Promise<Transaction[]> {
+    let query = this.supabase.from('transactions').select('*').eq('user_id', this.userId);
+    query = this.applyFilters(query, filter);
+    const col = sort ? sortColumnForField(sort.field) : 'transaction_date';
+    const asc = sort ? sort.direction === 'asc' : false;
+    query = query.order(col, {ascending: asc});
+    const {data, error} = await query;
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByWalletId(walletId: string): Promise<Transaction[]> {
-    const models = await this.collection
-      .query(Q.where('wallet_id', walletId))
-      .fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('transactions').select('*')
+      .eq('user_id', this.userId).eq('wallet_id', walletId)
+      .order('transaction_date', {ascending: false});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByCategoryId(categoryId: string): Promise<Transaction[]> {
-    const models = await this.collection
-      .query(Q.where('category_id', categoryId))
-      .fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('transactions').select('*')
+      .eq('user_id', this.userId).eq('category_id', categoryId)
+      .order('transaction_date', {ascending: false});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findBySourceHash(hash: string): Promise<Transaction | null> {
-    const models = await this.collection
-      .query(Q.where('source_hash', hash))
-      .fetch();
-    const first = models[0];
-    return first ? this.modelToDomain(first) : null;
+    const {data} = await this.supabase
+      .from('transactions').select('*')
+      .eq('user_id', this.userId).eq('source_hash', hash)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findRecent(limit: number): Promise<Transaction[]> {
-    const models = await this.collection
-      .query(Q.sortBy('transaction_date', Q.desc), Q.take(limit))
-      .fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('transactions').select('*')
+      .eq('user_id', this.userId)
+      .order('transaction_date', {ascending: false})
+      .limit(limit);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async save(transaction: Transaction): Promise<void> {
-    const raw = toRaw(transaction);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = transaction.id;
-        this.applyRawToRecord(record, raw);
-      });
-    });
+    const {error} = await this.supabase.from('transactions').insert(this.toInsertRow(transaction));
+    if (error) { throw new Error(error.message); }
   }
 
   async update(transaction: Transaction): Promise<void> {
-    const raw = toRaw(transaction);
-    await this.db.write(async () => {
-      const model = await this.collection.find(transaction.id);
-      await model.update((rec) => {
-        this.applyRawToRecord(rec, raw);
-      });
-    });
+    const row = this.toInsertRow(transaction);
+    const {id: _id, user_id: _uid, ...updates} = row;
+    const {error} = await this.supabase.from('transactions').update(updates)
+      .eq('id', transaction.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* record missing */
-      }
-    });
+    await this.supabase.from('transactions').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 
   async countByFilter(filter: TransactionFilter): Promise<number> {
-    const conditions = this.buildQueryConditions(filter);
-    const wherePart = this.whereClauseFromConditions(conditions);
-    const query =
-      wherePart.length > 0
-        ? this.collection.query(...wherePart)
-        : this.collection.query();
-    return query.fetchCount();
+    let query = this.supabase.from('transactions').select('id', {count: 'exact', head: true}).eq('user_id', this.userId);
+    query = this.applyFilters(query, filter);
+    const {count, error} = await query;
+    if (error) { throw new Error(error.message); }
+    return count ?? 0;
   }
 
   async sumByFilter(filter: TransactionFilter): Promise<number> {
-    const conditions = this.buildQueryConditions(filter);
-    const wherePart = this.whereClauseFromConditions(conditions);
-    const query =
-      wherePart.length > 0
-        ? this.collection.query(...wherePart)
-        : this.collection.query();
-    const models = await query.fetch();
-    return models.reduce((sum, m) => sum + m.amount, 0);
+    let query = this.supabase.from('transactions').select('amount').eq('user_id', this.userId);
+    query = this.applyFilters(query, filter);
+    const {data, error} = await query;
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).reduce((sum: number, r: any) => sum + Number(r.amount), 0);
   }
 }

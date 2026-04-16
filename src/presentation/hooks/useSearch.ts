@@ -1,63 +1,13 @@
-/**
- * Intentionally queries WatermelonDB directly: observable-friendly queries and
- * multi-column OR search (description, merchant, notes). `makeSearchTransactions`
- * maps search to description-only via ITransactionRepository; keeping this hook
- * aligned with the use case would narrow search behavior or add extra round trips.
- */
 import {useState, useEffect, useRef, useCallback, useMemo} from 'react';
-import database from '@data/database';
-import TransactionModel from '@data/database/models/TransactionModel';
-import {Q} from '@nozbe/watermelondb';
 import type {Transaction, TransactionType, TransactionSource} from '@domain/entities/Transaction';
 import type {
   TransactionFilter,
-  TransactionSort,
   TransactionSortField,
   SortDirection,
 } from '@domain/repositories/ITransactionRepository';
-import {toDomain} from '@data/mappers/transaction-mapper';
+import {getLocalDataSource} from '@data/datasources/LocalDataSource';
 
 const DEBOUNCE_MS = 300;
-
-function sortColumnForField(field: TransactionSortField): string {
-  switch (field) {
-    case 'transactionDate':
-      return 'transaction_date';
-    case 'amount':
-      return 'amount';
-    case 'createdAt':
-      return 'created_at';
-  }
-}
-
-function modelToDomain(model: TransactionModel): Transaction {
-  return toDomain({
-    id: model.id,
-    walletId: model.walletId,
-    categoryId: model.categoryId,
-    amount: model.amount,
-    currency: model.currency,
-    type: model.type,
-    description: model.description,
-    merchant: model.merchant,
-    source: model.source,
-    sourceHash: model.sourceHash,
-    tags: model.tags,
-    receiptUri: model.receiptUri,
-    isRecurring: model.isRecurring,
-    recurrenceRule: model.recurrenceRule,
-    confidence: model.confidence,
-    locationLat: model.locationLat,
-    locationLng: model.locationLng,
-    locationName: model.locationName,
-    notes: model.notes,
-    isTemplate: model.isTemplate,
-    templateName: model.templateName,
-    transactionDate: model.transactionDate,
-    createdAt: model.createdAt?.getTime() ?? Date.now(),
-    updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-  });
-}
 
 export type SearchFilters = {
   type?: TransactionType;
@@ -118,15 +68,15 @@ export function useSearch(): UseSearchReturn {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.type) {count++;}
-    if (filters.source) {count++;}
-    if (filters.categoryId) {count++;}
-    if (filters.walletId) {count++;}
-    if (filters.currency) {count++;}
-    if (filters.minAmount !== undefined) {count++;}
-    if (filters.maxAmount !== undefined) {count++;}
-    if (filters.dateRange) {count++;}
-    if (filters.tags && filters.tags.length > 0) {count++;}
+    if (filters.type) { count++; }
+    if (filters.source) { count++; }
+    if (filters.categoryId) { count++; }
+    if (filters.walletId) { count++; }
+    if (filters.currency) { count++; }
+    if (filters.minAmount !== undefined) { count++; }
+    if (filters.maxAmount !== undefined) { count++; }
+    if (filters.dateRange) { count++; }
+    if (filters.tags && filters.tags.length > 0) { count++; }
     return count;
   }, [filters]);
 
@@ -144,84 +94,31 @@ export function useSearch(): UseSearchReturn {
 
     const run = async () => {
       try {
-        const collection = database.get<TransactionModel>('transactions');
-        const conditions: any[] = [];
+        const ds = getLocalDataSource();
+        const filter: TransactionFilter = {};
 
-        if (debouncedQuery) {
-          const safe = Q.sanitizeLikeString(debouncedQuery);
-          conditions.push(
-            Q.or(
-              Q.where('description', Q.like(`%${safe}%`)),
-              Q.where('merchant', Q.like(`%${safe}%`)),
-              Q.where('notes', Q.like(`%${safe}%`)),
-            ),
-          );
-        }
+        if (debouncedQuery) { filter.searchQuery = debouncedQuery; }
+        if (filters.type) { filter.type = filters.type; }
+        if (filters.source) { filter.source = filters.source; }
+        if (filters.categoryId) { filter.categoryId = filters.categoryId; }
+        if (filters.walletId) { filter.walletId = filters.walletId; }
+        if (filters.currency) { filter.currency = filters.currency; }
+        if (filters.minAmount !== undefined) { filter.minAmount = filters.minAmount; }
+        if (filters.maxAmount !== undefined) { filter.maxAmount = filters.maxAmount; }
+        if (filters.dateRange) { filter.dateRange = filters.dateRange; }
+        if (filters.tags && filters.tags.length > 0) { filter.tags = filters.tags; }
 
-        if (filters.type) {
-          conditions.push(Q.where('type', filters.type));
-        }
-        if (filters.source) {
-          conditions.push(Q.where('source', filters.source));
-        }
-        if (filters.categoryId) {
-          conditions.push(Q.where('category_id', filters.categoryId));
-        }
-        if (filters.walletId) {
-          conditions.push(Q.where('wallet_id', filters.walletId));
-        }
-        if (filters.currency) {
-          conditions.push(Q.where('currency', filters.currency));
-        }
-        if (filters.minAmount !== undefined) {
-          conditions.push(Q.where('amount', Q.gte(filters.minAmount)));
-        }
-        if (filters.maxAmount !== undefined) {
-          conditions.push(Q.where('amount', Q.lte(filters.maxAmount)));
-        }
-        if (filters.dateRange) {
-          conditions.push(
-            Q.where(
-              'transaction_date',
-              Q.between(filters.dateRange.startMs, filters.dateRange.endMs),
-            ),
-          );
-        }
-        if (filters.tags && filters.tags.length > 0) {
-          for (const tag of filters.tags) {
-            const safe = Q.sanitizeLikeString(tag);
-            conditions.push(Q.where('tags', Q.like(`%${safe}%`)));
-          }
-        }
+        const data = await ds.transactions.findAll(filter, {
+          field: sort.field,
+          direction: sort.direction,
+        });
 
-        const sortCol = sortColumnForField(sort.field);
-        const sortDir = sort.direction === 'desc' ? Q.desc : Q.asc;
-
-        let q;
-        if (conditions.length === 0) {
-          q = collection.query(Q.sortBy(sortCol, sortDir));
-        } else if (conditions.length === 1) {
-          q = collection.query(conditions[0], Q.sortBy(sortCol, sortDir));
-        } else {
-          q = collection.query(Q.and(...conditions), Q.sortBy(sortCol, sortDir));
-        }
-
-        const models = await q.fetch();
-        if (currentId !== requestIdRef.current) {
-          return;
-        }
-        setResults(models.map(modelToDomain));
-      } catch (err) {
-        if (__DEV__) {
-          console.warn('[useSearch] query failed:', err);
-        }
-        if (currentId === requestIdRef.current) {
-          setResults([]);
-        }
+        if (currentId !== requestIdRef.current) { return; }
+        setResults(data);
+      } catch {
+        if (currentId === requestIdRef.current) { setResults([]); }
       } finally {
-        if (currentId === requestIdRef.current) {
-          setIsSearching(false);
-        }
+        if (currentId === requestIdRef.current) { setIsSearching(false); }
       }
     };
 
@@ -235,17 +132,8 @@ export function useSearch(): UseSearchReturn {
   }, []);
 
   return {
-    query,
-    setQuery,
-    results,
-    resultCount: results.length,
-    isSearching,
-    filters,
-    setFilters,
-    activeFilterCount,
-    sort,
-    setSort,
-    clearAll,
-    hasActiveSearch,
+    query, setQuery, results, resultCount: results.length,
+    isSearching, filters, setFilters, activeFilterCount,
+    sort, setSort, clearAll, hasActiveSearch,
   };
 }

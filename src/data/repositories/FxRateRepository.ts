@@ -1,106 +1,73 @@
-import type {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
+import type {SupabaseClient} from '@supabase/supabase-js';
 import type {FxRate} from '@domain/entities/FxRate';
 import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
-import {
-  toDomain as fxRateToDomain,
-  toRaw as fxRateToRaw,
-  type FxRateRaw,
-} from '@data/mappers/fx-rate-mapper';
-import FxRateModel from '@data/database/models/FxRateModel';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): FxRate {
+  return {
+    id: row.id as string,
+    baseCurrency: row.base_currency as string,
+    targetCurrency: row.target_currency as string,
+    rate: Number(row.rate),
+    fetchedAt: Number(row.fetched_at),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class FxRateRepository implements IFxRateRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private supabase: SupabaseClient) {}
 
-  private get collection() {
-    return this.db.collections.get<FxRateModel>('fx_rates');
-  }
-
-  private modelToDomain(model: FxRateModel): FxRate {
-    const raw: FxRateRaw = {
-      id: model.id,
-      baseCurrency: model.baseCurrency,
-      targetCurrency: model.targetCurrency,
-      rate: model.rate,
-      fetchedAt: model.fetchedAt,
-      createdAt: model.createdAt.getTime(),
-      updatedAt: model.updatedAt.getTime(),
-    };
-    return fxRateToDomain(raw);
-  }
-
-  async findRate(
-    baseCurrency: string,
-    targetCurrency: string,
-  ): Promise<FxRate | null> {
-    const rows = await this.collection
-      .query(
-        Q.where('base_currency', baseCurrency),
-        Q.where('target_currency', targetCurrency),
-        Q.take(1),
-      )
-      .fetch();
-    const first = rows[0];
-    return first ? this.modelToDomain(first) : null;
+  async findRate(baseCurrency: string, targetCurrency: string): Promise<FxRate | null> {
+    const {data} = await this.supabase
+      .from('fx_rates').select('*')
+      .eq('base_currency', baseCurrency).eq('target_currency', targetCurrency)
+      .limit(1).maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAllByBase(baseCurrency: string): Promise<FxRate[]> {
-    const rows = await this.collection
-      .query(Q.where('base_currency', baseCurrency))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('fx_rates').select('*')
+      .eq('base_currency', baseCurrency);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findLatest(): Promise<FxRate[]> {
-    const rows = await this.collection
-      .query(Q.sortBy('fetched_at', Q.desc))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('fx_rates').select('*')
+      .order('fetched_at', {ascending: false});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async saveRate(rate: FxRate): Promise<void> {
-    const raw = fxRateToRaw(rate);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = rate.id;
-        record.baseCurrency = raw.baseCurrency;
-        record.targetCurrency = raw.targetCurrency;
-        record.rate = raw.rate;
-        record.fetchedAt = raw.fetchedAt;
-        record._setRaw('created_at', raw.createdAt);
-        record._setRaw('updated_at', raw.updatedAt);
-      });
+    const {error} = await this.supabase.from('fx_rates').insert({
+      id: rate.id, base_currency: rate.baseCurrency,
+      target_currency: rate.targetCurrency, rate: rate.rate,
+      fetched_at: rate.fetchedAt,
+      created_at: rate.createdAt, updated_at: rate.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async saveBatch(rates: FxRate[]): Promise<void> {
-    await this.db.write(async () => {
-      const batch = rates.map((rate) => {
-        const raw = fxRateToRaw(rate);
-        return this.collection.prepareCreate((record) => {
-          record._raw.id = rate.id;
-          record.baseCurrency = raw.baseCurrency;
-          record.targetCurrency = raw.targetCurrency;
-          record.rate = raw.rate;
-          record.fetchedAt = raw.fetchedAt;
-          record._setRaw('created_at', raw.createdAt);
-          record._setRaw('updated_at', raw.updatedAt);
-        });
-      });
-      await this.db.batch(...batch);
-    });
+    if (rates.length === 0) { return; }
+    const rows = rates.map(r => ({
+      id: r.id, base_currency: r.baseCurrency,
+      target_currency: r.targetCurrency, rate: r.rate,
+      fetched_at: r.fetchedAt,
+      created_at: r.createdAt, updated_at: r.updatedAt,
+    }));
+    const {error} = await this.supabase.from('fx_rates').insert(rows);
+    if (error) { throw new Error(error.message); }
   }
 
   async deleteStale(olderThanMs: number): Promise<void> {
     const threshold = Date.now() - olderThanMs;
-    await this.db.write(async () => {
-      const stale = await this.collection
-        .query(Q.where('fetched_at', Q.lt(threshold)))
-        .fetch();
-      const batch = stale.map((m) => m.prepareMarkAsDeleted());
-      if (batch.length > 0) {
-        await this.db.batch(...batch);
-      }
-    });
+    await this.supabase.from('fx_rates').delete()
+      .lt('fetched_at', threshold);
   }
 }

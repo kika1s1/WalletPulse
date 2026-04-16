@@ -1,131 +1,97 @@
-import type {Database} from '@nozbe/watermelondb';
-import {Q} from '@nozbe/watermelondb';
-import type {BillReminder} from '@domain/entities/BillReminder';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {BillRecurrence, BillReminder} from '@domain/entities/BillReminder';
 import type {IBillReminderRepository} from '@domain/repositories/IBillReminderRepository';
-import {
-  toDomain,
-  toRaw,
-  type BillReminderRaw,
-} from '@data/mappers/bill-reminder-mapper';
-import BillReminderModel from '@data/database/models/BillReminderModel';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): BillReminder {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    amount: Number(row.amount),
+    currency: row.currency as string,
+    dueDate: Number(row.due_date),
+    recurrence: row.recurrence as BillRecurrence,
+    categoryId: row.category_id as string,
+    walletId: (row.wallet_id as string) ?? '',
+    isPaid: row.is_paid as boolean,
+    paidTransactionId: (row.paid_transaction_id as string | null) ?? undefined,
+    remindDaysBefore: Number(row.remind_days_before),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class BillReminderRepository implements IBillReminderRepository {
-  constructor(private readonly db: Database) {}
-
-  private get collection() {
-    return this.db.collections.get<BillReminderModel>('bill_reminders');
-  }
-
-  private modelToDomain(model: BillReminderModel): BillReminder {
-    const raw: BillReminderRaw = {
-      id: model.id,
-      name: model.name,
-      amount: model.amount,
-      currency: model.currency,
-      dueDate: model.dueDate,
-      recurrence: model.recurrence,
-      categoryId: model.categoryId,
-      walletId: model.walletId ?? '',
-      isPaid: model.isPaid,
-      paidTransactionId: model.paidTransactionId,
-      remindDaysBefore: model.remindDaysBefore,
-      createdAt: model.createdAt.getTime(),
-      updatedAt: model.updatedAt.getTime(),
-    };
-    return toDomain(raw);
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findById(id: string): Promise<BillReminder | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('bill_reminders').select('*')
+      .eq('id', id).eq('user_id', this.userId).maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAll(): Promise<BillReminder[]> {
-    const rows = await this.collection
-      .query(Q.sortBy('due_date', Q.asc))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('bill_reminders').select('*')
+      .eq('user_id', this.userId).order('due_date', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findUnpaid(): Promise<BillReminder[]> {
-    const rows = await this.collection
-      .query(Q.where('is_paid', false), Q.sortBy('due_date', Q.asc))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('bill_reminders').select('*')
+      .eq('user_id', this.userId).eq('is_paid', false)
+      .order('due_date', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findPaid(): Promise<BillReminder[]> {
-    const rows = await this.collection
-      .query(Q.where('is_paid', true))
-      .fetch();
-    return rows.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('bill_reminders').select('*')
+      .eq('user_id', this.userId).eq('is_paid', true);
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async save(bill: BillReminder): Promise<void> {
-    const raw = toRaw(bill);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = bill.id;
-        record.name = raw.name;
-        record.amount = raw.amount;
-        record.currency = raw.currency;
-        record.dueDate = raw.dueDate;
-        record.recurrence = raw.recurrence;
-        record.categoryId = raw.categoryId;
-        record.walletId = raw.walletId;
-        record.isPaid = raw.isPaid;
-        record.paidTransactionId = raw.paidTransactionId;
-        record.remindDaysBefore = raw.remindDaysBefore;
-        record._setRaw('created_at', raw.createdAt);
-        record._setRaw('updated_at', raw.updatedAt);
-      });
+    const {error} = await this.supabase.from('bill_reminders').insert({
+      id: bill.id, user_id: this.userId,
+      name: bill.name, amount: bill.amount, currency: bill.currency,
+      due_date: bill.dueDate, recurrence: bill.recurrence,
+      category_id: bill.categoryId, wallet_id: bill.walletId,
+      is_paid: bill.isPaid, paid_transaction_id: bill.paidTransactionId ?? null,
+      remind_days_before: bill.remindDaysBefore,
+      created_at: bill.createdAt, updated_at: bill.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(bill: BillReminder): Promise<void> {
-    const raw = toRaw(bill);
-    await this.db.write(async () => {
-      const model = await this.collection.find(bill.id);
-      await model.update((record) => {
-        record.name = raw.name;
-        record.amount = raw.amount;
-        record.currency = raw.currency;
-        record.dueDate = raw.dueDate;
-        record.recurrence = raw.recurrence;
-        record.categoryId = raw.categoryId;
-        record.walletId = raw.walletId;
-        record.isPaid = raw.isPaid;
-        record.paidTransactionId = raw.paidTransactionId;
-        record.remindDaysBefore = raw.remindDaysBefore;
-        record._setRaw('updated_at', raw.updatedAt);
-      });
-    });
+    const {error} = await this.supabase.from('bill_reminders').update({
+      name: bill.name, amount: bill.amount, currency: bill.currency,
+      due_date: bill.dueDate, recurrence: bill.recurrence,
+      category_id: bill.categoryId, wallet_id: bill.walletId,
+      is_paid: bill.isPaid, paid_transaction_id: bill.paidTransactionId ?? null,
+      remind_days_before: bill.remindDaysBefore, updated_at: bill.updatedAt,
+    }).eq('id', bill.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async markPaid(id: string, paidTransactionId?: string): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((record) => {
-        record.isPaid = true;
-        if (paidTransactionId) {
-          record.paidTransactionId = paidTransactionId;
-        }
-      });
-    });
+    const {error} = await this.supabase.from('bill_reminders').update({
+      is_paid: true,
+      paid_transaction_id: paidTransactionId ?? null,
+      updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* not found */
-      }
-    });
+    await this.supabase.from('bill_reminders').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 }

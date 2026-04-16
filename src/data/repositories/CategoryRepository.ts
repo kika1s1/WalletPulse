@@ -1,125 +1,126 @@
-import {Database, Q} from '@nozbe/watermelondb';
-import type {Category} from '@domain/entities/Category';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {Category, CategoryKind} from '@domain/entities/Category';
 import type {ICategoryRepository} from '@domain/repositories/ICategoryRepository';
-import CategoryModel from '@data/database/models/CategoryModel';
-import {toDomain, toRaw} from '@data/mappers/category-mapper';
+
+type Row = Record<string, unknown>;
+
+function rowToDomain(row: Row): Category {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    icon: row.icon as string,
+    color: row.color as string,
+    type: row.type as CategoryKind,
+    parentId: (row.parent_id as string | null) ?? undefined,
+    isDefault: row.is_default as boolean,
+    isArchived: row.is_archived as boolean,
+    sortOrder: Number(row.sort_order),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
 
 export class CategoryRepository implements ICategoryRepository {
-  private db: Database;
-
-  constructor(db: Database) {
-    this.db = db;
-  }
-
-  private get collection() {
-    return this.db.get<CategoryModel>('categories');
-  }
-
-  private modelToDomain(model: CategoryModel): Category {
-    return toDomain({
-      id: model.id,
-      name: model.name,
-      icon: model.icon,
-      color: model.color,
-      type: model.type,
-      parentId: model.parentId,
-      isDefault: model.isDefault,
-      isArchived: model.isArchived,
-      sortOrder: model.sortOrder,
-      createdAt: model.createdAt?.getTime() ?? Date.now(),
-      updatedAt: model.updatedAt?.getTime() ?? Date.now(),
-    });
-  }
-
-  private applyRawToRecord(record: CategoryModel, raw: ReturnType<typeof toRaw>): void {
-    record.name = raw.name;
-    record.icon = raw.icon;
-    record.color = raw.color;
-    record.type = raw.type;
-    record.parentId = raw.parentId;
-    record.isDefault = raw.isDefault;
-    record.isArchived = raw.isArchived;
-    record.sortOrder = raw.sortOrder;
-    record._setRaw('created_at', raw.createdAt);
-    record._setRaw('updated_at', raw.updatedAt);
-  }
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async findById(id: string): Promise<Category | null> {
-    try {
-      const model = await this.collection.find(id);
-      return this.modelToDomain(model);
-    } catch {
-      return null;
-    }
+    const {data} = await this.supabase
+      .from('categories').select('*')
+      .eq('id', id).eq('user_id', this.userId)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async findAll(): Promise<Category[]> {
-    const models = await this.collection.query().fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('categories').select('*')
+      .eq('user_id', this.userId)
+      .order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByType(type: 'expense' | 'income' | 'both'): Promise<Category[]> {
-    const query =
-      type === 'both'
-        ? this.collection.query(Q.where('type', 'both'))
-        : this.collection.query(Q.or(Q.where('type', type), Q.where('type', 'both')));
-    const models = await query.fetch();
-    return models.map((m) => this.modelToDomain(m));
+    let query = this.supabase.from('categories').select('*').eq('user_id', this.userId);
+    if (type === 'both') {
+      query = query.eq('type', 'both');
+    } else {
+      query = query.in('type', [type, 'both']);
+    }
+    const {data, error} = await query.order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findDefaults(): Promise<Category[]> {
-    const models = await this.collection.query(Q.where('is_default', true)).fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('categories').select('*')
+      .eq('user_id', this.userId).eq('is_default', true)
+      .order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findSubcategories(parentId: string): Promise<Category[]> {
-    const models = await this.collection.query(Q.where('parent_id', parentId)).fetch();
-    return models.map((m) => this.modelToDomain(m));
+    const {data, error} = await this.supabase
+      .from('categories').select('*')
+      .eq('user_id', this.userId).eq('parent_id', parentId)
+      .order('sort_order', {ascending: true});
+    if (error) { throw new Error(error.message); }
+    return (data ?? []).map(rowToDomain);
   }
 
   async findByName(name: string): Promise<Category | null> {
-    const models = await this.collection.query(Q.where('name', name)).fetch();
-    const first = models[0];
-    return first ? this.modelToDomain(first) : null;
+    const {data} = await this.supabase
+      .from('categories').select('*')
+      .eq('user_id', this.userId).eq('name', name)
+      .maybeSingle();
+    return data ? rowToDomain(data) : null;
   }
 
   async save(category: Category): Promise<void> {
-    const raw = toRaw(category);
-    await this.db.write(async () => {
-      await this.collection.create((record) => {
-        record._raw.id = category.id;
-        this.applyRawToRecord(record, raw);
-      });
+    const {error} = await this.supabase.from('categories').insert({
+      id: category.id,
+      user_id: this.userId,
+      name: category.name,
+      icon: category.icon,
+      color: category.color,
+      type: category.type,
+      parent_id: category.parentId ?? null,
+      is_default: category.isDefault,
+      is_archived: category.isArchived,
+      sort_order: category.sortOrder,
+      created_at: category.createdAt,
+      updated_at: category.updatedAt,
     });
+    if (error) { throw new Error(error.message); }
   }
 
   async update(category: Category): Promise<void> {
-    const raw = toRaw(category);
-    await this.db.write(async () => {
-      const model = await this.collection.find(category.id);
-      await model.update((rec) => {
-        this.applyRawToRecord(rec, raw);
-      });
-    });
+    const {error} = await this.supabase.from('categories').update({
+      name: category.name,
+      icon: category.icon,
+      color: category.color,
+      type: category.type,
+      parent_id: category.parentId ?? null,
+      is_default: category.isDefault,
+      is_archived: category.isArchived,
+      sort_order: category.sortOrder,
+      updated_at: category.updatedAt,
+    }).eq('id', category.id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async archive(id: string): Promise<void> {
-    await this.db.write(async () => {
-      const model = await this.collection.find(id);
-      await model.update((rec) => {
-        rec.isArchived = true;
-      });
-    });
+    const {error} = await this.supabase.from('categories').update({
+      is_archived: true,
+      updated_at: Date.now(),
+    }).eq('id', id).eq('user_id', this.userId);
+    if (error) { throw new Error(error.message); }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.write(async () => {
-      try {
-        const model = await this.collection.find(id);
-        await model.markAsDeleted();
-      } catch {
-        /* record missing */
-      }
-    });
+    await this.supabase.from('categories').delete()
+      .eq('id', id).eq('user_id', this.userId);
   }
 }
