@@ -19,10 +19,11 @@ describe('hash', () => {
   });
 
   describe('generateId', () => {
-    it('returns a non-empty string', () => {
+    it('returns a valid UUID v4 string', () => {
       const id = generateId();
-      expect(typeof id).toBe('string');
-      expect(id.length).toBeGreaterThan(0);
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
     });
 
     it('produces unique values on consecutive calls', () => {

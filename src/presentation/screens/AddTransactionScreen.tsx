@@ -262,7 +262,13 @@ export default function AddTransactionScreen() {
     };
   }, [amount, convert, fromWallet, toWallet, type]);
 
+  const didInitParamsRef = useRef(false);
   useEffect(() => {
+    if (didInitParamsRef.current || wallets.length === 0) {
+      return;
+    }
+    didInitParamsRef.current = true;
+
     if (paramType === 'expense' || paramType === 'income' || paramType === 'transfer') {
       setType(paramType);
     }
@@ -291,17 +297,8 @@ export default function AddTransactionScreen() {
     if (templateTags && templateTags.length > 0) {
       setTags([...templateTags]);
     }
-  }, [
-    paramType,
-    paramWalletId,
-    wallets,
-    templateAmount,
-    templateCategoryId,
-    templateDescription,
-    templateMerchant,
-    templateCurrency,
-    templateTags,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets]);
 
   const categoryMeta = useMemo(
     () => resolveCategory(categoryId, categories),
