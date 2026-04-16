@@ -70,3 +70,4 @@ ios/Pods/
 # Build artifacts
 *.apk
 android/app/.cxx/
+credentials/
