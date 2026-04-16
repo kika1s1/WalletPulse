@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {Dimensions, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {LineChart} from 'react-native-gifted-charts';
 import {useRoute} from '@react-navigation/native';
@@ -123,10 +123,27 @@ export default function BalanceHistoryScreen() {
     changeAmount,
     changePercent,
     isLoading,
+    refetch,
     walletId,
     setWalletId,
     walletOptions,
   } = useBalanceHistory({walletId: initialWalletId});
+
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
 
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
 
@@ -202,7 +219,7 @@ export default function BalanceHistoryScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
-      <ScreenContainer>
+      <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
         <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
           <View style={styles.header}>
             <BackButton />

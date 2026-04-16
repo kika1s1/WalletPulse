@@ -42,6 +42,7 @@ function escapeHtml(text: string): string {
 
 export type ExportOptions = {
   categoryMap?: Record<string, string>;
+  userName?: string;
 };
 
 function resolveCategoryName(
@@ -121,11 +122,25 @@ export function buildExportFilename(format: ExportFormat): string {
 /**
  * Full HTML document suitable for PDF conversion or opening in a browser.
  */
+const LOGO_SVG = `<svg width="40" height="40" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6C5CE7" stop-opacity="1"/>
+      <stop offset="1" stop-color="#4132AA" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="120" height="120" rx="26" ry="26" fill="url(#bgGrad)"/>
+  <path d="M30 38 L42 82 L60 52 L78 82 L90 38" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 72 L40 72 L46 80 L52 58 L58 78 L62 65 L66 72 L98 72" fill="none" stroke="#A29BFE" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="52" cy="58" r="3" fill="#A29BFE" opacity="0.6"/>
+</svg>`;
+
 export function formatTransactionsAsPdfHtml(
   transactions: Transaction[],
   options?: ExportOptions,
 ): string {
   const generatedAt = new Date().toISOString();
+  const userName = options?.userName?.trim() ?? '';
   const headerCells = CSV_HEADERS.map(
     (h) => `<th>${escapeHtml(h)}</th>`,
   ).join('');
@@ -149,6 +164,10 @@ export function formatTransactionsAsPdfHtml(
     })
     .join('');
 
+  const userLine = userName
+    ? `<p class="user-name">Prepared for: <strong>${escapeHtml(userName)}</strong></p>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -165,16 +184,31 @@ export function formatTransactionsAsPdfHtml(
     margin: 24px;
     background: #fafafa;
   }
-  h1 {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0 0 8px 0;
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .header-row svg { flex-shrink: 0; }
+  .header-text { flex: 1; }
+  .brand-name {
+    font-size: 22px;
+    font-weight: 700;
     color: #111;
+    margin: 0;
+    letter-spacing: -0.3px;
+  }
+  .brand-name .accent { color: #6C5CE7; }
+  .user-name {
+    font-size: 12px;
+    color: #333;
+    margin: 2px 0 0 0;
   }
   .meta {
     font-size: 11px;
     color: #555;
-    margin-bottom: 20px;
+    margin: 4px 0 20px 0;
   }
   table {
     width: 100%;
@@ -186,7 +220,7 @@ export function formatTransactionsAsPdfHtml(
   }
   th {
     text-align: left;
-    background: #2563eb;
+    background: #6C5CE7;
     color: #fff;
     font-weight: 600;
     padding: 10px 8px;
@@ -205,17 +239,29 @@ export function formatTransactionsAsPdfHtml(
     margin-top: 16px;
     font-size: 10px;
     color: #888;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 </style>
 </head>
 <body>
-  <h1>WalletPulse transaction export</h1>
+  <div class="header-row">
+    ${LOGO_SVG}
+    <div class="header-text">
+      <p class="brand-name">Wallet<span class="accent">Pulse</span></p>
+      ${userLine}
+    </div>
+  </div>
   <p class="meta">Generated: ${escapeHtml(generatedAt)} · ${transactions.length} transaction(s)</p>
   <table>
     <thead><tr>${headerCells}</tr></thead>
     <tbody>${bodyRows}</tbody>
   </table>
-  <p class="footer">Amounts are in major currency units (e.g. 12.99 not cents).</p>
+  <p class="footer">
+    <span>Amounts are in major currency units (e.g. 12.99 not cents).</span>
+    <span>WalletPulse</span>
+  </p>
 </body>
 </html>`;
 }

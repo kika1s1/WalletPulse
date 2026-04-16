@@ -32,6 +32,7 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAppStore} from '@presentation/stores/useAppStore';
+import {useAuthStore} from '@presentation/stores/useAuthStore';
 
 const MS_PER_DAY = 86400000;
 
@@ -111,14 +112,15 @@ export default function ExportScreen() {
 
   const {transactions, isLoading, error} = useTransactions({syncWithFilterStore: false});
   const {categories} = useCategories();
+  const userName = useAuthStore((s) => s.user?.fullName);
 
   const exportOptions: ExportOptions = useMemo(() => {
     const categoryMap: Record<string, string> = {};
     for (const c of categories) {
       categoryMap[c.id] = c.name;
     }
-    return {categoryMap};
-  }, [categories]);
+    return {categoryMap, userName: userName ?? undefined};
+  }, [categories, userName]);
 
   const dateRange = useMemo(
     () => DATE_PRESETS[selectedPreset].getRange(),

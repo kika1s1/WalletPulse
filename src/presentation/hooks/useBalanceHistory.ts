@@ -1,4 +1,4 @@
-import {useMemo, useState, useEffect, useRef} from 'react';
+import {useCallback, useMemo, useState, useEffect, useRef} from 'react';
 import {useTransactions} from './useTransactions';
 import {useWallets} from './useWallets';
 import {useAppStore} from '@presentation/stores/useAppStore';
@@ -87,6 +87,7 @@ export type UseBalanceHistoryReturn = {
   changeAmount: number;
   changePercent: number;
   isLoading: boolean;
+  refetch: () => void;
   walletId: string | null;
   setWalletId: (id: string | null) => void;
   walletOptions: {id: string; name: string; currency: string; color: string; icon: string}[];
@@ -102,11 +103,16 @@ export function useBalanceHistory(options?: UseBalanceHistoryOptions): UseBalanc
     [walletId],
   );
 
-  const {transactions, isLoading: txLoading} = useTransactions({
+  const {transactions, isLoading: txLoading, refetch: refetchTx} = useTransactions({
     syncWithFilterStore: false,
     filter: txFilter,
   });
-  const {wallets, isLoading: walletLoading} = useWallets();
+  const {wallets, isLoading: walletLoading, refetch: refetchWallets} = useWallets();
+
+  const refetch = useCallback(() => {
+    refetchTx();
+    refetchWallets();
+  }, [refetchTx, refetchWallets]);
 
   const selectedWallet = useMemo(
     () => (walletId ? wallets.find((w) => w.id === walletId) ?? null : null),
@@ -202,6 +208,7 @@ export function useBalanceHistory(options?: UseBalanceHistoryOptions): UseBalanc
     changeAmount: stats.changeAmount,
     changePercent: stats.changePercent,
     isLoading: txLoading || walletLoading,
+    refetch,
     walletId,
     setWalletId,
     walletOptions,

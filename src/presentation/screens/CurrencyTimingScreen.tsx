@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -123,8 +123,25 @@ export default function CurrencyTimingScreen() {
     ? walletCurrencies
     : ['EUR', 'GBP', 'ETB'];
 
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchedRef.current = '';
+    void fetchRates();
+  }, [fetchRates]);
+
+  if (refreshing && ratesLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !ratesLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
+
   return (
-    <ScreenContainer>
+    <ScreenContainer scrollable={false}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.sm} />
         <View style={styles.headerRow}>
@@ -136,7 +153,18 @@ export default function CurrencyTimingScreen() {
         <Spacer size={spacing.base} />
       </View>
 
-      <ScrollView contentContainerStyle={{padding: spacing.base, paddingTop: 0}}>
+      <ScrollView
+        contentContainerStyle={{flexGrow: 1, padding: spacing.base, paddingTop: 0}}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

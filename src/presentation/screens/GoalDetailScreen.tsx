@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -49,11 +49,27 @@ export default function GoalDetailScreen() {
   const {goalId} = route.params;
   const hide = useSettingsStore((s) => s.hideAmounts);
 
-  const {goals, isLoading} = useGoals();
+  const {goals, isLoading, refetch} = useGoals();
   const {updateProgress, markCompleted, deleteGoal, isSubmitting} = useGoalActions();
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const now = useStableNow();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
 
   const [contribModalOpen, setContribModalOpen] = useState(false);
   const [contribCents, setContribCents] = useState(0);
@@ -207,7 +223,7 @@ export default function GoalDetailScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
-      <ScreenContainer>
+      <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
         <View style={[styles.header, {paddingHorizontal: spacing.base}]}>
           <BackButton />
           <Text style={[styles.headerTitle, {color: colors.text}]} numberOfLines={1}>
@@ -225,8 +241,7 @@ export default function GoalDetailScreen() {
         </View>
 
         <View style={{paddingHorizontal: spacing.base, gap: spacing.md, paddingBottom: spacing['3xl']}}>
-          <View
-            style={[
+          <View style={[
               styles.heroCard,
               {
                 backgroundColor: colors.card,

@@ -1,8 +1,9 @@
-import React, {useCallback, useMemo} from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -67,6 +68,22 @@ export default function TemplateManagementScreen() {
     for (const c of categories) {m.set(c.id, c.name);}
     return m;
   }, [categories]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -353,6 +370,14 @@ export default function TemplateManagementScreen() {
         <ScrollView
           contentContainerStyle={{paddingBottom: insets.bottom + 24}}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           showsVerticalScrollIndicator={false}>
           <View style={{paddingHorizontal: spacing.base, gap: spacing.lg, paddingTop: spacing.base}}>
             <View style={styles.section}>

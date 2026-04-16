@@ -1,5 +1,5 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -74,7 +74,7 @@ export default function SpendingAutopsyScreen() {
   const navigation = useNavigation();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const hide = useSettingsStore((s) => s.hideAmounts);
-  const {transactions, isLoading: txLoading} = useTransactions({syncWithFilterStore: false});
+  const {transactions, isLoading: txLoading, refetch} = useTransactions({syncWithFilterStore: false});
   const {categories} = useCategories();
 
   const [fxRates, setFxRates] = useState<RateMap>({});
@@ -150,6 +150,22 @@ export default function SpendingAutopsyScreen() {
 
   const isLoading = txLoading;
 
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
+
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
       <View
@@ -164,6 +180,14 @@ export default function SpendingAutopsyScreen() {
       <ScrollView
         style={{flex: 1}}
         contentContainerStyle={[styles.scroll, {padding: spacing.base, paddingBottom: insets.bottom + spacing.xl}]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         showsVerticalScrollIndicator={false}>
 
         {isLoading ? (

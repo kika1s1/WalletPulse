@@ -1,5 +1,5 @@
-import React, {useCallback, useMemo} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
+import {ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -35,6 +35,21 @@ export default function GoalsListScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {goals, isLoading, error, refetch} = useGoals();
   const now = useStableNow();
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
 
   const sorted = useMemo(() => sortGoalsByPriority(goals, now), [goals, now]);
   const totalProgress = useMemo(() => calculateTotalProgress(goals), [goals]);
@@ -161,6 +176,14 @@ export default function GoalsListScreen() {
                 flexGrow: 1,
               },
             ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
             showsVerticalScrollIndicator={false}
           >
             {goals.length === 0 ? (

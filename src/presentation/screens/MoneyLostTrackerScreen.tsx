@@ -1,5 +1,5 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
@@ -38,7 +38,7 @@ export default function MoneyLostTrackerScreen() {
   const {colors, spacing, radius, typography: typo} = useTheme();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const hide = useSettingsStore((s) => s.hideAmounts);
-  const {transactions, isLoading: txLoading} = useTransactions({syncWithFilterStore: false});
+  const {transactions, isLoading: txLoading, refetch} = useTransactions({syncWithFilterStore: false});
 
   const [midMarketRates, setMidMarketRates] = useState<RateMap>({});
   const [ratesLoading, setRatesLoading] = useState(true);
@@ -106,8 +106,24 @@ export default function MoneyLostTrackerScreen() {
 
   const isLoading = txLoading || ratesLoading;
 
+  const [refreshing, setRefreshing] = useState(false);
+  const wasRefreshingRef = useRef(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch();
+  }, [refetch]);
+
+  if (refreshing && isLoading) {
+    wasRefreshingRef.current = true;
+  }
+  if (refreshing && !isLoading && wasRefreshingRef.current) {
+    setRefreshing(false);
+    wasRefreshingRef.current = false;
+  }
+
   return (
-    <ScreenContainer>
+    <ScreenContainer scrollable={false}>
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <Spacer size={spacing.sm} />
         <View style={styles.headerRow}>
@@ -119,19 +135,29 @@ export default function MoneyLostTrackerScreen() {
         <Spacer size={spacing.base} />
       </View>
 
+      <ScrollView
+        contentContainerStyle={{flexGrow: 1, padding: spacing.base, paddingTop: 0}}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
       {isLoading ? (
         <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing['4xl']}}>
           <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading transactions" />
         </View>
       ) : foreignTxs.length === 0 ? (
-        <View style={{paddingHorizontal: spacing.base}}>
-          <EmptyState
-            title="No foreign currency transactions"
-            message="FX loss tracking will appear here when you have transactions in currencies other than your base currency."
-          />
-        </View>
+        <EmptyState
+          title="No foreign currency transactions"
+          message="FX loss tracking will appear here when you have transactions in currencies other than your base currency."
+        />
       ) : (
-        <ScrollView contentContainerStyle={{padding: spacing.base, paddingTop: 0}}>
+        <>
           <Card padding="md">
             <View style={styles.totalRow}>
               <View style={[styles.iconCircle, {backgroundColor: `${colors.danger}1A`}]}>
@@ -244,8 +270,9 @@ export default function MoneyLostTrackerScreen() {
             </View>
           </Card>
           <Spacer size={spacing.xl} />
-        </ScrollView>
+        </>
       )}
+      </ScrollView>
     </ScreenContainer>
   );
 }
