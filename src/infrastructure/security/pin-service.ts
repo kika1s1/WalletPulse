@@ -1,5 +1,4 @@
 import * as Keychain from 'react-native-keychain';
-import QuickCrypto from 'react-native-quick-crypto';
 import {sha256} from 'js-sha256';
 import {generateSalt} from '@shared/utils/crypto';
 
@@ -12,8 +11,8 @@ export const PIN_KEYCHAIN_SERVICE = 'walletpulse-pin';
  *                 (10k possibilities for a 4-digit PIN). Read-only; any
  *                 successful verify triggers an in-place migration to v2.
  *   v2           — PBKDF2-HMAC-SHA256 with `PIN_PBKDF2_ITERATIONS` iterations
- *                  and a 32-byte derived key. Backed by react-native-quick-crypto
- *                  (native / OpenSSL) so verify latency stays in single-digit ms.
+ *                  and a 32-byte derived key. Uses native crypto when available,
+ *                  falls back to pure-JS HMAC-SHA256 otherwise.
  */
 export const PIN_HASH_VERSION = 2 as const;
 
@@ -26,6 +25,13 @@ export const PIN_PBKDF2_ITERATIONS = 100_000;
 
 const PBKDF2_KEY_LEN = 32;
 const PBKDF2_DIGEST = 'sha256';
+
+let QuickCrypto: typeof import('react-native-quick-crypto').default | null = null;
+try {
+  QuickCrypto = require('react-native-quick-crypto').default;
+} catch {
+  /* native module unavailable — pure-JS fallback will be used */
+}
 
 export type PinLength = 4 | 6;
 
@@ -57,15 +63,66 @@ function legacyHashV1(salt: string, pin: string): string {
   return sha256(`${salt}:${pin}`);
 }
 
-function pbkdf2Hex(
+function bytesToHex(bytes: Uint8Array): string {
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+/**
+ * Pure-JS PBKDF2-HMAC-SHA256 using js-sha256's HMAC.
+ * Slower than native (~200ms for 100k iterations on a modern phone)
+ * but guaranteed to work without native modules.
+ */
+function pbkdf2HexJS(
+  password: string,
+  salt: string,
+  iterations: number,
+  keyLen: number,
+): string {
+  const hmac = sha256.hmac;
+  const hLen = 32; // SHA-256 output = 32 bytes
+  const blockCount = Math.ceil(keyLen / hLen);
+  const result = new Uint8Array(blockCount * hLen);
+
+  for (let block = 1; block <= blockCount; block++) {
+    // U_1 = HMAC(password, salt || INT_32_BE(block))
+    const saltBytes: number[] = [];
+    for (let i = 0; i < salt.length; i++) {
+      saltBytes.push(salt.charCodeAt(i));
+    }
+    // eslint-disable-next-line no-bitwise
+    saltBytes.push((block >>> 24) & 0xff, (block >>> 16) & 0xff, (block >>> 8) & 0xff, block & 0xff);
+
+    let u = new Uint8Array(hmac.arrayBuffer(password, saltBytes));
+    const t = new Uint8Array(u);
+
+    for (let iter = 1; iter < iterations; iter++) {
+      u = new Uint8Array(hmac.arrayBuffer(password, u));
+      for (let j = 0; j < hLen; j++) {
+        // eslint-disable-next-line no-bitwise
+        t[j] ^= u[j];
+      }
+    }
+
+    result.set(t, (block - 1) * hLen);
+  }
+
+  return bytesToHex(result.subarray(0, keyLen));
+}
+
+function pbkdf2HexNative(
   pin: string,
   salt: string,
   iterations: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    // `Buffer` is declared as the callback type by react-native-quick-crypto
-    // but we don't want to pull in Node's type definitions just for this one
-    // call. At runtime the value is always a Uint8Array-compatible view.
+    if (!QuickCrypto) {
+      reject(new Error('Native crypto not available'));
+      return;
+    }
     const cb = (
       err: Error | null,
       derived?: Uint8Array | null,
@@ -86,21 +143,33 @@ function pbkdf2Hex(
               (derived as ArrayBufferView).byteOffset,
               (derived as ArrayBufferView).byteLength,
             );
-      let hex = '';
-      for (let i = 0; i < bytes.length; i++) {
-        hex += bytes[i].toString(16).padStart(2, '0');
-      }
-      resolve(hex);
+      resolve(bytesToHex(bytes));
     };
-    QuickCrypto.pbkdf2(
-      pin,
-      salt,
-      iterations,
-      PBKDF2_KEY_LEN,
-      PBKDF2_DIGEST,
-      cb as unknown as Parameters<typeof QuickCrypto.pbkdf2>[5],
-    );
+    try {
+      QuickCrypto!.pbkdf2(
+        pin,
+        salt,
+        iterations,
+        PBKDF2_KEY_LEN,
+        PBKDF2_DIGEST,
+        cb as Parameters<typeof QuickCrypto.pbkdf2>[5],
+      );
+    } catch (e) {
+      reject(e);
+    }
   });
+}
+
+async function pbkdf2Hex(
+  pin: string,
+  salt: string,
+  iterations: number,
+): Promise<string> {
+  try {
+    return await pbkdf2HexNative(pin, salt, iterations);
+  } catch {
+    return pbkdf2HexJS(pin, salt, iterations, PBKDF2_KEY_LEN);
+  }
 }
 
 /**
