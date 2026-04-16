@@ -13,6 +13,22 @@ import {fontWeight} from '@shared/theme/typography';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
+const VERIFY_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('Operation timed out')),
+      ms,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }) as Promise<T>;
+}
 
 export default function PinLockScreen() {
   const {colors, radius} = useTheme();
@@ -27,29 +43,39 @@ export default function PinLockScreen() {
   const [countdown, setCountdown] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
-  const autoPromptRef = useRef(false);
+  const [ready, setReady] = useState(false);
+  const autoPromptedRef = useRef(false);
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const locked = attempts >= MAX_ATTEMPTS;
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [storedLen, supported, pinExists] = await Promise.all([
-        getStoredPinLength(),
-        isBiometricAvailable(),
-        hasPin(),
-      ]);
-      if (cancelled) {
-        return;
+      try {
+        const [storedLen, supported, pinExists] = await Promise.all([
+          getStoredPinLength(),
+          isBiometricAvailable(),
+          hasPin(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        if (!pinExists) {
+          await usePinStore.getState().removePin();
+          return;
+        }
+        if (storedLen) {
+          setPinLength(storedLen);
+        }
+        setBiometricSupported(supported);
+      } catch {
+        /* non-fatal — defaults are safe */
+      } finally {
+        if (!cancelled) {
+          setReady(true);
+        }
       }
-      if (!pinExists) {
-        await usePinStore.getState().removePin();
-        return;
-      }
-      if (storedLen) {
-        setPinLength(storedLen);
-      }
-      setBiometricSupported(supported);
     })();
     return () => {
       cancelled = true;
@@ -57,32 +83,45 @@ export default function PinLockScreen() {
   }, []);
 
   const tryBiometric = useCallback(async () => {
-    const bioPin = await unlockWithBiometric();
-    if (!bioPin) {
-      return;
-    }
-    const ok = await verifyPin(bioPin);
-    if (ok) {
-      unlock();
+    try {
+      const bioPin = await unlockWithBiometric();
+      if (!bioPin) {
+        return;
+      }
+      const ok = await withTimeout(verifyPin(bioPin), VERIFY_TIMEOUT_MS);
+      if (ok) {
+        unlock();
+      }
+    } catch {
+      /* biometric cancelled or failed — user can still type PIN */
     }
   }, [unlock, verifyPin]);
 
   useEffect(() => {
-    if (autoPromptRef.current) {
+    if (!ready || autoPromptedRef.current) {
       return;
     }
     if (biometricEnabled && biometricSupported && !locked) {
-      autoPromptRef.current = true;
+      autoPromptedRef.current = true;
       void tryBiometric();
     }
-  }, [biometricEnabled, biometricSupported, locked, tryBiometric]);
+  }, [ready, biometricEnabled, biometricSupported, locked, tryBiometric]);
 
   useEffect(() => {
     if (pin.length < pinLength || isVerifying) {
       return;
     }
     setIsVerifying(true);
-    void verifyPin(pin)
+
+    // Safety valve: if the native call hangs beyond the timeout, force-reset
+    // isVerifying so the user can try again instead of being permanently stuck.
+    verifyTimeoutRef.current = setTimeout(() => {
+      setIsVerifying(false);
+      setError('Verification timed out. Try again.');
+      setPin('');
+    }, VERIFY_TIMEOUT_MS);
+
+    void withTimeout(verifyPin(pin), VERIFY_TIMEOUT_MS)
       .then((ok) => {
         if (ok) {
           unlock();
@@ -101,8 +140,21 @@ export default function PinLockScreen() {
         setError('PIN verification failed. Try again.');
         setPin('');
       })
-      .finally(() => setIsVerifying(false));
+      .finally(() => {
+        if (verifyTimeoutRef.current) {
+          clearTimeout(verifyTimeoutRef.current);
+        }
+        setIsVerifying(false);
+      });
   }, [pin, pinLength, verifyPin, unlock, attempts, isVerifying]);
+
+  useEffect(() => {
+    return () => {
+      if (verifyTimeoutRef.current) {
+        clearTimeout(verifyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!locked) {
@@ -162,7 +214,9 @@ export default function PinLockScreen() {
     ? `Try again in ${countdown}s`
     : `Enter your ${pinLength}-digit PIN to continue`;
 
-  const biometricAction = biometricEnabled && biometricSupported && !locked ? (
+  const showBiometric = biometricEnabled && biometricSupported && !locked;
+
+  const biometricAction = showBiometric ? (
     <Pressable
       accessibilityLabel="Use biometric to unlock"
       accessibilityRole="button"
@@ -186,7 +240,7 @@ export default function PinLockScreen() {
         subtitle={subtitleText}
         pin={pin}
         length={pinLength}
-        onPinChange={locked ? () => {} : handleChange}
+        onPinChange={locked || isVerifying ? () => {} : handleChange}
         error={error}
         onForgotPin={handleForgotPin}
         footerSlot={biometricAction}
