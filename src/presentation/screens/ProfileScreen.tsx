@@ -1,24 +1,42 @@
 import React, {useCallback, useEffect, useRef, useMemo, useState} from 'react';
-import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Alert, Image, Pressable, StyleSheet, Text, View} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import Animated, {FadeIn, FadeInDown, FadeInUp} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import BottomSheet, {BottomSheetBackdrop, BottomSheetView} from '@gorhom/bottom-sheet';
+import {launchImageLibrary} from 'react-native-image-picker';
+import ReactNativeHapticFeedback, {
+  HapticFeedbackTypes,
+} from 'react-native-haptic-feedback';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {Input} from '@presentation/components/common';
+import {Button, Input} from '@presentation/components/common';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {useAuthStore} from '@presentation/stores/useAuthStore';
 import {useAccountStats} from '@presentation/hooks/useAccountStats';
 import type {SettingsStackScreenProps} from '@presentation/navigation/types';
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('');
+function triggerLightHaptic() {
+  ReactNativeHapticFeedback.trigger(HapticFeedbackTypes.impactLight, {
+    enableVibrateFallback: true,
+  });
+}
+
+function getInitials(name: string, email?: string): string {
+  const trimmed = name.trim();
+  if (trimmed) {
+    return trimmed
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0].toUpperCase())
+      .join('');
+  }
+  if (email && email.length > 0) {
+    return email[0].toUpperCase();
+  }
+  return '';
 }
 
 type SectionRowProps = {
@@ -27,47 +45,82 @@ type SectionRowProps = {
   iconBg: string;
   label: string;
   value: string;
-  borderColor: string;
-  textColor: string;
-  valueColor: string;
+  loading?: boolean;
   isLast?: boolean;
 };
 
-function SectionRow({icon, iconColor, iconBg, label, value, borderColor, textColor, valueColor, isLast}: SectionRowProps) {
+function SectionRow({
+  icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  loading,
+  isLast,
+}: SectionRowProps) {
+  const {colors} = useTheme();
   return (
-    <View style={[styles.statRow, !isLast && {borderBottomColor: borderColor, borderBottomWidth: StyleSheet.hairlineWidth}]}>
+    <View
+      style={[
+        styles.statRow,
+        !isLast && {
+          borderBottomColor: colors.borderLight,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+      ]}>
       <View style={[styles.statIconWrap, {backgroundColor: iconBg}]}>
         <AppIcon name={icon} size={16} color={iconColor} />
       </View>
-      <Text style={[styles.statLabel, {color: textColor}]}>{label}</Text>
-      <Text style={[styles.statValue, {color: valueColor}]}>{value}</Text>
+      <Text style={[styles.statLabel, {color: colors.textSecondary}]}>{label}</Text>
+      {loading ? (
+        <Skeleton width={32} height={16} borderRadius={4} />
+      ) : (
+        <Text style={[styles.statValue, {color: colors.text}]}>{value}</Text>
+      )}
     </View>
   );
 }
 
-export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Profile'>) {
-  const {colors, spacing, radius} = useTheme();
+export default function ProfileScreen({
+  navigation,
+}: SettingsStackScreenProps<'Profile'>) {
+  const {colors, spacing, radius, shadows} = useTheme();
   const insets = useSafeAreaInsets();
-  const {user, isLoading, error, updateProfile, signOut, changePassword, deleteAccount, clearError} = useAuthStore();
-  const {stats} = useAccountStats();
+  const {
+    user,
+    isLoading,
+    error,
+    updateProfile,
+    signOut,
+    changePassword,
+    deleteAccount,
+    clearError,
+  } = useAuthStore();
+  const {stats, isLoading: statsLoading} = useAccountStats();
 
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [address, setAddress] = useState(user?.address ?? '');
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
   const logoutSheetRef = useRef<BottomSheet>(null);
   const deleteSheetRef = useRef<BottomSheet>(null);
-  const logoutSnapPoints = useMemo(() => ['28%'], []);
-  const deleteSnapPoints = useMemo(() => ['36%'], []);
+  const logoutSnapPoints = useMemo(() => ['32%'], []);
+  const deleteSnapPoints = useMemo(() => ['56%'], []);
 
   useEffect(() => {
     const nameChanged = fullName.trim() !== (user?.fullName ?? '');
@@ -82,10 +135,49 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
     }
   }, [error, clearError]);
 
-  const handleSave = useCallback(async () => {
-    if (!hasChanges) { return; }
+  const handlePickAvatar = useCallback(async () => {
+    triggerLightHaptic();
     try {
-      await updateProfile({fullName: fullName.trim(), address: address.trim()});
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        maxWidth: 512,
+        maxHeight: 512,
+        selectionLimit: 1,
+      });
+
+      if (result.didCancel || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      if (!uri) {
+        return;
+      }
+      setUploadingAvatar(true);
+      await updateProfile({avatarUrl: uri});
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      Alert.alert(
+        'Upload failed',
+        err instanceof Error ? err.message : 'Could not update photo',
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [updateProfile]);
+
+  const handleSave = useCallback(async () => {
+    if (!hasChanges) {
+      return;
+    }
+    triggerLightHaptic();
+    try {
+      await updateProfile({
+        fullName: fullName.trim(),
+        address: address.trim(),
+      });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch {
@@ -103,6 +195,7 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
       setPasswordError('Passwords do not match');
       return;
     }
+    triggerLightHaptic();
     setPasswordLoading(true);
     try {
       await changePassword(currentPassword, newPassword);
@@ -115,13 +208,16 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
         setShowPasswordForm(false);
       }, 2500);
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : 'Failed to change password');
+      setPasswordError(
+        err instanceof Error ? err.message : 'Failed to change password',
+      );
     } finally {
       setPasswordLoading(false);
     }
   }, [currentPassword, newPassword, confirmPassword, changePassword]);
 
   const handleLogoutPress = useCallback(() => {
+    triggerLightHaptic();
     logoutSheetRef.current?.expand();
   }, []);
 
@@ -135,6 +231,8 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
   }, []);
 
   const handleDeletePress = useCallback(() => {
+    triggerLightHaptic();
+    setDeleteConfirmText('');
     deleteSheetRef.current?.expand();
   }, []);
 
@@ -148,99 +246,259 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
   }, [deleteAccount]);
 
   const handleDeleteCancel = useCallback(() => {
+    setDeleteConfirmText('');
     deleteSheetRef.current?.close();
   }, []);
 
   const renderBackdrop = useCallback(
-    (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />,
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
     [],
   );
 
-  const initials = getInitials(user?.fullName ?? '');
-  const memberSince = user?.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('en-US', {month: 'long', year: 'numeric'})
+  if (!user) {
+    return (
+      <View
+        style={[
+          styles.root,
+          styles.centered,
+          {backgroundColor: colors.background},
+        ]}>
+        <AppIcon name="account-outline" size={48} color={colors.textTertiary} />
+        <Text style={[styles.emptyText, {color: colors.textSecondary}]}>
+          Profile unavailable
+        </Text>
+      </View>
+    );
+  }
+
+  const initials = getInitials(user.fullName, user.email);
+  const memberSince = user.createdAt
+    ? new Date(user.createdAt).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })
     : '';
+
+  const deleteConfirmValid =
+    deleteConfirmText.trim().toLowerCase() === 'delete';
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
+      <View
+        style={[
+          styles.headerBar,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: colors.background,
+            borderBottomColor: colors.borderLight,
+          },
+        ]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={16}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back">
+          <AppIcon name="arrow-left" size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.headerTitle, {color: colors.text}]}>Profile</Text>
+        <View style={{width: 44}} />
+      </View>
+
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          {paddingHorizontal: spacing.base, paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing['3xl']},
+          {
+            paddingHorizontal: spacing.base,
+            paddingTop: spacing.lg,
+            paddingBottom: insets.bottom + spacing['3xl'],
+          },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid
-        extraScrollHeight={40}
-      >
-        {/* Header */}
-        <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
-            <AppIcon name="arrow-left" size={24} color={colors.text} />
+        extraScrollHeight={40}>
+        <Animated.View
+          entering={FadeIn.delay(100).duration(400)}
+          style={styles.avatarSection}>
+          <Pressable
+            onPress={handlePickAvatar}
+            disabled={uploadingAvatar}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+            style={styles.avatarPressable}>
+            <View
+              style={[
+                styles.avatarOuter,
+                {
+                  backgroundColor: colors.primaryLight + '33',
+                  borderRadius: radius.full,
+                },
+              ]}>
+              {user.avatarUrl ? (
+                <Image
+                  source={{uri: user.avatarUrl}}
+                  style={[styles.avatarImage, {borderRadius: radius.full}]}
+                />
+              ) : (
+                <Text style={[styles.avatarText, {color: colors.primary}]}>
+                  {initials || (
+                    <AppIcon
+                      name="account"
+                      size={36}
+                      color={colors.primary}
+                    />
+                  )}
+                </Text>
+              )}
+            </View>
+            <View
+              style={[
+                styles.cameraBadge,
+                shadows.sm,
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.background,
+                },
+              ]}>
+              <AppIcon
+                name={uploadingAvatar ? 'loading' : 'camera-outline'}
+                size={14}
+                color="#FFFFFF"
+              />
+            </View>
           </Pressable>
-          <Text style={[styles.headerTitle, {color: colors.text}]}>Profile</Text>
-          <View style={{width: 32}} />
-        </Animated.View>
-
-        {/* Avatar */}
-        <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.avatarSection}>
-          <View style={[styles.avatarOuter, {backgroundColor: colors.primaryLight + '33'}]}>
-            <Text style={[styles.avatarText, {color: colors.primary}]}>
-              {initials || '?'}
-            </Text>
-          </View>
-          <Text style={[styles.userName, {color: colors.text}]}>{user?.fullName}</Text>
-          <Text style={[styles.userEmail, {color: colors.textSecondary}]}>{user?.email}</Text>
+          <Text style={[styles.userName, {color: colors.text}]}>
+            {user.fullName || 'Unnamed'}
+          </Text>
+          <Text style={[styles.userEmail, {color: colors.textSecondary}]}>
+            {user.email}
+          </Text>
           {memberSince ? (
-            <View style={[styles.memberBadge, {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.full}]}>
-              <AppIcon name="calendar-outline" size={12} color={colors.textTertiary} />
-              <Text style={[styles.memberBadgeText, {color: colors.textTertiary}]}>
+            <View
+              style={[
+                styles.memberBadge,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.full,
+                },
+              ]}>
+              <AppIcon
+                name="calendar-outline"
+                size={13}
+                color={colors.textTertiary}
+              />
+              <Text
+                style={[
+                  styles.memberBadgeText,
+                  {color: colors.textTertiary},
+                ]}>
                 Member since {memberSince}
               </Text>
             </View>
           ) : null}
         </Animated.View>
 
-        {/* Success / Error banners */}
         {saveSuccess && (
           <Animated.View
             entering={FadeInDown.duration(300)}
-            style={[styles.banner, {backgroundColor: colors.successLight, borderRadius: radius.md}]}
-          >
-            <AppIcon name="check-circle-outline" size={18} color={colors.success} />
-            <Text style={[styles.bannerText, {color: colors.success}]}>Profile updated</Text>
+            style={[
+              styles.banner,
+              {
+                backgroundColor: colors.successLight,
+                borderRadius: radius.md,
+              },
+            ]}>
+            <AppIcon
+              name="check-circle-outline"
+              size={18}
+              color={colors.success}
+            />
+            <Text style={[styles.bannerText, {color: colors.success}]}>
+              Profile updated
+            </Text>
           </Animated.View>
         )}
 
         {error && (
           <Animated.View
             entering={FadeInDown.duration(300)}
-            style={[styles.banner, {backgroundColor: colors.dangerLight, borderRadius: radius.md}]}
-          >
-            <AppIcon name="alert-circle-outline" size={18} color={colors.danger} />
-            <Text style={[styles.bannerText, {color: colors.danger}]}>{error}</Text>
+            style={[
+              styles.banner,
+              {
+                backgroundColor: colors.dangerLight,
+                borderRadius: radius.md,
+              },
+            ]}>
+            <AppIcon
+              name="alert-circle-outline"
+              size={18}
+              color={colors.danger}
+            />
+            <Text style={[styles.bannerText, {color: colors.danger}]}>
+              {error}
+            </Text>
           </Animated.View>
         )}
 
-        {/* Edit Profile Section */}
-        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-          <Text style={[styles.sectionTitle, {color: colors.text}]}>Edit Profile</Text>
-          <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg}]}>
+        <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>
+            Personal Info
+          </Text>
+          <View
+            style={[
+              styles.card,
+              shadows.sm,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+              },
+            ]}>
             <Input
               label="Full Name"
               value={fullName}
               onChangeText={setFullName}
               placeholder="Your name"
+              leftIcon={
+                <AppIcon
+                  name="account-outline"
+                  size={18}
+                  color={colors.textTertiary}
+                />
+              }
               testID="profile-name"
             />
-            <Input
-              label="Email"
-              value={user?.email ?? ''}
-              onChangeText={() => {}}
-              editable={false}
-              testID="profile-email"
-              helperText="Email cannot be changed"
-            />
+            <View style={styles.disabledInputWrap}>
+              <Input
+                label="Email"
+                value={user.email}
+                onChangeText={() => {}}
+                editable={false}
+                leftIcon={
+                  <AppIcon
+                    name="email-outline"
+                    size={18}
+                    color={colors.textTertiary}
+                  />
+                }
+                rightIcon={
+                  <AppIcon
+                    name="lock-outline"
+                    size={16}
+                    color={colors.textTertiary}
+                  />
+                }
+                testID="profile-email"
+                helperText="Email cannot be changed"
+              />
+            </View>
             <Input
               label="Address"
               value={address}
@@ -251,40 +509,53 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               testID="profile-address"
               helperText="Used on account statements"
             />
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              title={isLoading ? 'Saving...' : 'Save Changes'}
               onPress={handleSave}
               disabled={!hasChanges || isLoading}
-              style={({pressed}) => [
-                styles.primaryBtn,
-                {
-                  backgroundColor: hasChanges ? colors.primary : colors.border,
-                  borderRadius: radius.md,
-                  opacity: isLoading ? 0.7 : pressed ? 0.88 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.primaryBtnText, {color: hasChanges ? '#FFFFFF' : colors.textMuted}]}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
-              </Text>
-            </Pressable>
+              loading={isLoading && hasChanges}
+              fullWidth
+              size="lg"
+            />
           </View>
         </Animated.View>
 
-        {/* Change Password Section */}
-        <Animated.View entering={FadeInUp.delay(400).duration(400)}>
-          <Text style={[styles.sectionTitle, {color: colors.text}]}>Security</Text>
-          <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg}]}>
+        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>
+            Security
+          </Text>
+          <View
+            style={[
+              styles.card,
+              shadows.sm,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+              },
+            ]}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setShowPasswordForm(!showPasswordForm)}
-              style={styles.expandRow}
-            >
+              onPress={() => {
+                triggerLightHaptic();
+                setShowPasswordForm(!showPasswordForm);
+              }}
+              style={styles.expandRow}>
               <View style={styles.expandRowLeft}>
-                <View style={[styles.statIconWrap, {backgroundColor: colors.warningLight}]}>
-                  <AppIcon name="lock-outline" size={16} color={colors.warning} />
+                <View
+                  style={[
+                    styles.statIconWrap,
+                    {backgroundColor: colors.warningLight},
+                  ]}>
+                  <AppIcon
+                    name="lock-outline"
+                    size={16}
+                    color={colors.warning}
+                  />
                 </View>
-                <Text style={[styles.expandRowLabel, {color: colors.text}]}>Change Password</Text>
+                <Text
+                  style={[styles.expandRowLabel, {color: colors.text}]}>
+                  Change Password
+                </Text>
               </View>
               <AppIcon
                 name={showPasswordForm ? 'chevron-up' : 'chevron-down'}
@@ -294,17 +565,47 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
             </Pressable>
 
             {showPasswordForm && (
-              <Animated.View entering={FadeInDown.duration(250)} style={styles.passwordForm}>
+              <Animated.View
+                entering={FadeInDown.duration(250)}
+                style={styles.passwordForm}>
                 {passwordSuccess && (
-                  <View style={[styles.banner, {backgroundColor: colors.successLight, borderRadius: radius.md}]}>
-                    <AppIcon name="check-circle-outline" size={16} color={colors.success} />
-                    <Text style={[styles.bannerText, {color: colors.success}]}>Password changed successfully</Text>
+                  <View
+                    style={[
+                      styles.banner,
+                      {
+                        backgroundColor: colors.successLight,
+                        borderRadius: radius.md,
+                      },
+                    ]}>
+                    <AppIcon
+                      name="check-circle-outline"
+                      size={16}
+                      color={colors.success}
+                    />
+                    <Text
+                      style={[styles.bannerText, {color: colors.success}]}>
+                      Password changed successfully
+                    </Text>
                   </View>
                 )}
                 {passwordError ? (
-                  <View style={[styles.banner, {backgroundColor: colors.dangerLight, borderRadius: radius.md}]}>
-                    <AppIcon name="alert-circle-outline" size={16} color={colors.danger} />
-                    <Text style={[styles.bannerText, {color: colors.danger}]}>{passwordError}</Text>
+                  <View
+                    style={[
+                      styles.banner,
+                      {
+                        backgroundColor: colors.dangerLight,
+                        borderRadius: radius.md,
+                      },
+                    ]}>
+                    <AppIcon
+                      name="alert-circle-outline"
+                      size={16}
+                      color={colors.danger}
+                    />
+                    <Text
+                      style={[styles.bannerText, {color: colors.danger}]}>
+                      {passwordError}
+                    </Text>
                   </View>
                 ) : null}
                 <Input
@@ -312,7 +613,29 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
                   placeholder="Enter current password"
-                  secureTextEntry
+                  secureTextEntry={!showCurrentPwd}
+                  leftIcon={
+                    <AppIcon
+                      name="lock-outline"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  }
+                  rightIcon={
+                    <Pressable
+                      onPress={() => setShowCurrentPwd(!showCurrentPwd)}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showCurrentPwd ? 'Hide password' : 'Show password'
+                      }>
+                      <AppIcon
+                        name={showCurrentPwd ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  }
                   testID="current-password"
                 />
                 <Input
@@ -320,7 +643,29 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Enter new password"
-                  secureTextEntry
+                  secureTextEntry={!showNewPwd}
+                  leftIcon={
+                    <AppIcon
+                      name="lock-outline"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  }
+                  rightIcon={
+                    <Pressable
+                      onPress={() => setShowNewPwd(!showNewPwd)}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showNewPwd ? 'Hide password' : 'Show password'
+                      }>
+                      <AppIcon
+                        name={showNewPwd ? 'eye-off-outline' : 'eye-outline'}
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  }
                   helperText="Minimum 8 characters"
                   testID="new-password"
                 />
@@ -329,44 +674,73 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Repeat new password"
-                  secureTextEntry
+                  secureTextEntry={!showConfirmPwd}
+                  leftIcon={
+                    <AppIcon
+                      name="lock-outline"
+                      size={18}
+                      color={colors.textTertiary}
+                    />
+                  }
+                  rightIcon={
+                    <Pressable
+                      onPress={() => setShowConfirmPwd(!showConfirmPwd)}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showConfirmPwd ? 'Hide password' : 'Show password'
+                      }>
+                      <AppIcon
+                        name={
+                          showConfirmPwd ? 'eye-off-outline' : 'eye-outline'
+                        }
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  }
                   testID="confirm-password"
                 />
-                <Pressable
-                  accessibilityRole="button"
+                <Button
+                  title={passwordLoading ? 'Updating...' : 'Update Password'}
                   onPress={handleChangePassword}
-                  disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
-                  style={({pressed}) => [
-                    styles.primaryBtn,
-                    {
-                      backgroundColor: (currentPassword && newPassword && confirmPassword) ? colors.primary : colors.border,
-                      borderRadius: radius.md,
-                      opacity: passwordLoading ? 0.7 : pressed ? 0.88 : 1,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.primaryBtnText, {color: (currentPassword && newPassword && confirmPassword) ? '#FFFFFF' : colors.textMuted}]}>
-                    {passwordLoading ? 'Updating...' : 'Update Password'}
-                  </Text>
-                </Pressable>
+                  disabled={
+                    passwordLoading ||
+                    !currentPassword ||
+                    !newPassword ||
+                    !confirmPassword
+                  }
+                  loading={passwordLoading}
+                  fullWidth
+                  size="lg"
+                />
               </Animated.View>
             )}
           </View>
         </Animated.View>
 
-        {/* Account Stats Section */}
-        <Animated.View entering={FadeInUp.delay(500).duration(400)}>
-          <Text style={[styles.sectionTitle, {color: colors.text}]}>Account Overview</Text>
-          <View style={[styles.card, {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 0}]}>
+        <Animated.View entering={FadeInUp.delay(400).duration(400)}>
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>
+            Account Overview
+          </Text>
+          <View
+            style={[
+              styles.card,
+              shadows.sm,
+              {
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
+                paddingHorizontal: 0,
+                paddingVertical: 0,
+              },
+            ]}>
             <SectionRow
               icon="swap-vertical"
               iconColor={colors.primary}
               iconBg={colors.primaryLight + '33'}
               label="Transactions"
               value={String(stats.totalTransactions)}
-              borderColor={colors.border}
-              textColor={colors.textSecondary}
-              valueColor={colors.text}
+              loading={statsLoading}
             />
             <SectionRow
               icon="wallet-outline"
@@ -374,9 +748,7 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               iconBg={colors.successLight}
               label="Wallets"
               value={String(stats.totalWallets)}
-              borderColor={colors.border}
-              textColor={colors.textSecondary}
-              valueColor={colors.text}
+              loading={statsLoading}
             />
             <SectionRow
               icon="tag-outline"
@@ -384,9 +756,7 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               iconBg={colors.warningLight}
               label="Categories"
               value={String(stats.totalCategories)}
-              borderColor={colors.border}
-              textColor={colors.textSecondary}
-              valueColor={colors.text}
+              loading={statsLoading}
             />
             <SectionRow
               icon="target"
@@ -394,9 +764,7 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               iconBg="rgba(224,64,251,0.12)"
               label="Goals"
               value={String(stats.totalGoals)}
-              borderColor={colors.border}
-              textColor={colors.textSecondary}
-              valueColor={colors.text}
+              loading={statsLoading}
             />
             <SectionRow
               icon="calculator-variant-outline"
@@ -404,48 +772,77 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               iconBg={colors.dangerLight}
               label="Budgets"
               value={String(stats.totalBudgets)}
-              borderColor={colors.border}
-              textColor={colors.textSecondary}
-              valueColor={colors.text}
+              loading={statsLoading}
               isLast
             />
           </View>
         </Animated.View>
 
-        {/* Actions */}
-        <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.actionsSection}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleLogoutPress}
-            style={({pressed}) => [
-              styles.outlineBtn,
+        <Animated.View
+          entering={FadeInUp.delay(500).duration(400)}>
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>
+            Session
+          </Text>
+          <View
+            style={[
+              styles.card,
+              shadows.sm,
               {
-                borderColor: colors.danger,
-                borderRadius: radius.md,
-                opacity: pressed ? 0.88 : 1,
+                backgroundColor: colors.surface,
+                borderRadius: radius.lg,
               },
-            ]}
-          >
-            <AppIcon name="logout" size={20} color={colors.danger} />
-            <Text style={[styles.outlineBtnText, {color: colors.danger}]}>Log Out</Text>
-          </Pressable>
+            ]}>
+            <Button
+              title="Log Out"
+              onPress={handleLogoutPress}
+              variant="outline"
+              fullWidth
+              size="lg"
+              icon={
+                <AppIcon name="logout" size={18} color={colors.primary} />
+              }
+            />
+          </View>
         </Animated.View>
 
-        {/* Danger Zone */}
-        <Animated.View entering={FadeIn.delay(700).duration(400)}>
-          <Text style={[styles.sectionTitle, {color: colors.danger}]}>Danger Zone</Text>
-          <View style={[styles.dangerCard, {backgroundColor: colors.dangerLight, borderColor: colors.danger + '40', borderRadius: radius.lg}]}>
+        <Animated.View entering={FadeIn.delay(600).duration(400)}>
+          <Text style={[styles.sectionTitle, {color: colors.danger}]}>
+            Danger Zone
+          </Text>
+          <View
+            style={[
+              styles.dangerCard,
+              shadows.sm,
+              {
+                backgroundColor: colors.dangerLight,
+                borderColor: colors.danger + '40',
+                borderRadius: radius.lg,
+              },
+            ]}>
             <View style={styles.dangerContent}>
-              <AppIcon name="alert-outline" size={20} color={colors.danger} />
+              <AppIcon
+                name="alert-outline"
+                size={20}
+                color={colors.danger}
+              />
               <View style={styles.dangerTextWrap}>
-                <Text style={[styles.dangerTitle, {color: colors.danger}]}>Delete Account</Text>
-                <Text style={[styles.dangerDesc, {color: colors.textSecondary}]}>
-                  Permanently remove your account and all associated data. This action cannot be undone.
+                <Text
+                  style={[styles.dangerTitle, {color: colors.danger}]}>
+                  Delete Account
+                </Text>
+                <Text
+                  style={[
+                    styles.dangerDesc,
+                    {color: colors.textSecondary},
+                  ]}>
+                  Permanently remove your account and all associated data.
+                  This action cannot be undone.
                 </Text>
               </View>
             </View>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Delete my account"
               onPress={handleDeletePress}
               style={({pressed}) => [
                 styles.dangerBtn,
@@ -453,9 +850,9 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
                   backgroundColor: colors.danger,
                   borderRadius: radius.md,
                   opacity: pressed ? 0.88 : 1,
+                  transform: [{scale: pressed ? 0.98 : 1}],
                 },
-              ]}
-            >
+              ]}>
               <AppIcon name="delete-outline" size={18} color="#FFFFFF" />
               <Text style={styles.dangerBtnText}>Delete My Account</Text>
             </Pressable>
@@ -463,7 +860,6 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
         </Animated.View>
       </KeyboardAwareScrollView>
 
-      {/* Logout Sheet */}
       <BottomSheet
         ref={logoutSheetRef}
         index={-1}
@@ -471,37 +867,46 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={{backgroundColor: colors.surface}}
-        handleIndicatorStyle={{backgroundColor: colors.border}}
-      >
-        <BottomSheetView style={[styles.sheetContent, {paddingHorizontal: spacing.base}]}>
-          <Text style={[styles.sheetTitle, {color: colors.text}]}>Log out?</Text>
+        handleIndicatorStyle={{backgroundColor: colors.border}}>
+        <BottomSheetView
+          style={[
+            styles.sheetContent,
+            {paddingHorizontal: spacing.base, gap: spacing.md},
+          ]}>
+          <View
+            style={[
+              styles.sheetIconWrap,
+              {backgroundColor: colors.primaryLight + '33'},
+            ]}>
+            <AppIcon name="logout" size={24} color={colors.primary} />
+          </View>
+          <Text style={[styles.sheetTitle, {color: colors.text}]}>
+            Log out?
+          </Text>
           <Text style={[styles.sheetBody, {color: colors.textSecondary}]}>
             You will need to sign in again to access your account.
           </Text>
           <View style={styles.sheetActions}>
-            <Pressable
+            <Button
+              title="Cancel"
               onPress={handleLogoutCancel}
-              style={({pressed}) => [
-                styles.sheetBtn,
-                {backgroundColor: colors.surfaceElevated, borderRadius: radius.md, opacity: pressed ? 0.88 : 1},
-              ]}
-            >
-              <Text style={[styles.sheetBtnText, {color: colors.text}]}>Cancel</Text>
-            </Pressable>
-            <Pressable
+              variant="secondary"
+              size="lg"
+              fullWidth
+              style={styles.sheetBtnFlex}
+            />
+            <Button
+              title="Log Out"
               onPress={handleLogoutConfirm}
-              style={({pressed}) => [
-                styles.sheetBtn,
-                {backgroundColor: colors.danger, borderRadius: radius.md, opacity: pressed ? 0.88 : 1},
-              ]}
-            >
-              <Text style={[styles.sheetBtnText, {color: '#FFFFFF'}]}>Log Out</Text>
-            </Pressable>
+              variant="primary"
+              size="lg"
+              fullWidth
+              style={styles.sheetBtnFlex}
+            />
           </View>
         </BottomSheetView>
       </BottomSheet>
 
-      {/* Delete Account Sheet */}
       <BottomSheet
         ref={deleteSheetRef}
         index={-1}
@@ -509,32 +914,74 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={{backgroundColor: colors.surface}}
-        handleIndicatorStyle={{backgroundColor: colors.border}}
-      >
-        <BottomSheetView style={[styles.sheetContent, {paddingHorizontal: spacing.base}]}>
-          <AppIcon name="alert-circle-outline" size={36} color={colors.danger} />
-          <Text style={[styles.sheetTitle, {color: colors.danger}]}>Delete Account?</Text>
-          <Text style={[styles.sheetBody, {color: colors.textSecondary}]}>
-            All your data, including transactions, wallets, budgets, and goals will be permanently deleted. This cannot be undone.
+        handleIndicatorStyle={{backgroundColor: colors.border}}>
+        <BottomSheetView
+          style={[
+            styles.sheetContent,
+            {paddingHorizontal: spacing.base, gap: spacing.md},
+          ]}>
+          <View
+            style={[
+              styles.sheetIconWrap,
+              {backgroundColor: colors.dangerLight},
+            ]}>
+            <AppIcon
+              name="alert-circle-outline"
+              size={28}
+              color={colors.danger}
+            />
+          </View>
+          <Text style={[styles.sheetTitle, {color: colors.danger}]}>
+            Delete Account?
           </Text>
+          <Text style={[styles.sheetBody, {color: colors.textSecondary}]}>
+            All your data — transactions, wallets, budgets, and goals — will
+            be permanently deleted. This cannot be undone.
+          </Text>
+          <View style={{width: '100%'}}>
+            <Input
+              label='Type "DELETE" to confirm'
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="DELETE"
+              testID="delete-confirm-input"
+            />
+          </View>
           <View style={styles.sheetActions}>
-            <Pressable
+            <Button
+              title="Cancel"
               onPress={handleDeleteCancel}
-              style={({pressed}) => [
-                styles.sheetBtn,
-                {backgroundColor: colors.surfaceElevated, borderRadius: radius.md, opacity: pressed ? 0.88 : 1},
-              ]}
-            >
-              <Text style={[styles.sheetBtnText, {color: colors.text}]}>Cancel</Text>
-            </Pressable>
+              variant="secondary"
+              size="lg"
+              fullWidth
+              style={styles.sheetBtnFlex}
+            />
             <Pressable
-              onPress={handleDeleteConfirm}
+              onPress={deleteConfirmValid ? handleDeleteConfirm : undefined}
+              disabled={!deleteConfirmValid}
+              accessibilityRole="button"
+              accessibilityLabel="Delete Forever"
               style={({pressed}) => [
-                styles.sheetBtn,
-                {backgroundColor: colors.danger, borderRadius: radius.md, opacity: pressed ? 0.88 : 1},
-              ]}
-            >
-              <Text style={[styles.sheetBtnText, {color: '#FFFFFF'}]}>Delete Forever</Text>
+                styles.sheetDangerBtn,
+                {
+                  backgroundColor: deleteConfirmValid
+                    ? colors.danger
+                    : colors.border,
+                  borderRadius: radius.md,
+                  opacity: deleteConfirmValid ? (pressed ? 0.88 : 1) : 0.6,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.sheetDangerBtnText,
+                  {
+                    color: deleteConfirmValid
+                      ? '#FFFFFF'
+                      : colors.textTertiary,
+                  },
+                ]}>
+                Delete Forever
+              </Text>
             </Pressable>
           </View>
         </BottomSheetView>
@@ -547,38 +994,72 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
-  header: {
+  emptyText: {
+    fontSize: 15,
+    fontWeight: fontWeight.medium,
+  },
+  headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: fontWeight.semibold,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   avatarSection: {
     alignItems: 'center',
     marginBottom: 24,
-    gap: 4,
+    gap: 6,
+  },
+  avatarPressable: {
+    width: 96,
+    height: 96,
+    marginBottom: 12,
+    position: 'relative',
   },
   avatarOuter: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 96,
+    height: 96,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
   },
   avatarText: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: fontWeight.bold,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
   },
   userName: {
     fontSize: 22,
@@ -586,20 +1067,20 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 20,
   },
   memberBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 6,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 8,
     borderWidth: 1,
   },
   memberBadgeText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: fontWeight.medium,
   },
   banner: {
@@ -610,30 +1091,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bannerText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: fontWeight.medium,
     flex: 1,
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: fontWeight.semibold,
-    marginBottom: 8,
-    marginTop: 8,
+    marginBottom: 10,
+    marginTop: 20,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   card: {
-    borderWidth: 1,
     padding: 16,
     gap: 14,
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  primaryBtn: {
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    fontSize: 15,
-    fontWeight: fontWeight.semibold,
+  disabledInputWrap: {
+    opacity: 0.65,
   },
   expandRow: {
     flexDirection: 'row',
@@ -657,41 +1133,25 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    gap: 10,
+    gap: 12,
   },
   statIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statLabel: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: fontWeight.medium,
   },
   statValue: {
     fontSize: 15,
     fontWeight: fontWeight.bold,
-  },
-  actionsSection: {
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  outlineBtn: {
-    height: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-  },
-  outlineBtnText: {
-    fontSize: 17,
-    fontWeight: fontWeight.semibold,
   },
   dangerCard: {
     borderWidth: 1,
@@ -712,25 +1172,33 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   dangerDesc: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 21,
   },
   dangerBtn: {
-    height: 44,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   dangerBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: fontWeight.semibold,
     color: '#FFFFFF',
   },
   sheetContent: {
-    gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 32,
     alignItems: 'center',
+  },
+  sheetIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 4,
   },
   sheetTitle: {
     fontSize: 20,
@@ -738,8 +1206,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sheetBody: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 21,
     textAlign: 'center',
   },
   sheetActions: {
@@ -748,13 +1216,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     width: '100%',
   },
-  sheetBtn: {
+  sheetBtnFlex: {
+    flex: 1,
+  },
+  sheetDangerBtn: {
     flex: 1,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sheetBtnText: {
+  sheetDangerBtnText: {
     fontSize: 15,
     fontWeight: fontWeight.semibold,
   },
