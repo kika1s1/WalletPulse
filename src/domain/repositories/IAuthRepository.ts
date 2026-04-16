@@ -9,6 +9,7 @@ export type AuthResult = {
 export type UpdateProfileFields = {
   fullName?: string;
   avatarUrl?: string;
+  address?: string;
 };
 
 export interface IAuthRepository {

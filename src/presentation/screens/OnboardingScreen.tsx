@@ -23,8 +23,6 @@ import Animated, {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {Input} from '@presentation/components/common';
-import {Chip} from '@presentation/components/common/Chip';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
@@ -41,7 +39,6 @@ const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const STEP_ICONS: Record<string, string> = {
   wallet: 'wallet-outline',
   currency: 'swap-horizontal-circle-outline',
-  creditcard: 'credit-card-outline',
   bell: 'bell-outline',
 };
 
@@ -165,59 +162,6 @@ function CurrencyStep({
             </Text>
           </Pressable>
         ))}
-      </Animated.View>
-    </View>
-  );
-}
-
-function WalletStep({
-  walletName,
-  onChangeName,
-  error,
-  colors,
-}: {
-  walletName: string;
-  onChangeName: (n: string) => void;
-  error: string | null;
-  colors: any;
-}) {
-  return (
-    <View style={styles.stepContent}>
-      <Animated.Text
-        entering={FadeInUp.delay(100).duration(300)}
-        style={[styles.stepTitle, {color: colors.text}]}
-      >
-        Create your first wallet
-      </Animated.Text>
-      <Animated.Text
-        entering={FadeInUp.delay(200).duration(300)}
-        style={[styles.stepSubtitle, {color: colors.textSecondary}]}
-      >
-        A wallet groups your transactions. Name it after your bank account, cash, or credit card.
-      </Animated.Text>
-      <Animated.View entering={FadeIn.delay(300).duration(300)} style={styles.walletForm}>
-        <Input
-          label="Wallet name"
-          value={walletName}
-          onChangeText={onChangeName}
-          placeholder="e.g. Main Bank Account"
-          error={error ?? undefined}
-          maxLength={30}
-        />
-        <View style={styles.walletSuggestions}>
-          <Text style={[styles.suggestLabel, {color: colors.textTertiary}]}>Quick picks:</Text>
-          <View style={styles.suggestRow}>
-            {['Main Account', 'Cash', 'Savings', 'Credit Card'].map((name) => (
-              <Chip
-                key={name}
-                label={name}
-                onPress={() => onChangeName(name)}
-                selected={walletName === name}
-                size="sm"
-              />
-            ))}
-          </View>
-        </View>
       </Animated.View>
     </View>
   );
@@ -355,14 +299,13 @@ export default function OnboardingScreen() {
   const setBaseCurrency = useAppStore((s) => s.setBaseCurrency);
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [walletName, setWalletName] = useState('Main Account');
   const [currency, setCurrency] = useState('USD');
   const [enableNotifications, setEnableNotifications] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
 
   const state: OnboardingState = useMemo(
-    () => ({walletName, currency, enableNotifications}),
-    [walletName, currency, enableNotifications],
+    () => ({currency, enableNotifications}),
+    [currency, enableNotifications],
   );
 
   const canGoNext = currentStep < steps.length - 1;
@@ -395,11 +338,10 @@ export default function OnboardingScreen() {
     }
 
     useSettingsStore.getState().setNotificationEnabled(enableNotifications);
-    useSettingsStore.getState().setOnboardingWalletName(walletName.trim() || 'Main Account');
     useSettingsStore.getState().setOnboardingCurrency(currency.toUpperCase());
     setBaseCurrency(currency);
     setOnboardingCompleted(true);
-  }, [currentStep, steps, state, walletName, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted]);
+  }, [currentStep, steps, state, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted]);
 
   const handleSkip = useCallback(async () => {
     useSettingsStore.getState().setNotificationEnabled(false);
@@ -472,17 +414,6 @@ export default function OnboardingScreen() {
           />
         )}
         {currentStep === 2 && (
-          <WalletStep
-            walletName={walletName}
-            onChangeName={(n) => {
-              setWalletName(n);
-              setStepError(null);
-            }}
-            error={stepError}
-            colors={colors}
-          />
-        )}
-        {currentStep === 3 && (
           <NotificationStep
             enabled={enableNotifications}
             onToggle={setEnableNotifications}
@@ -490,7 +421,7 @@ export default function OnboardingScreen() {
             radius={radius}
           />
         )}
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <CompleteStep colors={colors} onGetStarted={handleFinish} />
         )}
       </ScrollView>
@@ -507,7 +438,7 @@ export default function OnboardingScreen() {
             },
           ]}
         >
-          {stepError && currentStep !== 2 && (
+          {stepError && (
             <Text
               accessibilityLiveRegion="polite"
               accessibilityRole="alert"
@@ -656,22 +587,6 @@ const styles = StyleSheet.create({
   currencyCode: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  walletForm: {
-    gap: 16,
-    marginTop: 8,
-  },
-  walletSuggestions: {
-    gap: 8,
-  },
-  suggestLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  suggestRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
   },
   notifCard: {
     borderWidth: 1,

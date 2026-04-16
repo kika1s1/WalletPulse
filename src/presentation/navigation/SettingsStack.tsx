@@ -17,6 +17,7 @@ const BudgetDetailScreen = React.lazy(() => import('@presentation/screens/Budget
 const TemplateManagementScreen = React.lazy(() => import('@presentation/screens/TemplateManagementScreen'));
 const CreateTemplateScreen = React.lazy(() => import('@presentation/screens/CreateTemplateScreen'));
 const ExportScreen = React.lazy(() => import('@presentation/screens/ExportScreen'));
+const AccountStatementScreen = React.lazy(() => import('@presentation/screens/AccountStatementScreen'));
 const BillRemindersScreen = React.lazy(() => import('@presentation/screens/BillRemindersScreen'));
 const CreateBillReminderScreen = React.lazy(() => import('@presentation/screens/CreateBillReminderScreen'));
 const GoalsListScreen = React.lazy(() => import('@presentation/screens/GoalsListScreen'));
@@ -55,6 +56,7 @@ export default function SettingsStack() {
         <Stack.Screen name="TemplateManagement" component={TemplateManagementScreen} />
         <Stack.Screen name="CreateTemplate" component={CreateTemplateScreen} />
         <Stack.Screen name="Export" component={ExportScreen} />
+        <Stack.Screen name="AccountStatement" component={AccountStatementScreen} />
         <Stack.Screen name="BillReminders" component={BillRemindersScreen} />
         <Stack.Screen name="CreateBillReminder" component={CreateBillReminderScreen} />
         <Stack.Screen name="GoalsList" component={GoalsListScreen} />

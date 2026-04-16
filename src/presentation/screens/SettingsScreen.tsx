@@ -582,6 +582,13 @@ export default function SettingsScreen() {
             onPress={() => navigation.navigate('Export')}
             value="Export"
           />
+          <SettingsRow
+            description="Generate a professional PDF statement"
+            icon="file-document-outline"
+            label="Account Statement"
+            onPress={() => navigation.navigate('AccountStatement')}
+            value="Generate"
+          />
         </View>
 
         <SectionHeader title="ABOUT" />

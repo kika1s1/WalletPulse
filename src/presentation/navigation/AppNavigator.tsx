@@ -49,7 +49,7 @@ export default function AppNavigator() {
   }
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) { return; }
+    if (!isAuthenticated || !user?.id || !onboardingCompleted) { return; }
 
     let cancelled = false;
 
@@ -58,13 +58,13 @@ export default function AppNavigator() {
       if (!alreadySeeded) {
         try {
           const ds = getLocalDataSource(user.id);
-          const {onboardingWalletName, onboardingCurrency} = useSettingsStore.getState();
+          const {onboardingCurrency} = useSettingsStore.getState();
           await seedDefaultCategories(user.id);
           const create = makeCreateWallet({walletRepo: ds.wallets});
           const now = Date.now();
           await create({
             id: generateId(),
-            name: onboardingWalletName || 'Main Account',
+            name: 'Main Account',
             currency: onboardingCurrency || 'USD',
             balance: 0,
             isActive: true,
@@ -93,7 +93,7 @@ export default function AppNavigator() {
       stopSettingsSync();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, onboardingCompleted]);
 
   const navTheme = useMemo(() => {
     const base = isDark ? DarkTheme : DefaultTheme;
@@ -123,10 +123,10 @@ export default function AppNavigator() {
     <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Suspense fallback={<LazyFallback />}>
         <Stack.Navigator screenOptions={{headerShown: false}}>
-          {!onboardingCompleted ? (
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          ) : !isAuthenticated ? (
+          {!isAuthenticated ? (
             <Stack.Screen name="Auth" component={AuthStack} />
+          ) : !onboardingCompleted ? (
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           ) : (
             <Stack.Screen name="MainTabs" component={TabNavigator} />
           )}

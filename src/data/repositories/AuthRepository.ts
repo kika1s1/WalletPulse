@@ -24,6 +24,7 @@ function mapRowToUser(row: Record<string, unknown>): User {
     email: row.email as string,
     fullName: row.full_name as string,
     avatarUrl: (row.avatar_url as string) ?? '',
+    address: (row.address as string) ?? '',
     createdAt: new Date(row.created_at as string).getTime(),
     updatedAt: new Date(row.updated_at as string).getTime(),
   };
@@ -70,6 +71,7 @@ export class AuthRepository implements IAuthRepository {
         password_hash: passwordHash,
         full_name: fullName.trim(),
         avatar_url: '',
+        address: '',
         created_at: now,
         updated_at: now,
       })
@@ -148,6 +150,9 @@ export class AuthRepository implements IAuthRepository {
     }
     if (fields.avatarUrl !== undefined) {
       updates.avatar_url = fields.avatarUrl;
+    }
+    if (fields.address !== undefined) {
+      updates.address = fields.address.trim();
     }
 
     const {data: userRow, error} = await this.supabase

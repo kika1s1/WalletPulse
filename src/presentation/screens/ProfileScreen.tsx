@@ -52,6 +52,7 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
   const {stats} = useAccountStats();
 
   const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [address, setAddress] = useState(user?.address ?? '');
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -69,8 +70,10 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
   const deleteSnapPoints = useMemo(() => ['36%'], []);
 
   useEffect(() => {
-    setHasChanges(fullName.trim() !== (user?.fullName ?? ''));
-  }, [fullName, user?.fullName]);
+    const nameChanged = fullName.trim() !== (user?.fullName ?? '');
+    const addressChanged = address.trim() !== (user?.address ?? '');
+    setHasChanges(nameChanged || addressChanged);
+  }, [fullName, address, user?.fullName, user?.address]);
 
   useEffect(() => {
     if (error) {
@@ -82,13 +85,13 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
   const handleSave = useCallback(async () => {
     if (!hasChanges) { return; }
     try {
-      await updateProfile({fullName: fullName.trim()});
+      await updateProfile({fullName: fullName.trim(), address: address.trim()});
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch {
       // store captures error
     }
-  }, [hasChanges, fullName, updateProfile]);
+  }, [hasChanges, fullName, address, updateProfile]);
 
   const handleChangePassword = useCallback(async () => {
     setPasswordError('');
@@ -237,6 +240,16 @@ export default function ProfileScreen({navigation}: SettingsStackScreenProps<'Pr
               editable={false}
               testID="profile-email"
               helperText="Email cannot be changed"
+            />
+            <Input
+              label="Address"
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Street, City, Country"
+              multiline
+              numberOfLines={3}
+              testID="profile-address"
+              helperText="Used on account statements"
             />
             <Pressable
               accessibilityRole="button"

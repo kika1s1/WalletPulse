@@ -6,8 +6,8 @@ import {
 
 describe('onboarding-validation', () => {
   describe('getOnboardingSteps', () => {
-    it('returns 5 steps including completion', () => {
-      expect(getOnboardingSteps()).toHaveLength(5);
+    it('returns 4 steps including completion', () => {
+      expect(getOnboardingSteps()).toHaveLength(4);
     });
 
     it('steps have required fields', () => {
@@ -22,7 +22,6 @@ describe('onboarding-validation', () => {
 
   describe('validateOnboardingStep', () => {
     const base: OnboardingState = {
-      walletName: 'My Wallet',
       currency: 'USD',
       enableNotifications: false,
     };
@@ -38,23 +37,6 @@ describe('onboarding-validation', () => {
       );
       expect(validateOnboardingStep('currency', {...base, currency: 'XX'})).toBe(
         'Select a valid currency',
-      );
-    });
-
-    it('wallet step requires a non-empty wallet name', () => {
-      expect(validateOnboardingStep('wallet', base)).toBeNull();
-      expect(validateOnboardingStep('wallet', {...base, walletName: ''})).toBe(
-        'Enter a wallet name',
-      );
-      expect(validateOnboardingStep('wallet', {...base, walletName: '   '})).toBe(
-        'Enter a wallet name',
-      );
-    });
-
-    it('wallet name must not exceed 30 characters', () => {
-      const long = 'a'.repeat(31);
-      expect(validateOnboardingStep('wallet', {...base, walletName: long})).toBe(
-        'Wallet name must be 30 characters or fewer',
       );
     });
 

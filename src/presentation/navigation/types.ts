@@ -58,6 +58,7 @@ export type SettingsStackParamList = {
   TemplateManagement: undefined;
   CreateTemplate: undefined;
   Export: undefined;
+  AccountStatement: undefined;
   BillReminders: {highlightBillId?: string} | undefined;
   CreateBillReminder: {editBillId?: string} | undefined;
   GoalsList: undefined;

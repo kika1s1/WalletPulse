@@ -16,6 +16,7 @@ describe('createUser', () => {
     expect(user.email).toBe('test@example.com');
     expect(user.fullName).toBe('Test User');
     expect(user.avatarUrl).toBe('');
+    expect(user.address).toBe('');
   });
 
   it('trims and lowercases email', () => {
@@ -52,5 +53,15 @@ describe('createUser', () => {
     const {avatarUrl, ...rest} = validInput;
     const user = createUser({...rest, avatarUrl: undefined} as CreateUserInput);
     expect(user.avatarUrl).toBe('');
+  });
+
+  it('defaults address to empty string', () => {
+    const user = createUser(validInput);
+    expect(user.address).toBe('');
+  });
+
+  it('stores and trims address when provided', () => {
+    const user = createUser({...validInput, address: '  123 Main St\nLagos, Nigeria  '});
+    expect(user.address).toBe('123 Main St\nLagos, Nigeria');
   });
 });

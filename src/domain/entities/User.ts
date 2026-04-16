@@ -3,6 +3,7 @@ export type User = {
   email: string;
   fullName: string;
   avatarUrl: string;
+  address: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -12,6 +13,7 @@ export type CreateUserInput = {
   email: string;
   fullName: string;
   avatarUrl?: string;
+  address?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -36,6 +38,7 @@ export function createUser(input: CreateUserInput): User {
     email,
     fullName: input.fullName.trim(),
     avatarUrl: input.avatarUrl ?? '',
+    address: input.address?.trim() ?? '',
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
   };

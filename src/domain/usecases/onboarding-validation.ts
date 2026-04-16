@@ -1,4 +1,4 @@
-export type OnboardingStepId = 'welcome' | 'currency' | 'wallet' | 'notifications' | 'complete';
+export type OnboardingStepId = 'welcome' | 'currency' | 'notifications' | 'complete';
 
 export type OnboardingStep = {
   id: OnboardingStepId;
@@ -8,12 +8,9 @@ export type OnboardingStep = {
 };
 
 export type OnboardingState = {
-  walletName: string;
   currency: string;
   enableNotifications: boolean;
 };
-
-const MAX_WALLET_NAME = 30;
 
 export function getOnboardingSteps(): OnboardingStep[] {
   return [
@@ -30,13 +27,6 @@ export function getOnboardingSteps(): OnboardingStep[] {
       description:
         'Select your primary currency. You can always add more currencies and convert between them later.',
       icon: 'currency',
-    },
-    {
-      id: 'wallet',
-      title: 'Create your first wallet',
-      description:
-        'A wallet groups your transactions. You might have one for cash, a bank account, or a credit card.',
-      icon: 'creditcard',
     },
     {
       id: 'notifications',
@@ -69,17 +59,6 @@ export function validateOnboardingStep(
       }
       if (state.currency.length !== 3 || !/^[A-Z]{3}$/.test(state.currency)) {
         return 'Select a valid currency';
-      }
-      return null;
-    }
-
-    case 'wallet': {
-      const trimmed = state.walletName.trim();
-      if (!trimmed) {
-        return 'Enter a wallet name';
-      }
-      if (trimmed.length > MAX_WALLET_NAME) {
-        return `Wallet name must be ${MAX_WALLET_NAME} characters or fewer`;
       }
       return null;
     }
