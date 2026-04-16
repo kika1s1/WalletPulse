@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,10 +18,20 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-import {usePinStore} from '@presentation/stores/usePinStore';
+import {
+  AUTO_LOCK_TIMEOUT_OPTIONS,
+  usePinStore,
+} from '@presentation/stores/usePinStore';
+import {isBiometricAvailable} from '@infrastructure/security/biometric-service';
+import {
+  getStoredPinLength,
+  type PinLength,
+} from '@infrastructure/security/pin-service';
+import {isScreenshotProtectionAvailable} from '@infrastructure/native/SecurityBridge';
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {PinPad} from '@presentation/components/PinPad';
 import {
   createBackup,
   listBackups,
@@ -142,7 +152,48 @@ export default function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const settings = useSettingsStore();
   const isPinEnabled = usePinStore((s) => s.isPinEnabled);
-  const removePin = usePinStore((s) => s.removePin);
+  const removePinWithVerification = usePinStore(
+    (s) => s.removePinWithVerification,
+  );
+  const biometricEnabled = usePinStore((s) => s.biometricEnabled);
+  const enableBiometric = usePinStore((s) => s.enableBiometric);
+  const disableBiometric = usePinStore((s) => s.disableBiometric);
+  const autoLockTimeoutMs = usePinStore((s) => s.autoLockTimeoutMs);
+  const setAutoLockTimeout = usePinStore((s) => s.setAutoLockTimeout);
+  const screenshotProtectionEnabled = usePinStore((s) => s.screenshotProtectionEnabled);
+  const setScreenshotProtectionEnabled = usePinStore(
+    (s) => s.setScreenshotProtectionEnabled,
+  );
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [autoLockPickerVisible, setAutoLockPickerVisible] = useState(false);
+  const [biometricPinModalVisible, setBiometricPinModalVisible] = useState(false);
+  const [biometricPinDraft, setBiometricPinDraft] = useState('');
+  const [biometricPinError, setBiometricPinError] = useState<string | null>(null);
+  const [biometricBusy, setBiometricBusy] = useState(false);
+  const [disablePinModalVisible, setDisablePinModalVisible] = useState(false);
+  const [disablePinDraft, setDisablePinDraft] = useState('');
+  const [disablePinError, setDisablePinError] = useState<string | null>(null);
+  const [disablePinBusy, setDisablePinBusy] = useState(false);
+  const [biometricPinLength, setBiometricPinLength] = useState<PinLength>(4);
+  const screenshotSupported = useMemo(() => isScreenshotProtectionAvailable(), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void isBiometricAvailable().then((supported) => {
+      if (!cancelled) {
+        setBiometricSupported(supported);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const autoLockLabel = useMemo(() => {
+    const match = AUTO_LOCK_TIMEOUT_OPTIONS.find((o) => o.value === autoLockTimeoutMs);
+    return match?.label ?? 'Immediately';
+  }, [autoLockTimeoutMs]);
+
   const {
     isEnabled,
     isActive,
@@ -366,14 +417,9 @@ export default function SettingsScreen() {
                   if (val) {
                     navigation.navigate('SetPin');
                   } else {
-                    Alert.alert(
-                      'Remove PIN?',
-                      'Anyone will be able to open the app without a PIN.',
-                      [
-                        {text: 'Cancel', style: 'cancel'},
-                        {text: 'Remove', style: 'destructive', onPress: removePin},
-                      ],
-                    );
+                    setDisablePinDraft('');
+                    setDisablePinError(null);
+                    setDisablePinModalVisible(true);
                   }
                 }}
                 thumbColor={isPinEnabled ? colors.primary : colors.border}
@@ -384,10 +430,68 @@ export default function SettingsScreen() {
           />
           {isPinEnabled && (
             <SettingsRow
-              description="Set a new 4-digit PIN"
+              description="Set a new PIN (4 or 6 digits)"
               icon="key-variant"
               label="Change PIN"
               onPress={() => navigation.navigate('SetPin')}
+            />
+          )}
+          {isPinEnabled && biometricSupported && (
+            <SettingsRow
+              description={
+                biometricEnabled
+                  ? 'Fingerprint or face unlock is enabled'
+                  : 'Unlock with fingerprint or face'
+              }
+              icon="fingerprint"
+              label="Biometric Unlock"
+              trailing={
+                <Switch
+                  onValueChange={(val) => {
+                    if (val) {
+                      setBiometricPinDraft('');
+                      setBiometricPinError(null);
+                      void getStoredPinLength().then((len) => {
+                        setBiometricPinLength(len ?? 4);
+                        setBiometricPinModalVisible(true);
+                      });
+                    } else {
+                      void disableBiometric();
+                    }
+                  }}
+                  thumbColor={biometricEnabled ? colors.primary : colors.border}
+                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                  value={biometricEnabled}
+                />
+              }
+            />
+          )}
+          {isPinEnabled && (
+            <SettingsRow
+              description="How long to wait before locking automatically"
+              icon="timer-sand"
+              label="Auto-lock"
+              onPress={() => setAutoLockPickerVisible(true)}
+              value={autoLockLabel}
+            />
+          )}
+          {screenshotSupported && (
+            <SettingsRow
+              description={
+                screenshotProtectionEnabled
+                  ? 'Screenshots are blocked and the app preview is hidden'
+                  : 'Block screenshots and hide preview in the app switcher'
+              }
+              icon="shield-lock-outline"
+              label="Screenshot Protection"
+              trailing={
+                <Switch
+                  onValueChange={(val) => setScreenshotProtectionEnabled(val)}
+                  thumbColor={screenshotProtectionEnabled ? colors.primary : colors.border}
+                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                  value={screenshotProtectionEnabled}
+                />
+              }
             />
           )}
         </View>
@@ -694,6 +798,223 @@ export default function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        animationType="slide"
+        visible={biometricPinModalVisible}
+        onRequestClose={() => setBiometricPinModalVisible(false)}>
+        <View
+          style={[
+            styles.fullScreenModal,
+            {backgroundColor: colors.background},
+          ]}>
+          <Pressable
+            accessibilityLabel="Cancel"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => setBiometricPinModalVisible(false)}
+            style={[
+              styles.fullScreenCloseBtn,
+              {top: insets.top + 12},
+            ]}>
+            <AppIcon name="close" size={24} color={colors.text} />
+          </Pressable>
+          <PinPad
+            title="Confirm your PIN"
+            subtitle="Enter your PIN to enable biometric unlock"
+            pin={biometricPinDraft}
+            length={biometricPinLength}
+            error={biometricPinError}
+            onPinChange={(next) => {
+              if (biometricBusy) {
+                return;
+              }
+              setBiometricPinError(null);
+              setBiometricPinDraft(next);
+              if (next.length !== biometricPinLength) {
+                return;
+              }
+              setBiometricBusy(true);
+              void (async () => {
+                try {
+                  const store = usePinStore.getState();
+                  const ok = await store.verifyPin(next);
+                  if (!ok) {
+                    setBiometricPinError('Wrong PIN');
+                    setBiometricPinDraft('');
+                    return;
+                  }
+                  await enableBiometric(next);
+                  setBiometricPinModalVisible(false);
+                  setBiometricPinDraft('');
+                  setBiometricPinError(null);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  setBiometricPinError(msg);
+                  setBiometricPinDraft('');
+                } finally {
+                  setBiometricBusy(false);
+                }
+              })();
+            }}
+          />
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={disablePinModalVisible}
+        onRequestClose={() => setDisablePinModalVisible(false)}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close confirm PIN"
+          onPress={() => setDisablePinModalVisible(false)}
+          style={styles.modalBackdrop}>
+          <Pressable
+            onPress={() => {}}
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.borderLight,
+                padding: spacing.base,
+              },
+            ]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>
+              Remove PIN lock?
+            </Text>
+            <Text
+              style={[
+                styles.modalSubtitle,
+                {color: colors.textSecondary, marginBottom: spacing.md},
+              ]}>
+              Enter your current PIN to turn off the app lock. Anyone will be
+              able to open WalletPulse without a PIN afterwards.
+            </Text>
+            <View style={{height: 400}}>
+              <PinPad
+                title=""
+                subtitle=""
+                pin={disablePinDraft}
+                length={6}
+                error={disablePinError}
+                onPinChange={async (next) => {
+                  if (disablePinBusy) {
+                    return;
+                  }
+                  setDisablePinDraft(next);
+                  if (next.length >= 4) {
+                    setDisablePinBusy(true);
+                    try {
+                      const result = await removePinWithVerification(next);
+                      if (!result.ok) {
+                        if (next.length >= 6) {
+                          setDisablePinError('Wrong PIN');
+                          setDisablePinDraft('');
+                        }
+                        return;
+                      }
+                      setDisablePinModalVisible(false);
+                      setDisablePinDraft('');
+                      setDisablePinError(null);
+                    } catch (e) {
+                      const msg = e instanceof Error ? e.message : String(e);
+                      setDisablePinError(msg);
+                      setDisablePinDraft('');
+                    } finally {
+                      setDisablePinBusy(false);
+                    }
+                  }
+                }}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={autoLockPickerVisible}
+        onRequestClose={() => setAutoLockPickerVisible(false)}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close auto-lock picker"
+          onPress={() => setAutoLockPickerVisible(false)}
+          style={styles.modalBackdrop}>
+          <Pressable
+            onPress={() => {}}
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.borderLight,
+                padding: spacing.base,
+              },
+            ]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>
+              Auto-lock timeout
+            </Text>
+            <Text
+              style={[
+                styles.modalSubtitle,
+                {color: colors.textSecondary, marginBottom: spacing.md},
+              ]}>
+              Choose how long the app can stay unlocked in the background.
+            </Text>
+            {AUTO_LOCK_TIMEOUT_OPTIONS.map((opt) => {
+              const selected = opt.value === autoLockTimeoutMs;
+              return (
+                <Pressable
+                  key={opt.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{selected}}
+                  onPress={() => {
+                    setAutoLockTimeout(opt.value);
+                    setAutoLockPickerVisible(false);
+                  }}
+                  style={({pressed}) => [
+                    styles.backupRow,
+                    {
+                      backgroundColor: pressed
+                        ? colors.background
+                        : selected
+                          ? colors.primaryLight + '20'
+                          : colors.surface,
+                      borderColor: selected ? colors.primary : colors.borderLight,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.backupRowName,
+                      {color: selected ? colors.primary : colors.text},
+                    ]}>
+                    {opt.label}
+                  </Text>
+                  {selected ? (
+                    <Text
+                      style={[styles.backupRowMeta, {color: colors.primary}]}>
+                      Selected
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setAutoLockPickerVisible(false)}
+              style={[
+                styles.modalCancelBtn,
+                {marginTop: spacing.md, borderColor: colors.borderLight},
+              ]}>
+              <Text style={[styles.modalCancelText, {color: colors.primary}]}>
+                Close
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -846,5 +1167,18 @@ const styles = StyleSheet.create({
   modalCancelText: {
     fontSize: 15,
     fontWeight: fontWeight.semibold,
+  },
+  fullScreenModal: {
+    flex: 1,
+  },
+  fullScreenCloseBtn: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

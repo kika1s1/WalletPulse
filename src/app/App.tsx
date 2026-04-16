@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AppState, Platform, StatusBar, View, StyleSheet, PermissionsAndroid} from 'react-native';
+import {AppState, Platform, StatusBar, Text, View, StyleSheet, PermissionsAndroid} from 'react-native';
 import {Providers} from './Providers';
 import AppNavigator from '@presentation/navigation/AppNavigator';
 import {SplashScreen} from '@presentation/components/SplashScreen';
@@ -176,40 +176,80 @@ function useSubscriptionNotifications(splashDone: boolean) {
 }
 
 function AppContent() {
-  const {isDark} = useTheme();
+  const {isDark, colors} = useTheme();
   const [splashDone, setSplashDone] = useState(false);
+  const [appState, setAppState] = useState<string>(AppState.currentState);
+  const isHydrated = usePinStore((s) => s.isHydrated);
   const isPinEnabled = usePinStore((s) => s.isPinEnabled);
   const isLocked = usePinStore((s) => s.isLocked);
   const lock = usePinStore((s) => s.lock);
+  const markActive = usePinStore((s) => s.markActive);
+  const shouldLock = usePinStore((s) => s.shouldLock);
+  const hydrateFromStorage = usePinStore((s) => s.hydrateFromStorage);
   useGlobalNotificationListener();
   useRecurringScheduler(splashDone);
   useBillReminderNotifications(splashDone);
   useSubscriptionNotifications(splashDone);
 
   useEffect(() => {
+    void hydrateFromStorage();
+  }, [hydrateFromStorage]);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background' && isPinEnabled) {
+      setAppState(nextState);
+      if (!isPinEnabled) {
+        return;
+      }
+      if (nextState === 'background' || nextState === 'inactive') {
+        // Record when we left the foreground and lock immediately so any
+        // task-switcher preview or resume frame is already covered.
+        markActive();
         lock();
+      } else if (nextState === 'active') {
+        if (shouldLock()) {
+          lock();
+        } else {
+          markActive();
+        }
       }
     });
     return () => sub.remove();
-  }, [isPinEnabled, lock]);
+  }, [isPinEnabled, lock, markActive, shouldLock]);
 
   const handleSplashFinish = useCallback(() => {
     setSplashDone(true);
   }, []);
 
-  const showLock = splashDone && isPinEnabled && isLocked;
+  const ready = splashDone && isHydrated;
+  const showLock = ready && isPinEnabled && isLocked;
+  // While backgrounded/inactive with a PIN set, always cover the UI so the
+  // OS task-switcher preview and transition frames never leak content.
+  const showPrivacyCurtain =
+    isPinEnabled && appState !== 'active';
 
   return (
     <View style={styles.root}>
       <StatusBar
-        barStyle={splashDone && !showLock ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
-        backgroundColor={splashDone && !showLock ? 'transparent' : '#6C5CE7'}
-        translucent={splashDone && !showLock}
+        barStyle={ready && !showLock ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
+        backgroundColor={ready && !showLock ? 'transparent' : '#6C5CE7'}
+        translucent={ready && !showLock}
       />
-      {showLock ? <PinLockScreen /> : <AppNavigator />}
+      {ready ? (
+        showLock ? <PinLockScreen /> : <AppNavigator />
+      ) : (
+        <View style={[styles.hydrating, {backgroundColor: colors.background}]} />
+      )}
       {!splashDone && <SplashScreen onFinish={handleSplashFinish} />}
+      {showPrivacyCurtain && (
+        <View
+          pointerEvents="none"
+          style={[styles.privacyCurtain, {backgroundColor: colors.background}]}>
+          <Text style={[styles.privacyLabel, {color: colors.textSecondary}]}>
+            WalletPulse
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -232,5 +272,18 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  hydrating: {
+    flex: 1,
+  },
+  privacyCurtain: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.6,
   },
 });

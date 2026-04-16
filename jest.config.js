@@ -1,6 +1,9 @@
 module.exports = {
   preset: 'react-native',
-  setupFiles: ['react-native-get-random-values'],
+  setupFiles: [
+    'react-native-get-random-values',
+    '<rootDir>/jest.setup.js',
+  ],
   moduleNameMapper: {
     '^@domain/(.*)$': '<rootDir>/src/domain/$1',
     '^@data/(.*)$': '<rootDir>/src/data/$1',
@@ -10,6 +13,7 @@ module.exports = {
     '^@app/(.*)$': '<rootDir>/src/app/$1',
     '^@notifee/react-native$': '<rootDir>/__mocks__/@notifee/react-native.js',
     '^react-native-keychain$': '<rootDir>/__mocks__/react-native-keychain.js',
+    '^react-native-quick-crypto$': '<rootDir>/__mocks__/react-native-quick-crypto.js',
   },
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   transformIgnorePatterns: [

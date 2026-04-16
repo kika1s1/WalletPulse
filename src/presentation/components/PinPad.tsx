@@ -19,7 +19,7 @@ import {fontWeight} from '@shared/theme/typography';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 
-const PIN_LENGTH = 4;
+const DEFAULT_PIN_LENGTH = 4;
 const KEYS = [
   '1',
   '2',
@@ -43,6 +43,8 @@ type Props = {
   onPinChange: (pin: string) => void;
   error?: string | null;
   onForgotPin?: () => void;
+  length?: 4 | 6;
+  footerSlot?: React.ReactNode;
 };
 
 function PinDot({filled}: {filled: boolean}) {
@@ -139,6 +141,8 @@ export function PinPad({
   onPinChange,
   error,
   onForgotPin,
+  length = DEFAULT_PIN_LENGTH,
+  footerSlot,
 }: Props) {
   const {colors, spacing} = useTheme();
   const insets = useSafeAreaInsets();
@@ -170,12 +174,12 @@ export function PinPad({
       if (key === '') {
         return;
       }
-      if (pin.length >= PIN_LENGTH) {
+      if (pin.length >= length) {
         return;
       }
       onPinChange(pin + key);
     },
-    [onPinChange, pin],
+    [onPinChange, pin, length],
   );
 
   React.useEffect(() => {
@@ -202,7 +206,6 @@ export function PinPad({
       <View style={styles.topSection}>
         <WalletPulseLogoMark size={56} />
         <View style={{height: spacing.sm}} />
-        <AppIcon name="lock-outline" size={28} color={colors.primary} />
         <Text style={[styles.title, {color: colors.text}]}>{title}</Text>
         {subtitle ? (
           <Text style={[styles.subtitle, {color: colors.textSecondary}]}>
@@ -211,7 +214,7 @@ export function PinPad({
         ) : null}
 
         <Animated.View style={[styles.dotsRow, dotsAnimStyle]}>
-          {Array.from({length: PIN_LENGTH}).map((_, i) => (
+          {Array.from({length}).map((_, i) => (
             <PinDot key={i} filled={i < pin.length} />
           ))}
         </Animated.View>
@@ -236,6 +239,8 @@ export function PinPad({
             <PinKey key={idx} keyValue={key} onPress={handleKey} />
           ))}
         </View>
+
+        {footerSlot}
 
         {onForgotPin ? (
           <Pressable
