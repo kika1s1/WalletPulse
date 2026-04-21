@@ -43,7 +43,7 @@ class FileSaverBridgeModule(
 
     private val activityEventListener = object : BaseActivityEventListener() {
         override fun onActivityResult(
-            activity: Activity?,
+            activity: Activity,
             requestCode: Int,
             resultCode: Int,
             data: Intent?,
@@ -124,7 +124,7 @@ class FileSaverBridgeModule(
         source: PendingSource,
         promise: Promise,
     ) {
-        val activity = currentActivity
+        val activity = reactApplicationContext.currentActivity
         if (activity == null) {
             promise.reject("E_NO_ACTIVITY", "No active activity to present the picker")
             return
