@@ -14,7 +14,7 @@ import {processRecurringItems} from '@infrastructure/recurring/recurring-schedul
 import {scheduleBillNotifications, cancelAllBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
 import {scheduleSubscriptionNotifications, cancelAllSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
 import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
-import {getLocalDataSource, isDataSourceReady} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 import {useTheme} from '@shared/theme';
 
 async function requestNotificationPermission(): Promise<void> {
@@ -101,7 +101,7 @@ function useBillReminderNotifications(splashDone: boolean) {
     if (elapsed < BILL_SCHEDULE_THROTTLE_MS) {return;}
     lastScheduleRef.current = Date.now();
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const unpaid = await ds.billReminders.findUnpaid();
       await scheduleBillNotifications(unpaid);
     } catch {
@@ -144,7 +144,7 @@ function useSubscriptionNotifications(splashDone: boolean) {
     if (elapsed < SUB_SCHEDULE_THROTTLE_MS) {return;}
     lastScheduleRef.current = Date.now();
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const active = await ds.subscriptions.findActive();
       await scheduleSubscriptionNotifications(active);
     } catch {

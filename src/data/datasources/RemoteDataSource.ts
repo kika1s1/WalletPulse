@@ -1,6 +1,11 @@
 const FX_API_BASE = 'https://v6.exchangerate-api.com/v6';
 
-export type FxApiResponse = {
+// Local structural shape of the ExchangeRate-API response. The canonical
+// consumer-facing type lives in the infrastructure layer
+// (`@infrastructure/currency/fx-types`). This duplicate avoids a
+// Data -> Infrastructure sideways import while keeping the adapter
+// structurally compatible.
+type ExchangeRateApiPayload = {
   result: string;
   base_code: string;
   conversion_rates: Record<string, number>;
@@ -8,13 +13,16 @@ export type FxApiResponse = {
 };
 
 export type RemoteDataSource = {
-  fetchExchangeRates(apiKey: string, baseCurrency: string): Promise<FxApiResponse>;
+  fetchExchangeRates(
+    apiKey: string,
+    baseCurrency: string,
+  ): Promise<ExchangeRateApiPayload>;
 };
 
 async function fetchExchangeRates(
   apiKey: string,
   baseCurrency: string,
-): Promise<FxApiResponse> {
+): Promise<ExchangeRateApiPayload> {
   const url = `${FX_API_BASE}/${apiKey}/latest/${baseCurrency.toUpperCase()}`;
   const response = await fetch(url);
 
@@ -22,7 +30,7 @@ async function fetchExchangeRates(
     throw new Error(`FX API request failed with status ${response.status}`);
   }
 
-  const data = (await response.json()) as FxApiResponse;
+  const data = (await response.json()) as ExchangeRateApiPayload;
 
   if (data.result !== 'success') {
     throw new Error(`FX API returned error: ${data.result}`);

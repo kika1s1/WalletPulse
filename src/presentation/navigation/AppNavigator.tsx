@@ -1,4 +1,4 @@
-import React, {Suspense, useEffect, useMemo, useRef} from 'react';
+import React, {Suspense, useEffect, useMemo} from 'react';
 import {ActivityIndicator, View} from 'react-native';
 import {
   NavigationContainer,
@@ -14,7 +14,7 @@ import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAuth} from '@presentation/hooks/useAuth';
 import {useTheme} from '@shared/theme';
 import {navigationRef} from './navigationRef';
-import {getLocalDataSource, resetLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource, resetSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {seedDefaultCategories, isCategorySeeded} from '@data/seed/categories';
 import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
@@ -34,19 +34,25 @@ export default function AppNavigator() {
   const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
   const {isAuthenticated, isInitialized, user} = useAuth();
   const {colors, isDark} = useTheme();
-  const prevUserIdRef = useRef<string | null>(null);
 
-  const pendingSeedComplete = useSettingsStore((s) => s.pendingSeedComplete);
-
+  // Prime the data source singleton synchronously during render.
+  // Child screens (TabNavigator -> useDashboard/useWallets/...) run their
+  // mount effects BEFORE this component's useEffect fires, so deferring this
+  // to useEffect causes a "requires userId on first call" throw. The call is
+  // idempotent: once cachedUserId matches, it returns the existing instance.
   if (isAuthenticated && user?.id) {
-    if (prevUserIdRef.current !== user.id) {
-      getLocalDataSource(user.id);
-      prevUserIdRef.current = user.id;
-    }
-  } else if (prevUserIdRef.current !== null) {
-    resetLocalDataSource();
-    prevUserIdRef.current = null;
+    getSupabaseDataSource(user.id);
   }
+
+  useEffect(() => {
+    // Only tear down the singleton on actual logout. We intentionally do not
+    // reset in the cleanup of this effect because any transient dep change
+    // (fast refresh, user.id identity flicker) would nuke the instance while
+    // children still hold references to it and throw on their next read.
+    if (!isAuthenticated || !user?.id) {
+      resetSupabaseDataSource();
+    }
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id || !onboardingCompleted) { return; }
@@ -57,7 +63,7 @@ export default function AppNavigator() {
       const alreadySeeded = await isCategorySeeded(user.id);
       if (!alreadySeeded) {
         try {
-          const ds = getLocalDataSource(user.id);
+          const ds = getSupabaseDataSource(user.id);
           const {onboardingCurrency} = useSettingsStore.getState();
           await seedDefaultCategories(user.id);
           const create = makeCreateWallet({walletRepo: ds.wallets});
@@ -92,7 +98,6 @@ export default function AppNavigator() {
       cancelled = true;
       stopSettingsSync();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id, onboardingCompleted]);
 
   const navTheme = useMemo(() => {
