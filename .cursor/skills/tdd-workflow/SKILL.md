@@ -116,6 +116,6 @@ src/domain/usecases/create-transaction.ts
 ## Mocking Strategy
 
 - Domain layer: mock repository interfaces (simple objects with jest.fn())
-- Data layer: use WatermelonDB test adapter for real DB operations
+- Data layer: mock the Supabase client and verify the repository's public contract
 - Presentation: use @testing-library/react-native render + fireEvent
 - Infrastructure: mock fetch for API calls, use fixtures for notifications

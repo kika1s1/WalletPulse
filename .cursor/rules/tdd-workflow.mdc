@@ -43,9 +43,8 @@ __tests__/
 - No mocking needed (pure functions)
 
 ### Data Layer (integration tests)
-- Repository CRUD operations against WatermelonDB test adapter
-- Mapper correctness (entity to model and back)
-- Query builders return correct results
+- Repository CRUD operations by mocking the Supabase client (no real network)
+- Row-to-entity conversion inside each repository is exercised through the repo's public API
 
 ### Presentation Layer (component tests)
 - Components render correct states (loading, empty, error, success)
@@ -91,7 +90,7 @@ describe('convert', () => {
 - Every pull request must include tests for new logic
 - Test coverage target: 80% for domain and infrastructure layers
 - Use `@testing-library/react-native` for component tests (not Enzyme)
-- Use real WatermelonDB test adapter for data layer tests
+- Mock the Supabase client for data-layer tests; keep assertions at the repository-contract level
 - Fixture-driven tests for notification parsers (real notification samples)
 - No snapshot tests; prefer explicit assertions
 - Tests must be independent and run in any order

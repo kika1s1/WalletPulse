@@ -19,11 +19,10 @@ Fallback: Open Exchange Rates or most recent cached rates.
 ## Rate Caching Strategy
 
 ```
-1. App launch: check fx_rates table for today's rates
-2. If stale (older than 24h): fetch new rates from API
-3. Store in WatermelonDB fx_rates table
-4. Background task (react-native-background-fetch) refreshes daily
-5. If offline: use most recent cached rates (never fail on missing network)
+1. App launch: check fx_rates table (Supabase) for today's rates
+2. If stale (older than 24h): fetch new rates from ExchangeRate-API
+3. Persist via FxRateRepository into the Supabase fx_rates table
+4. If offline: use most recent cached rates (never fail on missing network)
 ```
 
 ## Domain Value Object: Money

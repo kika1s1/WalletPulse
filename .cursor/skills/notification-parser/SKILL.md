@@ -12,7 +12,7 @@ description: TDD-driven guide for building and testing notification parsers that
 3. Data is sent to JS via React Native bridge event emitter
 4. `parser-registry.ts` looks up parser by `packageName`
 5. Parser returns `ParsedTransaction | null`
-6. If valid, dedup check runs, then the CreateTransaction use case writes to WatermelonDB
+6. If valid, dedup check runs, then the CreateTransaction use case writes to Supabase via TransactionRepository
 
 ## Creating a New Parser (TDD Approach)
 

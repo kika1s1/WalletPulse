@@ -49,7 +49,7 @@ async function fetchRates(base: string): Promise<FxRates> {
 
 - Strict mode enabled (`"strict": true` in tsconfig)
 - No `any` type; use `unknown` with type narrowing
-- No non-null assertions (`!`) except in WatermelonDB model decorators
+- Avoid non-null assertions (`!`); use explicit null checks or default values
 - Prefer `const` over `let`, never use `var`
 - Use optional chaining (`?.`) and nullish coalescing (`??`)
 - Functions that can fail return `Result<T>` type or throw with descriptive errors

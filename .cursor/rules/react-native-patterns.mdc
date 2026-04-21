@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
 - Use `React.memo` for list item components
 - Use `FlashList` from @shopify/flash-list instead of FlatList for large lists
 - Avoid anonymous functions in JSX for frequently re-rendered components
-- Use WatermelonDB's `withObservables` or `useObservable` for reactive data
+- Fetch Supabase data inside `useEffect` and expose a `refetch()` to consumers; memoize derived values with `useMemo`
 - Implement skeleton loading for every data-dependent screen
 
 ## Accessibility

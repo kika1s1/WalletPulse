@@ -10,10 +10,10 @@ alwaysApply: true
 ### Domain Layer (`src/domain/`)
 The innermost layer. Contains business logic with zero external dependencies.
 
-- **Entities**: Core business objects (Transaction, Wallet, Category, Budget)
-- **Value Objects**: Immutable types (Money, Currency, DateRange, TransactionHash)
-- **Use Cases**: Single-responsibility business operations (CreateTransaction, ConvertCurrency)
-- **Repository Interfaces**: Ports defining data access contracts
+- **Entities**: Core business objects (Transaction, Wallet, Category, Budget, TransactionTemplate, User, Session, ...)
+- **Value Objects**: Immutable types (Money, Currency, DateRange, TransactionHash, Percentage, WalletTransferNotes)
+- **Use Cases**: Single-responsibility business operations (`create-transaction`, `convert-currency`, `calculate-health-score`, ...) exposed as factory functions
+- **Repository Interfaces**: Ports defining data-access contracts (`ITransactionRepository`, `IWalletRepository`, ...)
 
 ```ts
 // src/domain/entities/Transaction.ts
@@ -36,33 +36,40 @@ export type Transaction = {
 ### Data Layer (`src/data/`)
 Implements domain repository interfaces using concrete technologies.
 
-- **Repositories**: WatermelonDB-backed implementations of domain interfaces
-- **Models**: WatermelonDB Model classes (data layer only)
-- **Mappers**: Convert between domain entities and DB models
-- **Data Sources**: Local (SQLite) and remote (API) data access
+- **Repositories**: Supabase-backed implementations of domain interfaces (`TransactionRepository`, `WalletRepository`, ...)
+- **Data Sources**:
+  - `SupabaseDataSource.ts` — singleton factory returning all repositories scoped to a `userId`
+  - `RemoteDataSource.ts` — FX API client
+  - `supabase-client.ts` — shared Supabase client
+- **Seed**: Default categories (`seed/categories.ts`) and currency options (`seed/currencies.ts`)
+- **Sync**: `settings-sync.ts` pulls/pushes user preferences via Supabase
+
+There is no WatermelonDB, no local SQLite, and no DB mapper layer. All repositories convert Postgres rows to domain entities inline.
 
 ### Presentation Layer (`src/presentation/`)
 UI components, navigation, and presentation logic.
 
 - **Screens**: Full page components, one per route
-- **Components**: Reusable UI building blocks
-- **Stores**: Zustand stores for UI state (filters, modals, form state)
-- **Hooks**: Bridge domain data to UI through observables
+- **Components**: Reusable UI building blocks (common / charts / feedback / layout + feature components)
+- **Stores**: Zustand stores for UI-only state (filters, PIN, auth flag, app preferences)
+- **Hooks**: Data-fetching hooks that read from `getSupabaseDataSource()` and expose `{data, isLoading, error, refetch}`
 
 ### Infrastructure Layer (`src/infrastructure/`)
 External service integrations and platform-specific code.
 
-- **Notification**: Android NotificationListenerService bridge + parsers
-- **Currency**: FX rate API client
-- **Export**: File generation (CSV, Excel, PDF)
-- **Native**: React Native native module bridges
+- **notification/**: Incoming-notification listener, parser registry, parsers (Payoneer, Grey, Dukascopy), dedup service, orchestrator, outgoing Notifee reminders
+- **currency/**: `fx-service.ts` — fetch-and-cache rates + conversion helpers
+- **recurring/**: Recurring bill and subscription scheduler
+- **backup/**: Backup service
+- **security/**: PIN + biometric services
+- **native/**: React Native native-module JS bridges
 
 ## Dependency Rules
 
 1. **Domain imports nothing** from other layers
-2. **Data imports only** domain types and interfaces
+2. **Data imports only** domain types and interfaces (plus `@supabase/supabase-js`)
 3. **Presentation imports** domain types and data through hooks/stores
-4. **Infrastructure imports** domain types only
+4. **Infrastructure imports** domain types only (and the data source when it needs repositories)
 5. **Shared** can be imported by any layer (theme, utils, constants, types)
 
 ## Naming Conventions
@@ -73,7 +80,6 @@ External service integrations and platform-specific code.
 | Use Case | verb-noun | `create-transaction.ts` |
 | Repository Interface | I + PascalCase | `ITransactionRepository.ts` |
 | Repository Impl | PascalCase | `TransactionRepository.ts` |
-| Mapper | kebab + mapper | `transaction-mapper.ts` |
 | Screen | PascalCase + Screen | `DashboardScreen.tsx` |
 | Component | PascalCase | `TransactionCard.tsx` |
 | Hook | use + CamelCase | `useTransactions.ts` |
