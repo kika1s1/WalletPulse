@@ -32,7 +32,7 @@ import {isOverallBudget} from '@domain/entities/Budget';
 import type {CalculateBudgetProgressResult, BudgetProgressStatus} from '@domain/usecases/calculate-budget-progress';
 import {makeCalculateBudgetProgress} from '@domain/usecases/calculate-budget-progress';
 import {makeDeleteBudget} from '@domain/usecases/delete-budget';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import type {Category} from '@domain/entities/Category';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'BudgetDetail'>;
@@ -172,7 +172,7 @@ export default function BudgetDetailScreen() {
       setBudgetRefreshing(true);
     }
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const b = await ds.budgets.findById(budgetId);
       if (!b || !mountedRef.current) {
         hasBudgetDataRef.current = false;
@@ -224,7 +224,7 @@ export default function BudgetDetailScreen() {
         onPress: async () => {
           setIsDeleting(true);
           try {
-            const ds = getLocalDataSource();
+            const ds = getSupabaseDataSource();
             const del = makeDeleteBudget({budgetRepo: ds.budgets});
             await del(budgetId);
             navigation.goBack();

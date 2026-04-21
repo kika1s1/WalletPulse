@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {NotificationLog} from '@domain/entities/NotificationLog';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type UseNotificationLogsReturn = {
   logs: NotificationLog[];
@@ -27,7 +27,7 @@ export function useNotificationLogs(limit: number = 50): UseNotificationLogsRetu
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const result = await ds.notificationLogs.findRecent(limit);
         if (!cancelled && mountedRef.current) {
           setLogs(result);

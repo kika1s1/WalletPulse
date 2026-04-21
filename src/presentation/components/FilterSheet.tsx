@@ -14,8 +14,6 @@ import type {SearchFilters} from '@presentation/hooks/useSearch';
 import type {Category} from '@domain/entities/Category';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {TransactionType, TransactionSource} from '@domain/entities/Transaction';
-import {resolveIconName} from './common/AppIcon';
-
 type Props = {
   filters: SearchFilters;
   onApply: (filters: SearchFilters) => void;

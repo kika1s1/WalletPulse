@@ -1,5 +1,5 @@
 import {useState, useEffect, useCallback} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {
   getDefaultTemplates,
   createTemplate,
@@ -13,7 +13,7 @@ export function useTemplates() {
 
   const fetch = useCallback(async () => {
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const rows = await ds.templates.findAll();
       setUserTemplates(rows);
     } catch {
@@ -31,7 +31,7 @@ export function useTemplates() {
 
   const addTemplate = useCallback(
     async (input: TemplateInput) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const template = createTemplate(input);
       await ds.templates.create(template);
       await fetch();
@@ -42,7 +42,7 @@ export function useTemplates() {
 
   const updateTemplate = useCallback(
     async (id: string, input: Partial<TemplateInput>) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.templates.update(id, input);
       await fetch();
     },
@@ -51,7 +51,7 @@ export function useTemplates() {
 
   const deleteTemplate = useCallback(
     async (id: string) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.templates.delete(id);
       await fetch();
     },
@@ -60,7 +60,7 @@ export function useTemplates() {
 
   const incrementUsage = useCallback(async (id: string) => {
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.templates.incrementUsageCount(id);
     } catch {
       // Non-critical

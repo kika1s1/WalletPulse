@@ -188,7 +188,7 @@ function LogItem({
 
 export default function NotificationLogScreen() {
   const insets = useSafeAreaInsets();
-  const {colors, spacing, radius, typography, shadows} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const {logs, isLoading, error, refetch} = useNotificationLogs(100);
   const [filter, setFilter] = useState<Filter>('all');
 

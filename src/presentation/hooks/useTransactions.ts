@@ -2,7 +2,7 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type UseTransactionsReturn = {
   transactions: Transaction[];
@@ -71,7 +71,7 @@ export function useTransactions(
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.transactions.findAll(
           mergedFilter,
           {field: 'transactionDate', direction: 'desc'},
@@ -124,7 +124,7 @@ export function useTransactionById(id: string): UseTransactionByIdReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.transactions.findById(id);
         if (!cancelled) {
           setTransaction(data);

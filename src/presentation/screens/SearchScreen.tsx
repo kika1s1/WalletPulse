@@ -29,7 +29,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {EmptyState} from '@presentation/components/feedback';
-import {BackButton, Chip} from '@presentation/components/common';
+import {BackButton} from '@presentation/components/common';
 import {FilterSheet} from '@presentation/components/FilterSheet';
 import {useSearch, SORT_OPTIONS, type SortOption, type SearchFilters} from '@presentation/hooks/useSearch';
 import {useCategories} from '@presentation/hooks/useCategories';
@@ -62,23 +62,6 @@ function categoryIdFromName(name: string): string {
     .replace(/^-+|-+$/g, '') || 'category';
 }
 
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query.trim()) {
-    return text;
-  }
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'gi');
-  const parts = text.split(regex);
-  if (parts.length === 1) {
-    return text;
-  }
-  return parts.map((part, i) =>
-    regex.test(part)
-      ? <Text key={i} style={styles.highlight}>{part}</Text>
-      : part,
-  );
-}
-
 function SortSheet({
   current,
   onSelect,
@@ -90,7 +73,7 @@ function SortSheet({
   visible: boolean;
   onClose: () => void;
 }) {
-  const {colors, spacing, radius} = useTheme();
+  const {colors, radius} = useTheme();
   if (!visible) {
     return null;
   }
@@ -145,7 +128,7 @@ function SortSheet({
 
 export default function SearchScreen() {
   const navigation = useNavigation<SearchNav>();
-  const {colors, spacing, radius, typography, shadows} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const insets = useSafeAreaInsets();
   const filterRef = useRef<BottomSheet>(null);
   const inputRef = useRef<TextInput>(null);
@@ -875,10 +858,6 @@ const styles = StyleSheet.create({
   savedFilterRemoveLabel: {
     fontSize: 18,
     fontWeight: '700',
-  },
-  highlight: {
-    fontWeight: '700',
-    textDecorationLine: 'underline',
   },
   sortOverlay: {
     position: 'absolute',

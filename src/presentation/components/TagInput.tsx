@@ -31,7 +31,7 @@ export function TagInput({
   testID,
 }: Props) {
   const {allKnownTags, persistNewTag} = useTagSuggestions();
-  const {colors, spacing, radius} = useTheme();
+  const {colors, radius} = useTheme();
   const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);

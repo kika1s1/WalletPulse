@@ -1,24 +1,17 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   Dimensions,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
-  type ViewToken,
 } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
   FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  interpolateColor,
 } from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
@@ -35,12 +28,6 @@ import {
 import {POPULAR_CURRENCIES} from '@shared/constants/currencies';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
-
-const STEP_ICONS: Record<string, string> = {
-  wallet: 'wallet-outline',
-  currency: 'swap-horizontal-circle-outline',
-  bell: 'bell-outline',
-};
 
 function StepIndicator({total, current, colors}: {total: number; current: number; colors: any}) {
   return (
@@ -69,7 +56,7 @@ function StepIndicator({total, current, colors}: {total: number; current: number
   );
 }
 
-function WelcomeStep({colors, typography}: any) {
+function WelcomeStep({colors}: any) {
   return (
     <View style={styles.stepContent}>
       <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.iconCircle}>
@@ -291,7 +278,7 @@ function CompleteStep({colors, onGetStarted}: {colors: any; onGetStarted: () => 
 }
 
 export default function OnboardingScreen() {
-  const {colors, spacing, radius, typography} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const insets = useSafeAreaInsets();
   const steps = useMemo(() => getOnboardingSteps(), []);
 
@@ -400,7 +387,7 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {currentStep === 0 && (
-          <WelcomeStep colors={colors} typography={typography} />
+          <WelcomeStep colors={colors} />
         )}
         {currentStep === 1 && (
           <CurrencyStep

@@ -23,7 +23,7 @@ import {AmountInput} from '@presentation/components/common/AmountInput';
 import {Button} from '@presentation/components/common/Button';
 import {useBudgets} from '@presentation/hooks/useBudgets';
 import {useCategories} from '@presentation/hooks/useCategories';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCreateBudget} from '@domain/usecases/create-budget';
 import {makeUpdateBudget} from '@domain/usecases/update-budget';
 import {generateId} from '@shared/utils/hash';
@@ -131,7 +131,7 @@ export default function CreateBudgetScreen() {
     setIsSaving(true);
 
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const now = Date.now();
 
       if (isEditing && existingBudget) {

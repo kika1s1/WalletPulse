@@ -1,7 +1,7 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {Goal, CreateGoalInput} from '@domain/entities/Goal';
 import {createGoal} from '@domain/entities/Goal';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type UseGoalsReturn = {
   goals: Goal[];
@@ -27,7 +27,7 @@ export function useGoals(): UseGoalsReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.goals.findAll();
         if (!cancelled) {
           setGoals(data);
@@ -66,7 +66,7 @@ export function useGoalActions(): UseGoalActionsReturn {
     setError(null);
     try {
       const goal = createGoal(input);
-      await getLocalDataSource().goals.save(goal);
+      await getSupabaseDataSource().goals.save(goal);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -80,7 +80,7 @@ export function useGoalActions(): UseGoalActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().goals.update(goal);
+      await getSupabaseDataSource().goals.update(goal);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -94,7 +94,7 @@ export function useGoalActions(): UseGoalActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().goals.updateProgress(id, currentAmount);
+      await getSupabaseDataSource().goals.updateProgress(id, currentAmount);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -108,7 +108,7 @@ export function useGoalActions(): UseGoalActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().goals.markCompleted(id, Date.now());
+      await getSupabaseDataSource().goals.markCompleted(id, Date.now());
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -122,7 +122,7 @@ export function useGoalActions(): UseGoalActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().goals.delete(id);
+      await getSupabaseDataSource().goals.delete(id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);

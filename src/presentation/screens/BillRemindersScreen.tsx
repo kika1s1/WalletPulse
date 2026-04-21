@@ -1,6 +1,6 @@
 import React, {useCallback, useMemo, useState} from 'react';
 import {Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
-import Animated, {FadeInDown, FadeIn} from 'react-native-reanimated';
+import Animated, {FadeIn} from 'react-native-reanimated';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';

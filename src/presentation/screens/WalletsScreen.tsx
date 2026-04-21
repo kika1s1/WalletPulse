@@ -26,8 +26,15 @@ export default function WalletsScreen() {
   const {wallets, isLoading, refetch} = useWallets();
   const hide = useSettingsStore((s) => s.hideAmounts);
 
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current !== undefined) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    },
+    [],
+  );
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();

@@ -1,6 +1,6 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {Wallet} from '@domain/entities/Wallet';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeUpdateWallet} from '@domain/usecases/update-wallet';
 import type {UpdateWalletFields} from '@domain/usecases/update-wallet';
 
@@ -24,7 +24,7 @@ export function useWallets(): UseWalletsReturn {
   }, []);
 
   const updateWallet = useCallback(async (id: string, fields: UpdateWalletFields) => {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     const execute = makeUpdateWallet({walletRepo: ds.wallets});
     const result = await execute(id, fields);
     refetch();
@@ -32,7 +32,7 @@ export function useWallets(): UseWalletsReturn {
   }, [refetch]);
 
   const deleteWallet = useCallback(async (id: string) => {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     await ds.wallets.delete(id);
     refetch();
   }, [refetch]);
@@ -44,7 +44,7 @@ export function useWallets(): UseWalletsReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.wallets.findAll();
         if (!cancelled) {
           setWallets(data);

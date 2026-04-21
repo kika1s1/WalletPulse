@@ -20,7 +20,7 @@ import {BackButton} from '@presentation/components/common';
 import {Button} from '@presentation/components/common/Button';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {CurrencyPicker} from '@presentation/components/common/CurrencyPicker';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
 import {useAppStore} from '@presentation/stores/useAppStore';
@@ -145,7 +145,7 @@ export default function CreateWalletScreen() {
           color,
         });
       } else {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const create = makeCreateWallet({walletRepo: ds.wallets});
         const allWallets = await ds.wallets.findAll();
         const now = Date.now();

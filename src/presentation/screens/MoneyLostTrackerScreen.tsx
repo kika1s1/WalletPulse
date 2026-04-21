@@ -12,8 +12,8 @@ import {CalculateMoneyLost} from '@domain/usecases/calculate-money-lost';
 import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import {makeGetConversionRate} from '@infrastructure/fx-service';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 
 type RateMap = Record<string, number>;
 
@@ -67,7 +67,7 @@ export default function MoneyLostTrackerScreen() {
     let cancelled = false;
     setRatesLoading(true);
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const result: RateMap = {};
       for (const c of allForeignCurrencies) {
@@ -87,7 +87,7 @@ export default function MoneyLostTrackerScreen() {
   const result = useMemo(() => {
     const calculator = new CalculateMoneyLost();
     const fxTxs = foreignTxs
-      .filter((t) => midMarketRates[t.currency.toUpperCase()] != null)
+      .filter((t) => midMarketRates[t.currency.toUpperCase()] !== undefined)
       .map((t) => {
         const midRate = midMarketRates[t.currency.toUpperCase()] ?? 1;
         const spread = getSpreadForSource(t.source);

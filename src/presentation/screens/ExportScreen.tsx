@@ -33,6 +33,17 @@ import {formatAmountMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useAuthStore} from '@presentation/stores/useAuthStore';
+import {
+  isFileSaverAvailable,
+  saveFileWithPicker,
+  saveLocalFileWithPicker,
+} from '@infrastructure/native/FileSaverBridge';
+
+const MIME_TYPE_BY_FORMAT: Record<ExportFormat, string> = {
+  csv: 'text/csv',
+  json: 'application/json',
+  pdf: 'application/pdf',
+};
 
 const MS_PER_DAY = 86400000;
 
@@ -191,6 +202,7 @@ export default function ExportScreen() {
       );
     } catch (err) {
       const errorMessage = (err as Error)?.message || '';
+      // eslint-disable-next-line no-console -- intentional debug log gated by __DEV__
       if (__DEV__) { console.log('Share error:', errorMessage); }
       if (
         !errorMessage.includes('User did not share') &&
@@ -216,39 +228,80 @@ export default function ExportScreen() {
     setExportBusy('save');
     try {
       const filename = buildExportFilename(format);
-      const dir = exportTargetDirectory();
-      let savedPath: string;
+      const mimeType = MIME_TYPE_BY_FORMAT[format];
+      const canChooseLocation = isFileSaverAvailable();
 
       if (format === 'pdf') {
         const baseName = filename.replace(/\.pdf$/i, '');
         const result = await generatePdfFile(baseName, filteredTransactions, exportOptions);
-        
-        const targetPath = `${dir}/${filename}`;
-        if (result.base64) {
-          await RNFS.writeFile(targetPath, result.base64, 'base64');
+
+        if (canChooseLocation) {
+          const outcome = result.base64
+            ? await saveFileWithPicker({
+                suggestedName: filename,
+                mimeType,
+                data: result.base64,
+                encoding: 'base64',
+              })
+            : await saveLocalFileWithPicker({
+                suggestedName: filename,
+                mimeType,
+                sourcePath: result.filePath,
+              });
+          if (outcome.status === 'cancelled') {
+            return;
+          }
+          setLastExportInfo(
+            `Saved ${filteredTransactions.length} transactions as ${outcome.displayName ?? filename}`,
+          );
         } else {
-          await RNFS.copyFile(result.filePath, targetPath);
+          const dir = exportTargetDirectory();
+          const targetPath = `${dir}/${filename}`;
+          if (result.base64) {
+            await RNFS.writeFile(targetPath, result.base64, 'base64');
+          } else {
+            await RNFS.copyFile(result.filePath, targetPath);
+          }
+          setLastExportInfo(
+            `Saved ${filteredTransactions.length} transactions as ${filename}`,
+          );
+          Alert.alert('Saved', `File saved successfully.\n\n${targetPath}`, [{text: 'OK'}]);
         }
-        savedPath = targetPath;
       } else {
         const content =
           format === 'csv'
             ? formatTransactionsAsCsv(filteredTransactions, exportOptions)
             : formatTransactionsAsJson(filteredTransactions, exportOptions);
-        savedPath = `${dir}/${filename}`;
-        await RNFS.writeFile(savedPath, content, 'utf8');
-      }
 
-      setLastExportInfo(
-        `Saved ${filteredTransactions.length} transactions as ${filename}`,
-      );
+        if (canChooseLocation) {
+          const outcome = await saveFileWithPicker({
+            suggestedName: filename,
+            mimeType,
+            data: content,
+            encoding: 'utf8',
+          });
+          if (outcome.status === 'cancelled') {
+            return;
+          }
+          setLastExportInfo(
+            `Saved ${filteredTransactions.length} transactions as ${outcome.displayName ?? filename}`,
+          );
+        } else {
+          const dir = exportTargetDirectory();
+          const targetPath = `${dir}/${filename}`;
+          await RNFS.writeFile(targetPath, content, 'utf8');
+          setLastExportInfo(
+            `Saved ${filteredTransactions.length} transactions as ${filename}`,
+          );
+          Alert.alert('Saved', `File saved successfully.\n\n${targetPath}`, [{text: 'OK'}]);
+        }
+      }
+    } catch (err) {
+      const msg = (err as Error)?.message || '';
       Alert.alert(
-        'Saved',
-        `File saved successfully.\n\n${savedPath}`,
-        [{text: 'OK'}],
+        'Save failed',
+        msg || 'Could not write the file. Check storage permissions and try again.',
       );
-    } catch {
-      Alert.alert('Save failed', 'Could not write the file. Check storage permissions and try again.');
     } finally {
       setExportBusy(null);
     }
@@ -467,7 +520,7 @@ export default function ExportScreen() {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.exportBtnText}>
-                  Save to device ({stats.count} as {format.toUpperCase()})
+                  Save as… ({stats.count} as {format.toUpperCase()})
                 </Text>
               )}
             </Pressable>
@@ -499,7 +552,7 @@ export default function ExportScreen() {
           {/* Info note */}
           <View style={[styles.infoNote, {backgroundColor: colors.primaryLight + '12', borderRadius: radius.md}]}>
             <Text style={[styles.infoText, {color: colors.textSecondary}]}>
-              Exported data includes all transaction fields. Amounts use major currency units (e.g., 12.99 instead of 1299 cents). Save writes to your Downloads folder on Android. CSV and JSON share as text; PDF shares the actual file for easy attachment to emails or messages.
+              Exported data includes all transaction fields. Amounts use major currency units (e.g., 12.99 instead of 1299 cents). Tap "Save as…" to pick the folder and filename. CSV and JSON share as text; PDF shares the actual file for easy attachment to emails or messages.
             </Text>
           </View>
         </ScrollView>

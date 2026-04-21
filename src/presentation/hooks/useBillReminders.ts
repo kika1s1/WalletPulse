@@ -1,7 +1,7 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {BillReminder, CreateBillReminderInput} from '@domain/entities/BillReminder';
 import {createBillReminder} from '@domain/entities/BillReminder';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
 import {generateId} from '@shared/utils/hash';
 import {scheduleBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
@@ -31,7 +31,7 @@ export function useBillReminders(): UseBillRemindersReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.billReminders.findAll();
         if (!cancelled) {
           setBills(data);
@@ -64,7 +64,7 @@ async function refreshBillNotifications(): Promise<void> {
   const enabled = useSettingsStore.getState().billReminderNotificationsEnabled;
   if (!enabled) { return; }
   try {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     const unpaid = await ds.billReminders.findUnpaid();
     await scheduleBillNotifications(unpaid);
   } catch { /* non-fatal */ }
@@ -79,7 +79,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setError(null);
     try {
       const bill = createBillReminder(input);
-      await getLocalDataSource().billReminders.save(bill);
+      await getSupabaseDataSource().billReminders.save(bill);
       void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -95,7 +95,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setError(null);
     try {
       const bill = createBillReminder(input);
-      await getLocalDataSource().billReminders.update(bill);
+      await getSupabaseDataSource().billReminders.update(bill);
       void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -111,9 +111,9 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setError(null);
     try {
       if (paidTransactionId) {
-        await getLocalDataSource().billReminders.markPaid(id, paidTransactionId);
+        await getSupabaseDataSource().billReminders.markPaid(id, paidTransactionId);
       } else {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const bill = await ds.billReminders.findById(id);
         if (!bill) { throw new Error('Bill reminder not found'); }
 
@@ -159,7 +159,7 @@ export function useBillReminderActions(): UseBillReminderActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().billReminders.delete(id);
+      await getSupabaseDataSource().billReminders.delete(id);
       void refreshBillNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

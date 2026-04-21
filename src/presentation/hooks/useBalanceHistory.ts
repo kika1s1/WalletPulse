@@ -2,12 +2,13 @@ import {useCallback, useMemo, useState, useEffect, useRef} from 'react';
 import {useTransactions} from './useTransactions';
 import {useWallets} from './useWallets';
 import {useAppStore} from '@presentation/stores/useAppStore';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import {makeGetConversionRate} from '@infrastructure/fx-service';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 import {
   computeBalanceHistory,
   type BalanceHistoryPoint,
 } from '@domain/usecases/calculate-balance-history';
+import {transactionLedgerDeltaCents} from '@domain/value-objects/WalletTransferNotes';
 import {startOfDay} from '@shared/utils/date-helpers';
 
 export type BalancePeriod = '1W' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y' | 'ALL';
@@ -55,7 +56,7 @@ function useConversionRates(currencies: string[], baseCurrency: string): RateMap
 
     let cancelled = false;
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const result: RateMap = {};
       for (const c of uniqueNonBase) {
@@ -127,38 +128,66 @@ export function useBalanceHistory(options?: UseBalanceHistoryOptions): UseBalanc
     if (!needsFxConversion) {return [];}
     const set = new Set<string>();
     for (const t of transactions) {set.add(t.currency.toUpperCase());}
+    for (const w of wallets) {
+      if (w.isActive) {set.add(w.currency.toUpperCase());}
+    }
     return Array.from(set);
-  }, [transactions, needsFxConversion]);
+  }, [transactions, wallets, needsFxConversion]);
 
   const fxRates = useConversionRates(allCurrencies, baseCurrency);
 
-  const effectiveRates = needsFxConversion ? fxRates : {};
+  const effectiveRates = useMemo(
+    () => (needsFxConversion ? fxRates : {}),
+    [needsFxConversion, fxRates],
+  );
 
   const periodStart = useMemo(() => periodToStartMs(period), [period]);
 
   const historyInputs = useMemo(
     () =>
-      transactions
-        .filter((t) => period === 'ALL' || t.transactionDate >= periodStart)
-        .map((t) => ({
-          id: t.id,
-          amount: t.amount,
-          type: t.type,
-          notes: t.notes,
-          transactionDate: t.transactionDate,
-          currency: t.currency,
-        })),
-    [transactions, period, periodStart],
+      transactions.map((t) => ({
+        id: t.id,
+        amount: t.amount,
+        type: t.type,
+        notes: t.notes,
+        transactionDate: t.transactionDate,
+        currency: t.currency,
+      })),
+    [transactions],
   );
 
-  const periodEnd = useMemo(() => startOfDay(Date.now()), [period]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openingBalanceCents = useMemo(() => {
+    if (period === 'ALL') {return 0;}
+    let sum = 0;
+    for (const t of historyInputs) {
+      if (t.transactionDate >= periodStart) {continue;}
+      const amountInBase = displayCurrency && t.currency.toUpperCase() !== displayCurrency.toUpperCase()
+        ? Math.round(t.amount * (effectiveRates[t.currency.toUpperCase()] ?? 1))
+        : t.amount;
+      sum += transactionLedgerDeltaCents({
+        type: t.type,
+        amount: amountInBase,
+        notes: t.notes,
+      });
+    }
+    return sum;
+  }, [historyInputs, period, periodStart, displayCurrency, effectiveRates]);
+
+  // Always use a freshly computed "today" so crossing midnight or re-focusing
+  // the screen pushes the curve to the actual current day. This is intentionally
+  // NOT memoized on [period] because `Date.now()` advances independently of the
+  // selected period; `startOfDay` yields a stable value within a single day so
+  // the downstream `points` memo does not thrash.
+  const periodEnd = startOfDay(Date.now());
 
   const points = useMemo(
     () =>
       computeBalanceHistory(historyInputs, displayCurrency, effectiveRates, {
+        periodStartMs: period === 'ALL' ? undefined : periodStart,
         periodEndMs: periodEnd,
+        openingBalanceCents,
       }),
-    [historyInputs, displayCurrency, effectiveRates, periodEnd],
+    [historyInputs, displayCurrency, effectiveRates, period, periodStart, periodEnd, openingBalanceCents],
   );
 
   const currentBalance = useMemo(() => {

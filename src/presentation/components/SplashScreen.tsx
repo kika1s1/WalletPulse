@@ -1,11 +1,10 @@
 import React, {useEffect} from 'react';
-import {StyleSheet, View, Text, StatusBar} from 'react-native';
+import {StyleSheet, Text, StatusBar} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withSequence,
   withSpring,
   runOnJS,
   Easing,

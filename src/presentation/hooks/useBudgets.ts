@@ -1,6 +1,6 @@
 import {useState, useEffect, useCallback, useMemo} from 'react';
 import type {Budget} from '@domain/entities/Budget';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type UseBudgetsReturn = {
   budgets: Budget[];
@@ -27,7 +27,7 @@ export function useBudgets(): UseBudgetsReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.budgets.findAll();
         if (!cancelled) {
           setBudgets(data);

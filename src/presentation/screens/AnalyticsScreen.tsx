@@ -176,8 +176,15 @@ export default function AnalyticsScreen() {
 
   const hide = useSettingsStore((s) => s.hideAmounts);
 
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current !== undefined) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    },
+    [],
+  );
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refetch();
@@ -641,6 +648,7 @@ export default function AnalyticsScreen() {
                           isAnimated={false}
                           showText={false}
                           focusOnPress={false}
+                          // eslint-disable-next-line react/no-unstable-nested-components -- library requires factory fn; stable per render
                           centerLabelComponent={() => (
                             <View style={styles.pieCenterLabel}>
                               <Text

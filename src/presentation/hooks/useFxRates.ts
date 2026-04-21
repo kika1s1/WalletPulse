@@ -1,12 +1,12 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {getRemoteDataSource} from '@data/datasources/RemoteDataSource';
 import {
   makeFetchAndCacheRates,
   makeGetConversionRate,
   convertAmountCents,
   STALE_THRESHOLD_MS,
-} from '@infrastructure/fx-service';
+} from '@infrastructure/currency/fx-service';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import type {FxRate} from '@domain/entities/FxRate';
 
@@ -42,7 +42,7 @@ export function useFxRates(): UseFxRatesReturn {
 
   const loadCached = useCallback(async () => {
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const cached = await ds.fxRates.findAllByBase(baseCurrency);
       if (mountedRef.current) {
         setRates(cached);
@@ -71,7 +71,7 @@ export function useFxRates(): UseFxRatesReturn {
     setError(null);
 
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const remote = getRemoteDataSource();
       const fetchAndCache = makeFetchAndCacheRates({
         fxRateRepo: ds.fxRates,
@@ -123,7 +123,7 @@ export function useConvertCurrency(): UseConvertCurrencyReturn {
         return {amountCents, rate: 1};
       }
 
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getConvRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const rate = await getConvRate(fromU, toU);
 
@@ -148,7 +148,7 @@ export function useConvertCurrency(): UseConvertCurrencyReturn {
         return 1;
       }
 
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getConvRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       return getConvRate(fromU, toU);
     },

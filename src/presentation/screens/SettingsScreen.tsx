@@ -34,11 +34,17 @@ import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {PinPad} from '@presentation/components/PinPad';
 import {
+  backupFilename,
+  buildBackupJson,
   createBackup,
   listBackups,
   restoreBackup,
   type BackupFileInfo,
 } from '@infrastructure/backup/backup-service';
+import {
+  isFileSaverAvailable,
+  saveFileWithPicker,
+} from '@infrastructure/native/FileSaverBridge';
 import {useAuthStore} from '@presentation/stores/useAuthStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>;
@@ -149,7 +155,7 @@ const DATE_LABELS: Record<string, string> = {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const {colors, spacing, radius, shadows} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const settings = useSettingsStore();
   const isPinEnabled = usePinStore((s) => s.isPinEnabled);
@@ -237,8 +243,22 @@ export default function SettingsScreen() {
     try {
       const uid = useAuthStore.getState().user?.id;
       if (!uid) { throw new Error('Not signed in'); }
-      const path = await createBackup(uid);
-      Alert.alert('Backup saved', path);
+
+      if (isFileSaverAvailable()) {
+        const body = await buildBackupJson(uid);
+        const outcome = await saveFileWithPicker({
+          suggestedName: backupFilename(),
+          mimeType: 'application/json',
+          data: body,
+          encoding: 'utf8',
+        });
+        if (outcome.status === 'saved') {
+          Alert.alert('Backup saved', outcome.displayName ?? 'Backup saved successfully.');
+        }
+      } else {
+        const path = await createBackup(uid);
+        Alert.alert('Backup saved', path);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert('Backup failed', msg);
@@ -442,34 +462,74 @@ export default function SettingsScreen() {
             />
           )}
           {isPinEnabled && biometricSupported && (
-            <SettingsRow
-              description={
-                biometricEnabled
-                  ? 'Fingerprint or face unlock is enabled'
-                  : 'Unlock with fingerprint or face'
-              }
-              icon="fingerprint"
-              label="Biometric Unlock"
-              trailing={
-                <Switch
-                  onValueChange={(val) => {
-                    if (val) {
-                      setBiometricPinDraft('');
-                      setBiometricPinError(null);
-                      void getStoredPinLength().then((len) => {
-                        setBiometricPinLength(len ?? 4);
-                        setBiometricPinModalVisible(true);
-                      });
-                    } else {
-                      void disableBiometric();
-                    }
-                  }}
-                  thumbColor={biometricEnabled ? colors.primary : colors.border}
-                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
-                  value={biometricEnabled}
+            <Pressable
+              accessibilityLabel="Biometric Unlock"
+              accessibilityRole="switch"
+              accessibilityState={{
+                checked: biometricEnabled,
+                disabled: biometricBusy,
+              }}
+              disabled={biometricBusy}
+              onPress={() => {
+                if (biometricEnabled) {
+                  void disableBiometric();
+                  return;
+                }
+                setBiometricPinDraft('');
+                setBiometricPinError(null);
+                void getStoredPinLength().then((len) => {
+                  setBiometricPinLength(len ?? 4);
+                  setBiometricPinModalVisible(true);
+                });
+              }}
+              style={({pressed}) => [
+                styles.bioIconRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderLight,
+                  borderRadius: radius.md,
+                  paddingVertical: spacing.md,
+                  opacity: biometricBusy ? 0.6 : pressed ? 0.92 : 1,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.bioIconCircle,
+                  {
+                    backgroundColor: biometricEnabled
+                      ? colors.primary
+                      : 'transparent',
+                    borderColor: biometricEnabled
+                      ? colors.primary
+                      : colors.border,
+                  },
+                ]}>
+                <AppIcon
+                  color={
+                    biometricEnabled ? colors.surface : colors.textSecondary
+                  }
+                  name="fingerprint"
+                  size={30}
                 />
-              }
-            />
+                {biometricBusy ? (
+                  <View style={styles.bioBadge}>
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  </View>
+                ) : biometricEnabled ? (
+                  <View
+                    style={[
+                      styles.bioBadge,
+                      {backgroundColor: colors.surface},
+                    ]}>
+                    <AppIcon
+                      color={colors.success}
+                      name="check-circle"
+                      size={18}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
           )}
           {isPinEnabled && (
             <SettingsRow
@@ -636,7 +696,7 @@ export default function SettingsScreen() {
         <SectionHeader title="DATA" />
         <View style={{gap: spacing.sm}}>
           <SettingsRow
-            description="Save a full copy of your data as JSON in Downloads"
+            description="Save a full copy of your data as JSON to a folder you choose"
             icon="cloud-upload-outline"
             label="Create Backup"
             disabled={backupBusy || restoreBusy}
@@ -1075,6 +1135,29 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: fontWeight.bold,
     marginLeft: 2,
+  },
+  bioIconRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  bioIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bioBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   permissionBanner: {
     flexDirection: 'row',

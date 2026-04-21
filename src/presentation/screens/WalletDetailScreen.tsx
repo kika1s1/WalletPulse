@@ -107,7 +107,14 @@ export default function WalletDetailScreen() {
   );
 
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(refreshTimerRef.current), []);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current !== undefined) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    },
+    [],
+  );
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     walletRefetch();
@@ -268,8 +275,8 @@ export default function WalletDetailScreen() {
                           text: 'Reconcile',
                           onPress: async () => {
                             try {
-                              const ds = await import('@data/datasources/LocalDataSource');
-                              await ds.getLocalDataSource().wallets.updateBalance(walletId, ledgerBalance);
+                              const ds = await import('@data/datasources/SupabaseDataSource');
+                              await ds.getSupabaseDataSource().wallets.updateBalance(walletId, ledgerBalance);
                               walletRefetch();
                             } catch {
                               Alert.alert('Error', 'Failed to reconcile balance.');

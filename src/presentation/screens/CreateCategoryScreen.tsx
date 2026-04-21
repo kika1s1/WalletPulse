@@ -18,7 +18,7 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Button} from '@presentation/components/common/Button';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCreateCategory} from '@domain/usecases/create-category';
 import {makeUpdateCategory} from '@domain/usecases/update-category';
 import {generateId} from '@shared/utils/hash';
@@ -123,7 +123,7 @@ export default function CreateCategoryScreen() {
       return;
     }
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const cat = await ds.categories.findById(editId);
       if (cat && mountedRef.current) {
         setExisting(cat);
@@ -148,7 +148,7 @@ export default function CreateCategoryScreen() {
     setIsSaving(true);
 
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const now = Date.now();
 
       if (isEditing && existing) {

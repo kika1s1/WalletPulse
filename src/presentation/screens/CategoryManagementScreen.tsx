@@ -16,7 +16,7 @@ import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {useCategories} from '@presentation/hooks/useCategories';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeArchiveCategory} from '@domain/usecases/archive-category';
 import {makeReorderCategories} from '@domain/usecases/reorder-categories';
 import type {Category} from '@domain/entities/Category';
@@ -193,7 +193,7 @@ export default function CategoryManagementScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
-                const ds = getLocalDataSource();
+                const ds = getSupabaseDataSource();
                 const archive = makeArchiveCategory({categoryRepo: ds.categories});
                 await archive(id);
                 refetch();
@@ -222,7 +222,7 @@ export default function CategoryManagementScreen() {
       [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
 
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const reorder = makeReorderCategories({categoryRepo: ds.categories});
         await reorder(reordered.map((c) => c.id));
         refetch();

@@ -10,7 +10,7 @@ import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {AnalyzeCurrencyTiming, type HistoricalRate} from '@domain/usecases/analyze-currency-timing';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useWallets} from '@presentation/hooks/useWallets';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 const TREND_LABELS: Record<string, string> = {
   rising: 'Rising',
@@ -60,7 +60,7 @@ export default function CurrencyTimingScreen() {
     setRatesLoading(true);
 
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const allRates = await ds.fxRates.findAllByBase(baseCurrency.toUpperCase());
       const matching = allRates.filter(
         (r) => r.targetCurrency === targetCurrency.toUpperCase(),

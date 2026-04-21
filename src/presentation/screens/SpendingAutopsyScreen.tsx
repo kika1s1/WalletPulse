@@ -19,8 +19,8 @@ import {useTransactions} from '@presentation/hooks/useTransactions';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import {makeGetConversionRate} from '@infrastructure/fx-service';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 
 const INSIGHT_ICON: Record<AutopsyInsight['type'], string> = {
   overspend: 'trending-up',
@@ -94,7 +94,7 @@ export default function SpendingAutopsyScreen() {
     if (nonBase.length === 0) {setFxRates({}); return;}
     let cancelled = false;
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const result: RateMap = {};
       for (const c of nonBase) {

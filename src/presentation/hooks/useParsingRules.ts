@@ -1,5 +1,5 @@
 import {useState, useEffect, useCallback} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import type {ParsingRule, CreateParsingRuleInput} from '@domain/entities/ParsingRule';
 
 export function useParsingRules() {
@@ -11,7 +11,7 @@ export function useParsingRules() {
     setIsLoading(true);
     setError(null);
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const rows = await ds.parsingRules.findAll();
       setRules(rows);
     } catch (err) {
@@ -27,7 +27,7 @@ export function useParsingRules() {
 
   const addRule = useCallback(
     async (input: CreateParsingRuleInput) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.parsingRules.create(input);
       await loadRules();
     },
@@ -36,7 +36,7 @@ export function useParsingRules() {
 
   const updateRule = useCallback(
     async (id: string, input: Partial<CreateParsingRuleInput>) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.parsingRules.update(id, input);
       await loadRules();
     },
@@ -45,7 +45,7 @@ export function useParsingRules() {
 
   const deleteRule = useCallback(
     async (id: string) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.parsingRules.delete(id);
       await loadRules();
     },
@@ -54,7 +54,7 @@ export function useParsingRules() {
 
   const toggleRule = useCallback(
     async (id: string, isActive: boolean) => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       await ds.parsingRules.update(id, {isActive});
       await loadRules();
     },

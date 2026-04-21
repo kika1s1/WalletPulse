@@ -1,5 +1,5 @@
 import {useState, useEffect, useCallback} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type AccountStats = {
   totalTransactions: number;
@@ -22,7 +22,7 @@ export function useAccountStats() {
   const fetch = useCallback(async () => {
     setIsLoading(true);
     try {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const [transactions, wallets, categories, budgets, goals] = await Promise.all([
         ds.transactions.findAll(),
         ds.wallets.findAll(),

@@ -16,7 +16,7 @@ import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {BackButton, Button, Input} from '@presentation/components/common';
 import {ScreenContainer} from '@presentation/components/layout';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {
   testPattern,
   validateParsingRule,
@@ -59,7 +59,7 @@ export default function CreateParsingRuleScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const all = await ds.parsingRules.findAll();
         const found = all.find((r) => r.id === ruleId);
         if (cancelled) {

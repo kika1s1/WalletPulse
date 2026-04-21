@@ -1,5 +1,5 @@
 import {useCallback, useMemo, useState} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
 import {
   makeCreateWalletTransfer,
@@ -24,7 +24,7 @@ export function useTransactionActions(): UseTransactionActionsReturn {
   const [error, setError] = useState<string | null>(null);
 
   const {create, createTransfer, update, remove} = useMemo(() => {
-    const {transactions, wallets} = getLocalDataSource();
+    const {transactions, wallets} = getSupabaseDataSource();
     return {
       create: makeCreateTransaction({
         transactionRepo: transactions,

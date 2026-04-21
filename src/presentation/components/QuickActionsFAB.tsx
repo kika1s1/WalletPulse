@@ -34,7 +34,7 @@ function hexToAlpha(hex: string, alpha: string): string {
 }
 
 export function QuickActionsFAB({onSelectTemplate, onAddManual, onManageTemplates}: Props) {
-  const {colors, radius, shadows, spacing} = useTheme();
+  const {colors, radius, shadows} = useTheme();
   const [expanded, setExpanded] = useState(false);
   const fabRotation = useSharedValue(0);
   const fabScale = useSharedValue(1);

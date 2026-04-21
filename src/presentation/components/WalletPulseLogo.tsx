@@ -7,7 +7,6 @@ import Svg, {
   Rect,
   Path,
   Circle,
-  G,
 } from 'react-native-svg';
 import {useTheme} from '@shared/theme';
 

@@ -26,6 +26,11 @@ import {useAuthStore} from '@presentation/stores/useAuthStore';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {formatAmountMasked} from '@shared/utils/format-currency';
 import {generateStatementHtml, computeStatementSummary} from '@domain/usecases/generate-statement';
+import {
+  isFileSaverAvailable,
+  saveFileWithPicker,
+  saveLocalFileWithPicker,
+} from '@infrastructure/native/FileSaverBridge';
 
 const MS_PER_DAY = 86400000;
 
@@ -161,20 +166,41 @@ export default function AccountStatementScreen() {
     try {
       const html = buildHtml();
       const baseName = buildFilename();
+      const filename = `${baseName}.pdf`;
       const result = await generatePDF({html, fileName: baseName, base64: true});
       if (!result?.filePath) { throw new Error('PDF generation failed'); }
 
-      const dir = exportTargetDirectory();
-      const targetPath = `${dir}/${baseName}.pdf`;
-      if (result.base64) {
-        await RNFS.writeFile(targetPath, result.base64, 'base64');
+      if (isFileSaverAvailable()) {
+        const outcome = result.base64
+          ? await saveFileWithPicker({
+              suggestedName: filename,
+              mimeType: 'application/pdf',
+              data: result.base64,
+              encoding: 'base64',
+            })
+          : await saveLocalFileWithPicker({
+              suggestedName: filename,
+              mimeType: 'application/pdf',
+              sourcePath: result.filePath,
+            });
+        if (outcome.status === 'cancelled') {
+          return;
+        }
+        setLastInfo(`Statement saved: ${outcome.displayName ?? filename}`);
       } else {
-        await RNFS.copyFile(result.filePath, targetPath);
+        const dir = exportTargetDirectory();
+        const targetPath = `${dir}/${filename}`;
+        if (result.base64) {
+          await RNFS.writeFile(targetPath, result.base64, 'base64');
+        } else {
+          await RNFS.copyFile(result.filePath, targetPath);
+        }
+        setLastInfo(`Statement saved: ${filename}`);
+        Alert.alert('Saved', `Statement saved successfully.\n\n${targetPath}`, [{text: 'OK'}]);
       }
-      setLastInfo(`Statement saved: ${baseName}.pdf`);
-      Alert.alert('Saved', `Statement saved successfully.\n\n${targetPath}`, [{text: 'OK'}]);
-    } catch {
-      Alert.alert('Save failed', 'Could not generate the statement. Please try again.');
+    } catch (err) {
+      const msg = (err as Error)?.message || '';
+      Alert.alert('Save failed', msg || 'Could not generate the statement. Please try again.');
     } finally {
       setBusy(null);
     }
@@ -363,7 +389,7 @@ export default function AccountStatementScreen() {
               {busy === 'save' ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.primaryBtnText}>Save to Device</Text>
+                <Text style={styles.primaryBtnText}>Save as…</Text>
               )}
             </Pressable>
 

@@ -3,12 +3,13 @@ import {useAuthStore} from '@presentation/stores/useAuthStore';
 
 export function useAuth() {
   const store = useAuthStore();
+  const {isInitialized, initialize} = store;
 
   useEffect(() => {
-    if (!store.isInitialized) {
-      store.initialize();
+    if (!isInitialized) {
+      initialize();
     }
-  }, [store.isInitialized]);
+  }, [isInitialized, initialize]);
 
   return store;
 }

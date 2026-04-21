@@ -1,11 +1,8 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
 import type {Budget} from '@domain/entities/Budget';
 import {isOverallBudget} from '@domain/entities/Budget';
-import type {
-  CalculateBudgetProgressResult,
-  BudgetProgressStatus,
-} from '@domain/usecases/calculate-budget-progress';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import type {CalculateBudgetProgressResult} from '@domain/usecases/calculate-budget-progress';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeCalculateBudgetProgress} from '@domain/usecases/calculate-budget-progress';
 
 export type BudgetProgressItem = CalculateBudgetProgressResult & {
@@ -50,7 +47,7 @@ export function useBudgetProgress(
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const calculate = makeCalculateBudgetProgress({
           budgetRepo: ds.budgets,
           transactionRepo: ds.transactions,

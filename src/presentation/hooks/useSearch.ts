@@ -5,7 +5,7 @@ import type {
   TransactionSortField,
   SortDirection,
 } from '@domain/repositories/ITransactionRepository';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 const DEBOUNCE_MS = 300;
 
@@ -94,7 +94,7 @@ export function useSearch(): UseSearchReturn {
 
     const run = async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const filter: TransactionFilter = {};
 
         if (debouncedQuery) { filter.searchQuery = debouncedQuery; }

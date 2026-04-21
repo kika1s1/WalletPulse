@@ -4,8 +4,8 @@ import {useCategories} from './useCategories';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {startOfDay, endOfDay, formatDateLong} from '@shared/utils/date-helpers';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
-import {makeGetConversionRate} from '@infrastructure/fx-service';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 import type {Category} from '@domain/entities/Category';
 import type {Transaction} from '@domain/entities/Transaction';
 
@@ -135,7 +135,7 @@ function useConversionRates(
 
     let cancelled = false;
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const result: RateMap = {};
       for (const c of uniqueNonBase) {

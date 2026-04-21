@@ -33,6 +33,14 @@ function truncatePattern(pattern: string): string {
   return `${t.slice(0, PATTERN_PREVIEW_LEN)}…`;
 }
 
+function ItemSeparator() {
+  return <View style={separatorStyles.gap} />;
+}
+
+const separatorStyles = StyleSheet.create({
+  gap: {height: 12},
+});
+
 export default function ParsingRulesScreen() {
   const navigation = useNavigation<Nav>();
   const {colors, spacing, radius, typography, shadows} = useTheme();
@@ -160,7 +168,7 @@ export default function ParsingRulesScreen() {
             refreshing={isLoading && rules.length > 0}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={{height: spacing.sm}} />}
+            ItemSeparatorComponent={ItemSeparator}
           />
         )}
       </ScreenContainer>

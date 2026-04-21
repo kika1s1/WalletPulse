@@ -20,17 +20,15 @@ function MiniBar({
   color,
   spent,
   budget,
-  currency,
   barColor,
 }: {
   name: string;
   color: string;
   spent: number;
   budget: number;
-  currency: string;
   barColor: string;
 }) {
-  const {colors, spacing} = useTheme();
+  const {colors} = useTheme();
   const pct = budget > 0 ? spent / budget : 0;
 
   return (
@@ -130,7 +128,6 @@ export function BudgetSummaryWidget({
                 barColor={resolveBarColor(pct, colors)}
                 budget={item.budget.amount}
                 color={item.categoryColor}
-                currency={currency}
                 key={item.budget.id}
                 name={item.categoryName}
                 spent={item.spent}

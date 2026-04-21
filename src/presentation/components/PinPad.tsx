@@ -42,7 +42,6 @@ type Props = {
   pin: string;
   onPinChange: (pin: string) => void;
   error?: string | null;
-  onForgotPin?: () => void;
   length?: 4 | 6;
   footerSlot?: React.ReactNode;
 };
@@ -140,7 +139,6 @@ export function PinPad({
   pin,
   onPinChange,
   error,
-  onForgotPin,
   length = DEFAULT_PIN_LENGTH,
   footerSlot,
 }: Props) {
@@ -241,19 +239,6 @@ export function PinPad({
         </View>
 
         {footerSlot}
-
-        {onForgotPin ? (
-          <Pressable
-            onPress={onForgotPin}
-            hitSlop={12}
-            accessibilityLabel="Forgot PIN"
-            accessibilityRole="button"
-            style={styles.forgotBtn}>
-            <Text style={[styles.forgotText, {color: colors.primary}]}>
-              Forgot PIN?
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
     </LinearGradient>
   );
@@ -332,15 +317,5 @@ const styles = StyleSheet.create({
   keyText: {
     fontSize: 24,
     fontWeight: fontWeight.semibold,
-  },
-  forgotBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  forgotText: {
-    fontSize: 15,
-    fontWeight: fontWeight.medium,
   },
 });

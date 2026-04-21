@@ -1,7 +1,7 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {Subscription, CreateSubscriptionInput} from '@domain/entities/Subscription';
 import {createSubscription} from '@domain/entities/Subscription';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {scheduleSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 
@@ -29,7 +29,7 @@ export function useSubscriptions(): UseSubscriptionsReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.subscriptions.findAll();
         if (!cancelled) {
           setSubscriptions(data);
@@ -62,7 +62,7 @@ async function rescheduleSubscriptionNotifications(): Promise<void> {
   const subNotifEnabled = useSettingsStore.getState().subscriptionNotificationsEnabled;
   if (!subNotifEnabled) { return; }
   try {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     const active = await ds.subscriptions.findActive();
     await scheduleSubscriptionNotifications(active);
   } catch { /* non-fatal */ }
@@ -77,7 +77,7 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     setError(null);
     try {
       const sub = createSubscription(input);
-      await getLocalDataSource().subscriptions.save(sub);
+      await getSupabaseDataSource().subscriptions.save(sub);
       await rescheduleSubscriptionNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -93,7 +93,7 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     setError(null);
     try {
       const sub = createSubscription(input);
-      await getLocalDataSource().subscriptions.update(sub);
+      await getSupabaseDataSource().subscriptions.update(sub);
       await rescheduleSubscriptionNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -108,7 +108,7 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().subscriptions.cancel(id, Date.now());
+      await getSupabaseDataSource().subscriptions.cancel(id, Date.now());
       await rescheduleSubscriptionNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -123,7 +123,7 @@ export function useSubscriptionActions(): UseSubscriptionActionsReturn {
     setIsSubmitting(true);
     setError(null);
     try {
-      await getLocalDataSource().subscriptions.delete(id);
+      await getSupabaseDataSource().subscriptions.delete(id);
       await rescheduleSubscriptionNotifications();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

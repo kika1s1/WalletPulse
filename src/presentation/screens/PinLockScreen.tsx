@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {PinPad} from '@presentation/components/PinPad';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {usePinStore} from '@presentation/stores/usePinStore';
@@ -45,7 +45,7 @@ export default function PinLockScreen() {
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [ready, setReady] = useState(false);
   const autoPromptedRef = useRef(false);
-  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const locked = attempts >= MAX_ATTEMPTS;
 
@@ -107,34 +107,54 @@ export default function PinLockScreen() {
     }
   }, [ready, biometricEnabled, biometricSupported, locked, tryBiometric]);
 
+  // Guard against concurrent verifies that can be triggered by React StrictMode
+  // double-invokes or rapid re-renders. `isVerifying` state alone isn't enough
+  // because state updates are async — a ref gives us a synchronous barrier.
+  const inFlightRef = useRef(false);
+  const attemptsRef = useRef(0);
+
   useEffect(() => {
-    if (pin.length < pinLength || isVerifying) {
+    if (pin.length < pinLength || inFlightRef.current) {
       return;
     }
+    inFlightRef.current = true;
     setIsVerifying(true);
+    const capturedPin = pin;
 
-    // Safety valve: if the native call hangs beyond the timeout, force-reset
-    // isVerifying so the user can try again instead of being permanently stuck.
     verifyTimeoutRef.current = setTimeout(() => {
+      inFlightRef.current = false;
       setIsVerifying(false);
       setError('Verification timed out. Try again.');
       setPin('');
     }, VERIFY_TIMEOUT_MS);
 
-    void withTimeout(verifyPin(pin), VERIFY_TIMEOUT_MS)
+    // Small retry: Android Keychain can throw transient KeyStoreExceptions
+    // right after the app resumes from background. One retry with a short
+    // back-off resolves the vast majority of these without impacting UX.
+    const verifyWithRetry = async (): Promise<boolean> => {
+      try {
+        return await withTimeout(verifyPin(capturedPin), VERIFY_TIMEOUT_MS);
+      } catch {
+        await new Promise<void>((resolve) => setTimeout(() => resolve(), 150));
+        return withTimeout(verifyPin(capturedPin), VERIFY_TIMEOUT_MS);
+      }
+    };
+
+    void verifyWithRetry()
       .then((ok) => {
         if (ok) {
           unlock();
-        } else {
-          const next = attempts + 1;
-          setAttempts(next);
-          if (next >= MAX_ATTEMPTS) {
-            setError('Too many attempts');
-          } else {
-            setError(`Wrong PIN. ${MAX_ATTEMPTS - next} attempts remaining.`);
-          }
-          setPin('');
+          return;
         }
+        const next = attemptsRef.current + 1;
+        attemptsRef.current = next;
+        setAttempts(next);
+        if (next >= MAX_ATTEMPTS) {
+          setError('Too many attempts');
+        } else {
+          setError(`Wrong PIN. ${MAX_ATTEMPTS - next} attempts remaining.`);
+        }
+        setPin('');
       })
       .catch(() => {
         setError('PIN verification failed. Try again.');
@@ -143,10 +163,12 @@ export default function PinLockScreen() {
       .finally(() => {
         if (verifyTimeoutRef.current) {
           clearTimeout(verifyTimeoutRef.current);
+          verifyTimeoutRef.current = undefined;
         }
+        inFlightRef.current = false;
         setIsVerifying(false);
       });
-  }, [pin, pinLength, verifyPin, unlock, attempts, isVerifying]);
+  }, [pin, pinLength, verifyPin, unlock]);
 
   useEffect(() => {
     return () => {
@@ -168,6 +190,7 @@ export default function PinLockScreen() {
       if (remaining <= 0) {
         clearInterval(timer);
         setCountdown(0);
+        attemptsRef.current = 0;
         setAttempts(0);
         setError(null);
       } else {
@@ -181,33 +204,6 @@ export default function PinLockScreen() {
   const handleChange = useCallback((val: string) => {
     setError(null);
     setPin(val);
-  }, []);
-
-  const handleForgotPin = useCallback(() => {
-    Alert.alert(
-      'Forgot PIN?',
-      'If you cleared app cache or data, your PIN may no longer be recoverable. ' +
-        'You can reset the PIN lock, but this will remove PIN protection.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Reset PIN Lock',
-          style: 'destructive',
-          onPress: async () => {
-            const stillHasPin = await hasPin();
-            if (!stillHasPin) {
-              await usePinStore.getState().removePin();
-              return;
-            }
-            Alert.alert(
-              'PIN data still exists',
-              'Your PIN is still stored. Please enter the correct PIN to unlock, ' +
-                'or clear app data from Android Settings to fully reset.',
-            );
-          },
-        },
-      ],
-    );
   }, []);
 
   const subtitleText = locked
@@ -242,7 +238,6 @@ export default function PinLockScreen() {
         length={pinLength}
         onPinChange={locked || isVerifying ? () => {} : handleChange}
         error={error}
-        onForgotPin={handleForgotPin}
         footerSlot={biometricAction}
       />
     </View>

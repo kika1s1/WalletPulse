@@ -49,7 +49,7 @@ function formatLastUpdated(ms: number | null): string {
 }
 
 export default function CurrencyConverterScreen() {
-  const {colors, spacing, radius, typography} = useTheme();
+  const {colors, spacing, radius} = useTheme();
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {isLoading: ratesLoading, error: ratesError, lastFetched, isStale, refresh} = useFxRates();
   const {convert} = useConvertCurrency();

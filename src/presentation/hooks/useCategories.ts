@@ -1,6 +1,6 @@
 import {useState, useEffect, useCallback} from 'react';
 import type {Category} from '@domain/entities/Category';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 export type UseCategoriesReturn = {
   categories: Category[];
@@ -27,7 +27,7 @@ export function useCategories(): UseCategoriesReturn {
 
     (async () => {
       try {
-        const ds = getLocalDataSource();
+        const ds = getSupabaseDataSource();
         const data = await ds.categories.findAll();
         const nonArchived = data.filter((c) => !c.isArchived);
         if (!cancelled) {

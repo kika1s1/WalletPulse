@@ -28,7 +28,7 @@ import {useGoalActions} from '@presentation/hooks/useGoals';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {generateId} from '@shared/utils/hash';
 import type {Goal, GoalCategory} from '@domain/entities/Goal';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'CreateGoal'>;
 type Route = RouteProp<SettingsStackParamList, 'CreateGoal'>;
@@ -100,7 +100,7 @@ export default function CreateGoalScreen() {
     let mounted = true;
     setEditLoading(true);
     (async () => {
-      const g = await getLocalDataSource().goals.findById(editId);
+      const g = await getSupabaseDataSource().goals.findById(editId);
       if (!mounted) {
         return;
       }

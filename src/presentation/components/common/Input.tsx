@@ -18,6 +18,7 @@ export type InputProps = {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   multiline?: boolean;
+  numberOfLines?: number;
   maxLength?: number;
   keyboardType?: KeyboardTypeOptions;
   secureTextEntry?: boolean;
@@ -37,6 +38,7 @@ export function Input({
   leftIcon,
   rightIcon,
   multiline = false,
+  numberOfLines,
   maxLength,
   keyboardType = 'default',
   secureTextEntry = false,
@@ -111,6 +113,7 @@ export function Input({
           keyboardType={keyboardType}
           maxLength={maxLength}
           multiline={multiline}
+          numberOfLines={numberOfLines}
           onBlur={handleBlur}
           onChangeText={onChangeText}
           onFocus={handleFocus}

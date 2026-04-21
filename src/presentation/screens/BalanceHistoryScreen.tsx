@@ -69,6 +69,7 @@ type SampledPoint = {
   labelTextStyle?: {color: string; fontSize: number};
   showXAxisIndex?: boolean;
   originalIdx: number;
+  customDataPoint?: () => React.ReactElement;
 };
 
 function smartSample(
@@ -91,16 +92,52 @@ function smartSample(
     });
   }
 
-  const labelCount = period === '1W' ? 7 : period === '1M' ? 5 : 5;
-  const labelStep = Math.max(1, Math.floor(sampled.length / labelCount));
   const labelStyle = {color: labelColor, fontSize: 10};
+  const lastIdx = sampled.length - 1;
+  const targetCount = period === '1W' ? 7 : 5;
 
-  for (let i = 0; i < sampled.length; i++) {
-    if (i % labelStep === 0 || i === sampled.length - 1) {
-      const pt = points[sampled[i].originalIdx];
-      sampled[i].label = smartLabel(pt.dateMs, period);
-      sampled[i].labelTextStyle = labelStyle;
+  // Always anchor the first and last tick; distribute the remaining ticks
+  // evenly between them. Snap each target fraction to the nearest sample
+  // index and dedupe (a minimum gap guarantees labels never overlap).
+  const minGap = Math.max(1, Math.ceil(sampled.length / (targetCount + 1)));
+  const labelIndices = new Set<number>();
+  labelIndices.add(0);
+  labelIndices.add(lastIdx);
+
+  const interiorTargets = Math.max(0, targetCount - 2);
+  for (let k = 1; k <= interiorTargets; k++) {
+    const raw = Math.round((k * lastIdx) / (interiorTargets + 1));
+    // Push away from the last tick so "Today" always renders cleanly.
+    const clamped = Math.min(raw, lastIdx - minGap);
+    if (clamped > 0 && clamped < lastIdx) {
+      labelIndices.add(clamped);
     }
+  }
+
+  // Enforce min-gap between every label (scan from right so "Today" wins).
+  const sorted = [...labelIndices].sort((a, b) => b - a);
+  const kept = new Set<number>();
+  let lastKept = Number.POSITIVE_INFINITY;
+  for (const idx of sorted) {
+    if (lastKept - idx >= minGap || idx === lastIdx) {
+      kept.add(idx);
+      lastKept = idx;
+    }
+  }
+
+  const today = new Date();
+  const lastPt = points[sampled[lastIdx].originalIdx];
+  const lastDate = new Date(lastPt.dateMs);
+  const lastIsToday =
+    lastDate.getFullYear() === today.getFullYear() &&
+    lastDate.getMonth() === today.getMonth() &&
+    lastDate.getDate() === today.getDate();
+
+  for (const i of kept) {
+    const pt = points[sampled[i].originalIdx];
+    sampled[i].label =
+      i === lastIdx && lastIsToday ? 'Today' : smartLabel(pt.dateMs, period);
+    sampled[i].labelTextStyle = labelStyle;
   }
 
   return sampled;
@@ -157,10 +194,48 @@ export default function BalanceHistoryScreen() {
   const isPositive = changeAmount >= 0;
   const lineColor = isPositive ? colors.success : colors.danger;
 
-  const chartData = useMemo(
-    () => smartSample(points, period, colors.textTertiary),
-    [points, period, colors.textTertiary],
-  );
+  const chartData = useMemo(() => {
+    const sampled = smartSample(points, period, colors.textTertiary);
+    if (sampled.length === 0) {return sampled;}
+
+    const lastIdx = sampled.length - 1;
+    const dotFill = lineColor;
+    const dotRing = isDark ? colors.background : '#FFFFFF';
+    sampled[lastIdx] = {
+      ...sampled[lastIdx],
+      // eslint-disable-next-line react/no-unstable-nested-components -- library requires factory fn; only recomputed on data change via useMemo
+      customDataPoint: () => (
+        <View
+          pointerEvents="none"
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: dotFill,
+            borderWidth: 2,
+            borderColor: dotRing,
+          }}
+        />
+      ),
+    };
+    return sampled;
+  }, [points, period, colors.textTertiary, lineColor, isDark, colors.background]);
+
+  // Dedicated padded tap zones for the first and last real data points.
+  // With `adjustToWidth` each point would only get ~half-spacing of tap
+  // area, which is too small near the edges. By passing explicit
+  // `initialSpacing` and `endSpacing` (and an explicit `spacing` computed
+  // from the remaining width) the gifted-charts tap math clamps any touch
+  // inside the end-padding to `length-1` (today), so today is always
+  // selectable regardless of exactly where in the right margin you press.
+  const CHART_INITIAL_SPACING = 12;
+  const CHART_END_SPACING = 32;
+  const chartSpacing = useMemo(() => {
+    const n = chartData.length;
+    if (n < 2) {return 40;}
+    const usable = CHART_W - CHART_INITIAL_SPACING - CHART_END_SPACING;
+    return Math.max(4, usable / (n - 1));
+  }, [chartData.length]);
 
   const {yMin, yMax, yAxisOffset, maxValue, stepValue, noOfSections} = useMemo(() => {
     if (chartData.length === 0) {
@@ -187,7 +262,7 @@ export default function BalanceHistoryScreen() {
 
   const handlePointerIndex = useCallback(
     (index: number) => {
-      if (index != null && chartData[index]) {
+      if (chartData[index]) {
         setFocusedIdx(chartData[index].originalIdx);
       }
     },
@@ -418,7 +493,9 @@ export default function BalanceHistoryScreen() {
                     data={chartData}
                     height={CHART_H}
                     width={CHART_W}
-                    adjustToWidth
+                    spacing={chartSpacing}
+                    initialSpacing={CHART_INITIAL_SPACING}
+                    endSpacing={CHART_END_SPACING}
                     curved
                     curvature={0.15}
                     areaChart

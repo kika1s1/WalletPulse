@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {createTag} from '@domain/entities/Tag';
 import {
   collectAllTags,
@@ -13,7 +13,7 @@ export function useTagSuggestions() {
   const [allKnownTags, setAllKnownTags] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     const transactions = await ds.transactions.findAll();
     let tableTags = await ds.tags.findAll();
 
@@ -62,7 +62,7 @@ export function useTagSuggestions() {
       if (!normalized || validateTag(normalized) !== null) {
         return;
       }
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const existing = await ds.tags.findByName(normalized);
       if (existing) {
         return;

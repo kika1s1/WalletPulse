@@ -4,9 +4,9 @@ import {useWallets} from './useWallets';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {startOfDay, endOfDay, daysAgo, getWeekDayLabels} from '@shared/utils/date-helpers';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
-import {getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 import {makeGenerateInsights} from '@domain/usecases/generate-insight';
-import {makeGetConversionRate} from '@infrastructure/fx-service';
+import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {DaySpending} from '@presentation/components/charts/MiniBarChart';
@@ -127,7 +127,7 @@ function useConversionRates(
 
     let cancelled = false;
     (async () => {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       const getRate = makeGetConversionRate({fxRateRepo: ds.fxRates});
       const result: RateMap = {};
       for (const c of uniqueNonBase) {
@@ -168,7 +168,7 @@ export function useDashboard(): DashboardData {
   const generateInsightsApiRef = useRef<ReturnType<typeof makeGenerateInsights> | null>(null);
   const getInsightsApi = useCallback(() => {
     if (!generateInsightsApiRef.current) {
-      const ds = getLocalDataSource();
+      const ds = getSupabaseDataSource();
       generateInsightsApiRef.current = makeGenerateInsights({
         transactionRepo: ds.transactions,
         walletRepo: ds.wallets,
