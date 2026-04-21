@@ -32,6 +32,7 @@ import {isScreenshotProtectionAvailable} from '@infrastructure/native/SecurityBr
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {HolographicFingerprint} from '@presentation/components/common/HolographicFingerprint';
 import {PinPad} from '@presentation/components/PinPad';
 import {
   backupFilename,
@@ -483,52 +484,25 @@ export default function SettingsScreen() {
                 });
               }}
               style={({pressed}) => [
-                styles.bioIconRow,
+                styles.bioHoloRow,
                 {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.borderLight,
-                  borderRadius: radius.md,
-                  paddingVertical: spacing.md,
-                  opacity: biometricBusy ? 0.6 : pressed ? 0.92 : 1,
+                  backgroundColor: '#0A0E1A',
+                  borderColor: biometricEnabled
+                    ? colors.primary + '55'
+                    : 'rgba(255,255,255,0.08)',
+                  borderRadius: radius.lg,
+                  paddingVertical: spacing.lg,
+                  transform: [{scale: pressed ? 0.98 : 1}],
                 },
               ]}>
-              <View
-                style={[
-                  styles.bioIconCircle,
-                  {
-                    backgroundColor: biometricEnabled
-                      ? colors.primary
-                      : 'transparent',
-                    borderColor: biometricEnabled
-                      ? colors.primary
-                      : colors.border,
-                  },
-                ]}>
-                <AppIcon
-                  color={
-                    biometricEnabled ? colors.surface : colors.textSecondary
-                  }
-                  name="fingerprint"
-                  size={30}
-                />
-                {biometricBusy ? (
-                  <View style={styles.bioBadge}>
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  </View>
-                ) : biometricEnabled ? (
-                  <View
-                    style={[
-                      styles.bioBadge,
-                      {backgroundColor: colors.surface},
-                    ]}>
-                    <AppIcon
-                      color={colors.success}
-                      name="check-circle"
-                      size={18}
-                    />
-                  </View>
-                ) : null}
-              </View>
+              <HolographicFingerprint
+                accentColor={colors.primary}
+                active={biometricEnabled}
+                busy={biometricBusy}
+                disabled={biometricBusy}
+                glowColor={colors.primary}
+                size={128}
+              />
             </Pressable>
           )}
           {isPinEnabled && (
@@ -1136,28 +1110,11 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     marginLeft: 2,
   },
-  bioIconRow: {
+  bioHoloRow: {
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  bioIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bioBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
   permissionBanner: {
     flexDirection: 'row',
