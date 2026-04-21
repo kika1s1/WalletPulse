@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.walletpulse.filesaver.FileSaverBridgePackage
 import com.walletpulse.notification.NotificationBridgePackage
 import com.walletpulse.security.SecurityBridgePackage
 
@@ -18,6 +19,7 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           add(NotificationBridgePackage())
           add(SecurityBridgePackage())
+          add(FileSaverBridgePackage())
         },
     )
   }
