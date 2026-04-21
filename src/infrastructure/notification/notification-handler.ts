@@ -2,7 +2,7 @@ import type {NativeNotificationEvent} from '@infrastructure/native/NotificationB
 import {subscribeToNotifications} from '@infrastructure/native/NotificationBridge';
 import {makeNotificationOrchestrator, type OrchestratorResult} from './orchestrator';
 import {createDedupService, type DedupService} from './dedup-service';
-import {getLocalDataSource, isDataSourceReady} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 
 export type NotificationHandlerCallbacks = {
   onTransactionCreated?: (result: OrchestratorResult) => void;
@@ -15,7 +15,7 @@ let unsubscribe: (() => void) | null = null;
 
 function getDedupService(): DedupService {
   if (!dedupInstance) {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     dedupInstance = createDedupService(ds.transactions);
   }
   return dedupInstance;
@@ -32,7 +32,7 @@ export function startNotificationHandler(
     return () => {};
   }
 
-  const ds = getLocalDataSource();
+  const ds = getSupabaseDataSource();
   const dedup = getDedupService();
 
   const orchestrator = makeNotificationOrchestrator({

@@ -1,5 +1,5 @@
-jest.mock('@data/datasources/LocalDataSource', () => ({
-  getLocalDataSource: () => ({
+jest.mock('@data/datasources/SupabaseDataSource', () => ({
+  getSupabaseDataSource: () => ({
     settings: {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue(undefined),

@@ -1,8 +1,5 @@
 import type {Subscription} from '@domain/entities/Subscription';
-import {
-  computeSubscriptionNotifications,
-  type SubscriptionNotificationPayload,
-} from '@infrastructure/notification/subscription-notifications';
+import {computeSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
 
 const MS_PER_DAY = 86_400_000;
 

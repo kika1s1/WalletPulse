@@ -14,7 +14,7 @@ function rowToDomain(row: Row): Subscription {
     nextDueDate: Number(row.next_due_date),
     categoryId: row.category_id as string,
     isActive: row.is_active as boolean,
-    cancelledAt: row.cancelled_at != null ? Number(row.cancelled_at) : undefined,
+    cancelledAt: row.cancelled_at !== null && row.cancelled_at !== undefined ? Number(row.cancelled_at) : undefined,
     icon: row.icon as string,
     color: row.color as string,
     createdAt: Number(row.created_at),

@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- intentional bitwise ops for djb2 hash */
 /**
  * Deduplication hash for auto-detected transactions.
  * Uses a simple but deterministic string hash (djb2 variant)

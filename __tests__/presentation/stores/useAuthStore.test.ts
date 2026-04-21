@@ -7,6 +7,7 @@ const mockUser: User = {
   email: 'test@example.com',
   fullName: 'Test User',
   avatarUrl: '',
+  address: '',
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_000,
 };

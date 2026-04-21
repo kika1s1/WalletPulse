@@ -1,4 +1,4 @@
-import type {ParsedNotification, RawNotification} from '@infrastructure/notification/types';
+import type {RawNotification} from '@infrastructure/notification/types';
 import {parsePayoneer} from '@infrastructure/notification/parsers/payoneer';
 import {parseGrey} from '@infrastructure/notification/parsers/grey';
 import {parseDukascopy} from '@infrastructure/notification/parsers/dukascopy';

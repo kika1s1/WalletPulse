@@ -11,6 +11,8 @@ function createMockAuthRepo(): jest.Mocked<IAuthRepository> {
     getStoredToken: jest.fn(),
     requestPasswordReset: jest.fn(),
     resetPassword: jest.fn(),
+    changePassword: jest.fn(),
+    deleteAccount: jest.fn(),
   };
 }
 

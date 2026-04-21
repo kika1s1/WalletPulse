@@ -1,6 +1,6 @@
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAppStore} from '@presentation/stores/useAppStore';
-import {isDataSourceReady, getLocalDataSource} from '@data/datasources/LocalDataSource';
+import {isDataSourceReady, getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
 
 const SETTINGS_KEY = 'user_preferences';
 const APP_KEY = 'app_preferences';
@@ -26,7 +26,7 @@ let isPulling = false;
 
 function getSettingsRepo() {
   if (!isDataSourceReady()) { return null; }
-  return getLocalDataSource().settings;
+  return getSupabaseDataSource().settings;
 }
 
 export async function pullSettingsFromSupabase(): Promise<void> {

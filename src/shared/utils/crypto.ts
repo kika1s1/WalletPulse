@@ -2,6 +2,10 @@ import 'react-native-get-random-values';
 import {v4 as uuidv4} from 'uuid';
 import {sha256} from 'js-sha256';
 
+declare const crypto: {
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+};
+
 export function generateSalt(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

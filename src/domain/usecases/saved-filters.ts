@@ -1,6 +1,6 @@
 import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import {generateId} from '@shared/utils/hash';
-import {getLocalDataSource, isDataSourceReady} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 
 export type SavedFilter = {
   id: string;
@@ -36,7 +36,7 @@ async function ensureLoaded(): Promise<void> {
   }
   if (!isDataSourceReady()) { return; }
   try {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     const recentRaw = await ds.settings.get('recent_searches');
     if (recentRaw) {
       const parsed = JSON.parse(recentRaw) as unknown;
@@ -59,7 +59,7 @@ async function ensureLoaded(): Promise<void> {
 
 async function persistRecent(): Promise<void> {
   try {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     await ds.settings.set('recent_searches', JSON.stringify(recentSearches));
   } catch {
     // Non-critical
@@ -68,7 +68,7 @@ async function persistRecent(): Promise<void> {
 
 async function persistFilters(): Promise<void> {
   try {
-    const ds = getLocalDataSource();
+    const ds = getSupabaseDataSource();
     await ds.settings.set('saved_filters', JSON.stringify(savedFilters));
   } catch {
     // Non-critical

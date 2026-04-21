@@ -28,7 +28,8 @@ export function validateParsingRule(input: CreateParsingRuleInput): string | nul
   if (!input.ruleName.trim()) {return 'Rule name is required';}
   if (!input.pattern.trim()) {return 'Pattern is required';}
   try {
-    new RegExp(input.pattern);
+    const _test = new RegExp(input.pattern);
+    _test.test('');
   } catch {
     return 'Invalid regex pattern';
   }

@@ -1,4 +1,4 @@
-import {getLocalDataSource, isDataSourceReady} from '@data/datasources/LocalDataSource';
+import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 import {makeCreateTransaction} from '@domain/usecases/create-transaction';
 import {generateId} from '@shared/utils/hash';
 import {processRecurringItemsWithDeps} from './recurring-scheduler-core';
@@ -8,7 +8,7 @@ export {processRecurringItemsWithDeps} from './recurring-scheduler-core';
 
 export async function processRecurringItems(): Promise<void> {
   if (!isDataSourceReady()) { return; }
-  const ds = getLocalDataSource();
+  const ds = getSupabaseDataSource();
   const createTransaction = makeCreateTransaction({
     transactionRepo: ds.transactions,
     walletRepo: ds.wallets,

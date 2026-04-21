@@ -1,4 +1,4 @@
-import {createCategory, type CreateCategoryInput} from '@domain/entities/Category';
+import {createCategory} from '@domain/entities/Category';
 import type {ICategoryRepository} from '@domain/repositories/ICategoryRepository';
 import {makeReorderCategories} from '@domain/usecases/reorder-categories';
 

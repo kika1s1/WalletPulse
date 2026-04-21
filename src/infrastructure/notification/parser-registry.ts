@@ -1,5 +1,4 @@
 import type {NotificationParser, ParsedNotification} from './types';
-import type {TransactionSource} from '@domain/entities/Transaction';
 import {parsePayoneer} from './parsers/payoneer';
 import {parseGrey} from './parsers/grey';
 import {parseDukascopy} from './parsers/dukascopy';
@@ -10,26 +9,10 @@ const REGISTRY: Record<string, NotificationParser> = {
   'com.dukascopy.bank': parseDukascopy,
 };
 
-const SOURCE_MAP: Record<string, TransactionSource> = {
-  'com.payoneer.android': 'payoneer',
-  'com.grey.android': 'grey',
-  'com.dukascopy.bank': 'dukascopy',
-};
-
 export function getParserForPackage(
   packageName: string,
 ): NotificationParser | null {
   return REGISTRY[packageName] ?? null;
-}
-
-export function getSupportedPackages(): string[] {
-  return Object.keys(REGISTRY);
-}
-
-export function getSourceForPackage(
-  packageName: string,
-): TransactionSource {
-  return SOURCE_MAP[packageName] ?? 'manual';
 }
 
 export async function applyCustomRules(
@@ -38,8 +21,8 @@ export async function applyCustomRules(
   body: string,
 ): Promise<ParsedNotification | null> {
   try {
-    const {getLocalDataSource} = await import('@data/datasources/LocalDataSource');
-    const ds = getLocalDataSource();
+    const {getSupabaseDataSource} = await import('@data/datasources/SupabaseDataSource');
+    const ds = getSupabaseDataSource();
     const rules = await ds.parsingRules.findByPackageName(packageName);
     if (rules.length === 0) {
       return null;

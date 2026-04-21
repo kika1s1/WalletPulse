@@ -5,8 +5,6 @@ import {
   shouldRemind,
 } from '@domain/entities/BillReminder';
 
-const MS_PER_DAY = 86_400_000;
-
 const baseInput = {
   id: 'bill-1',
   name: 'Rent',

@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- intentional bitwise ops for djb2 hash */
 /**
  * Lightweight string hash for non-crypto purposes (dedup keys, cache keys).
  * Uses djb2 algorithm. For crypto-grade hashing, use a proper library.

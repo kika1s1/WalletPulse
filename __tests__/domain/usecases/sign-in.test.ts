@@ -13,6 +13,8 @@ function createMockAuthRepo(): jest.Mocked<IAuthRepository> {
     getStoredToken: jest.fn(),
     requestPasswordReset: jest.fn(),
     resetPassword: jest.fn(),
+    changePassword: jest.fn(),
+    deleteAccount: jest.fn(),
   };
 }
 
@@ -21,6 +23,7 @@ const mockUser: User = {
   email: 'test@example.com',
   fullName: 'Test User',
   avatarUrl: '',
+  address: '',
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_000,
 };

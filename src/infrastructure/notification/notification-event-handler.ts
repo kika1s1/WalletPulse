@@ -1,49 +1,26 @@
 import {navigationRef} from '@presentation/navigation/navigationRef';
 
-let pendingBillNav: string | null = null;
-let pendingSubscriptionNav: string | null = null;
-
-export function getPendingBillNav(): string | null {
-  const v = pendingBillNav;
-  pendingBillNav = null;
-  return v;
-}
-
-export function getPendingSubscriptionNav(): string | null {
-  const v = pendingSubscriptionNav;
-  pendingSubscriptionNav = null;
-  return v;
-}
-
 function handleNotificationPress(data: Record<string, unknown> | undefined): void {
-  if (!data) {return;}
+  if (!data || !navigationRef.isReady()) {return;}
 
   if (data.type === 'bill_reminder') {
     const billId = (data.billId as string) ?? undefined;
-    if (navigationRef.isReady()) {
-      navigationRef.navigate('MainTabs', {
-        screen: 'SettingsTab',
-        params: {
-          screen: 'BillReminders',
-          params: billId ? {highlightBillId: billId} : undefined,
-        },
-      });
-    } else {
-      pendingBillNav = billId ?? null;
-    }
+    navigationRef.navigate('MainTabs', {
+      screen: 'SettingsTab',
+      params: {
+        screen: 'BillReminders',
+        params: billId ? {highlightBillId: billId} : undefined,
+      },
+    });
   } else if (data.type === 'subscription_reminder') {
     const subscriptionId = (data.subscriptionId as string) ?? undefined;
-    if (navigationRef.isReady()) {
-      navigationRef.navigate('MainTabs', {
-        screen: 'SettingsTab',
-        params: {
-          screen: 'SubscriptionsList',
-          params: subscriptionId ? {highlightSubscriptionId: subscriptionId} : undefined,
-        },
-      });
-    } else {
-      pendingSubscriptionNav = subscriptionId ?? null;
-    }
+    navigationRef.navigate('MainTabs', {
+      screen: 'SettingsTab',
+      params: {
+        screen: 'SubscriptionsList',
+        params: subscriptionId ? {highlightSubscriptionId: subscriptionId} : undefined,
+      },
+    });
   }
 }
 

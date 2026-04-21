@@ -50,7 +50,7 @@ describe('createUser', () => {
   });
 
   it('defaults avatarUrl to empty string', () => {
-    const {avatarUrl, ...rest} = validInput;
+    const {avatarUrl: _avatarUrl, ...rest} = validInput;
     const user = createUser({...rest, avatarUrl: undefined} as CreateUserInput);
     expect(user.avatarUrl).toBe('');
   });

@@ -16,7 +16,7 @@ function rowToDomain(row: Row): Goal {
     color: row.color as string,
     category: row.category as GoalCategory,
     isCompleted: row.is_completed as boolean,
-    completedAt: row.completed_at != null ? Number(row.completed_at) : undefined,
+    completedAt: row.completed_at !== null && row.completed_at !== undefined ? Number(row.completed_at) : undefined,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };

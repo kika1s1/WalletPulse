@@ -1,6 +1,6 @@
 import React, {createContext, useContext, useMemo} from 'react';
 import {useColorScheme} from 'react-native';
-import {colors, ColorTheme, getThemeColors, type ThemeId} from './colors';
+import {ColorTheme, getThemeColors, type ThemeId} from './colors';
 import {typography} from './typography';
 import {spacing} from './spacing';
 import {shadows} from './shadows';

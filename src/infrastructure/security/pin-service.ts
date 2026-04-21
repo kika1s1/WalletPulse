@@ -215,10 +215,33 @@ function isValidRecord(raw: unknown): raw is StoredPinRecord {
   return r.v === undefined;
 }
 
+/**
+ * Read the stored PIN record from Keychain with one retry on transient errors.
+ *
+ * Android's KeyStore occasionally throws `KeyStoreException` when the app has
+ * just resumed from background, during high CPU load, or on devices with
+ * aggressive memory pressure. A short back-off retry resolves nearly all of
+ * these without impacting the happy path.
+ */
 async function readStoredRecord(): Promise<StoredPinRecord | null> {
-  const entry = await Keychain.getGenericPassword({
-    service: PIN_KEYCHAIN_SERVICE,
-  });
+  const readOnce = async (): Promise<Keychain.UserCredentials | false> => {
+    return Keychain.getGenericPassword({
+      service: PIN_KEYCHAIN_SERVICE,
+    });
+  };
+
+  let entry: Keychain.UserCredentials | false;
+  try {
+    entry = await readOnce();
+  } catch {
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), 100));
+    try {
+      entry = await readOnce();
+    } catch {
+      return null;
+    }
+  }
+
   if (!entry || typeof entry === 'boolean') {
     return null;
   }

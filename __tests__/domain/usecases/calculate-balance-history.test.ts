@@ -1,6 +1,5 @@
 import {
   computeBalanceHistory,
-  type BalanceHistoryPoint,
   type BalanceHistoryTransaction,
 } from '@domain/usecases/calculate-balance-history';
 
@@ -127,5 +126,92 @@ describe('computeBalanceHistory', () => {
     const result = computeBalanceHistory(transactions, 'USD', {});
 
     expect(result[0].balance).toBe(-40_00);
+  });
+
+  describe('periodStartMs + openingBalanceCents (period window)', () => {
+    it('starts the timeline at periodStartMs with the opening balance', () => {
+      const periodStart = BASE + 2 * DAY;
+      const transactions: BalanceHistoryTransaction[] = [
+        tx({amount: 100_00, type: 'income', transactionDate: BASE}),
+        tx({amount: 30_00, type: 'expense', transactionDate: BASE + DAY}),
+        tx({amount: 20_00, type: 'income', transactionDate: BASE + 3 * DAY}),
+      ];
+
+      const result = computeBalanceHistory(transactions, 'USD', {}, {
+        periodStartMs: periodStart,
+        periodEndMs: BASE + 4 * DAY,
+        openingBalanceCents: 70_00,
+      });
+
+      expect(result[0].dateMs).toBe(periodStart);
+      expect(result[0].balance).toBe(70_00);
+      expect(result[result.length - 1].balance).toBe(90_00);
+    });
+
+    it('ignores transactions before periodStartMs in the daily deltas', () => {
+      const periodStart = BASE + 2 * DAY;
+      const transactions: BalanceHistoryTransaction[] = [
+        tx({amount: 500_00, type: 'income', transactionDate: BASE}),
+        tx({amount: 100_00, type: 'expense', transactionDate: BASE + 3 * DAY}),
+      ];
+
+      const result = computeBalanceHistory(transactions, 'USD', {}, {
+        periodStartMs: periodStart,
+        periodEndMs: BASE + 4 * DAY,
+        openingBalanceCents: 500_00,
+      });
+
+      expect(result[0].balance).toBe(500_00);
+      expect(result[1].balance).toBe(400_00);
+      expect(result[2].balance).toBe(400_00);
+    });
+
+    it('returns a flat line at opening balance when no in-period transactions exist', () => {
+      const periodStart = BASE + 5 * DAY;
+      const transactions: BalanceHistoryTransaction[] = [
+        tx({amount: 200_00, type: 'income', transactionDate: BASE}),
+      ];
+
+      const result = computeBalanceHistory(transactions, 'USD', {}, {
+        periodStartMs: periodStart,
+        periodEndMs: periodStart + 2 * DAY,
+        openingBalanceCents: 200_00,
+      });
+
+      expect(result.length).toBe(3);
+      expect(result.every((p) => p.balance === 200_00)).toBe(true);
+    });
+
+    it('carries a zero opening balance forward when omitted', () => {
+      const periodStart = BASE + 1 * DAY;
+      const transactions: BalanceHistoryTransaction[] = [
+        tx({amount: 10_00, type: 'income', transactionDate: BASE + 2 * DAY}),
+      ];
+
+      const result = computeBalanceHistory(transactions, 'USD', {}, {
+        periodStartMs: periodStart,
+        periodEndMs: BASE + 2 * DAY,
+      });
+
+      expect(result[0].balance).toBe(0);
+      expect(result[result.length - 1].balance).toBe(10_00);
+    });
+
+    it('transfer legs in the same currency net to zero across the window', () => {
+      const periodStart = BASE;
+      const transactions: BalanceHistoryTransaction[] = [
+        tx({amount: 500_00, type: 'income', transactionDate: BASE}),
+        tx({amount: 50_00, type: 'transfer', notes: '[WP_XFER:peer=tx2:leg=source]', transactionDate: BASE + DAY}),
+        tx({amount: 50_00, type: 'transfer', notes: '[WP_XFER:peer=tx1:leg=destination]', transactionDate: BASE + DAY}),
+      ];
+
+      const result = computeBalanceHistory(transactions, 'USD', {}, {
+        periodStartMs: periodStart,
+        periodEndMs: BASE + DAY,
+        openingBalanceCents: 0,
+      });
+
+      expect(result[result.length - 1].balance).toBe(500_00);
+    });
   });
 });

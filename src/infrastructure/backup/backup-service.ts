@@ -46,9 +46,19 @@ const TABLE_NAMES = [
   'fx_rates', 'notification_logs', 'parsing_rules', 'transaction_templates',
 ] as const;
 
-function backupFilename(): string {
+export function backupFilename(): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   return `${BACKUP_FILE_PREFIX}${stamp}.json`;
+}
+
+/**
+ * Fetches every user-scoped row from Supabase and serialises it into the
+ * WalletPulse backup envelope. Callers are responsible for writing the returned
+ * text wherever they want (user-chosen destination via SAF, app folder, etc.).
+ */
+export async function buildBackupJson(userId: string): Promise<string> {
+  const payload = await fetchAllRows(userId);
+  return JSON.stringify({app: APP_NAME, ...payload}, null, 2);
 }
 
 async function fetchAllRows(userId: string): Promise<WalletPulseBackupPayload> {
@@ -93,12 +103,7 @@ export async function createBackup(userId: string): Promise<string> {
   if (!exists) {
     throw new Error('Download folder is not available on this device');
   }
-  const payload = await fetchAllRows(userId);
-  const body = JSON.stringify(
-    {app: APP_NAME, ...payload},
-    null,
-    2,
-  );
+  const body = await buildBackupJson(userId);
   const path = `${dir}/${backupFilename()}`;
   await RNFS.writeFile(path, body, 'utf8');
   return path;
