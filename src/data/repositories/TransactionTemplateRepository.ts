@@ -1,6 +1,6 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {ITransactionTemplateRepository} from '@domain/repositories/ITransactionTemplateRepository';
-import type {TransactionTemplate, TemplateInput} from '@domain/usecases/quick-action-templates';
+import type {TransactionTemplate, TemplateInput} from '@domain/entities/TransactionTemplate';
 import type {TransactionType} from '@domain/entities/Transaction';
 
 type Row = Record<string, unknown>;

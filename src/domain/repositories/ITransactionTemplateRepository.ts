@@ -1,4 +1,4 @@
-import type {TransactionTemplate, TemplateInput} from '@domain/usecases/quick-action-templates';
+import type {TransactionTemplate, TemplateInput} from '@domain/entities/TransactionTemplate';
 
 export type ITransactionTemplateRepository = {
   findAll(): Promise<TransactionTemplate[]>;
