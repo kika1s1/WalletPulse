@@ -179,44 +179,50 @@ export class AuthRepository implements IAuthRepository {
 
   async requestPasswordReset(email: string): Promise<void> {
     const normalizedEmail = email.trim().toLowerCase();
-    const baseUrl = Config.SUPABASE_URL;
-
-    const response = await fetch(
-      `${baseUrl}/functions/v1/send-reset-email`,
-      {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: normalizedEmail}),
-      },
-    );
-
+    const response = await this.callEdgeFunction('send-reset-email', {
+      email: normalizedEmail,
+    });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      throw new Error((body as Record<string, string>).error ?? 'Failed to send reset email');
+      throw new Error(
+        (body as Record<string, string>).error ?? 'Failed to send reset email',
+      );
     }
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
-    const baseUrl = Config.SUPABASE_URL;
-
-    const response = await fetch(
-      `${baseUrl}/functions/v1/reset-password`,
-      {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          code: code.trim(),
-          new_password: newPassword,
-        }),
-      },
-    );
-
-    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-
+    const response = await this.callEdgeFunction('reset-password', {
+      email: email.trim().toLowerCase(),
+      code: code.trim(),
+      new_password: newPassword,
+    });
+    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (!response.ok) {
       throw new Error((body.error as string) ?? 'Failed to reset password');
     }
+  }
+
+  // Edge Functions are deployed with verify_jwt: false but the Supabase gateway
+  // still requires the anon key in the Authorization header for the request to
+  // route through — without it you get a 401 from the gateway, not the function.
+  private async callEdgeFunction(
+    slug: string,
+    body: Record<string, unknown>,
+  ): Promise<Response> {
+    const baseUrl = Config.SUPABASE_URL;
+    const anonKey = Config.SUPABASE_ANON_KEY;
+    if (!baseUrl || !anonKey) {
+      throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
+    }
+    return fetch(`${baseUrl}/functions/v1/${slug}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify(body),
+    });
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {

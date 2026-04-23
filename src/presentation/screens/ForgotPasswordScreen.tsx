@@ -19,6 +19,7 @@ export default function ForgotPasswordScreen({navigation}: AuthStackScreenProps<
 
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | undefined>();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -35,14 +36,23 @@ export default function ForgotPasswordScreen({navigation}: AuthStackScreenProps<
 
     setIsLoading(true);
     setEmailError(undefined);
+    setSubmitError(null);
     try {
       const repo = new AuthRepository(getSupabaseClient());
+      // Server is responsible for anti-enumeration (returns 200 for unknown
+      // emails). Any thrown error here is a real infra failure — surface it
+      // instead of pretending the email was sent.
       await repo.requestPasswordReset(trimmed);
-    } catch {
-      // Silently succeed to prevent email enumeration
+      setSent(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't send reset email. Check your connection and try again.",
+      );
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-    setSent(true);
   }, [email]);
 
   const handleGoToReset = useCallback(() => {
@@ -142,10 +152,29 @@ export default function ForgotPasswordScreen({navigation}: AuthStackScreenProps<
                 ]}
               >
                 <Text style={styles.submitBtnText}>
-                  {isLoading ? 'Sending...' : 'Send Reset Link'}
+                  {isLoading ? 'Sending...' : 'Send Reset Code'}
                 </Text>
               </Pressable>
             </Animated.View>
+
+            {submitError ? (
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={[
+                  styles.errorBanner,
+                  {
+                    backgroundColor: colors.dangerLight,
+                    borderRadius: radius.md,
+                  },
+                ]}
+                accessibilityLiveRegion="polite"
+              >
+                <AppIcon name="warning" size={18} color={colors.danger} />
+                <Text style={[styles.errorBannerText, {color: colors.danger}]}>
+                  {submitError}
+                </Text>
+              </Animated.View>
+            ) : null}
 
             <Animated.View entering={FadeInDown.delay(550).duration(400)} style={styles.footer}>
               <Pressable onPress={() => navigation.goBack()}>
@@ -248,6 +277,19 @@ const styles = StyleSheet.create({
   },
   secondaryLinkText: {
     fontSize: 14,
+    fontWeight: fontWeight.medium,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    marginTop: 14,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: fontWeight.medium,
   },
 });
