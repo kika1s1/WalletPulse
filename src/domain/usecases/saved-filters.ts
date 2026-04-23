@@ -6,23 +6,58 @@ export type SavedFilter = {
   id: string;
   name: string;
   filter: TransactionFilter;
+  // Optional raw query string. Added in the universal-search overhaul so
+  // saved presets can also capture free-text + operator tokens (e.g.
+  // `category:food amount:>50`). Older presets may not have this field,
+  // so callers must treat it as optional.
+  rawQuery?: string;
   createdAt: number;
 };
 
 export function createSavedFilter(
   name: string,
   filter: TransactionFilter,
+  rawQuery?: string,
 ): SavedFilter {
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error('Filter name is required');
   }
-  return {
+  const saved: SavedFilter = {
     id: generateId(),
     name: trimmed,
     filter,
     createdAt: Date.now(),
   };
+  if (rawQuery && rawQuery.trim()) {
+    saved.rawQuery = rawQuery.trim();
+  }
+  return saved;
+}
+
+// Builds a sensible default name from the active filter + query so users
+// don't have to type one. e.g. `category:food amount:>50` -> "Food · >50".
+export function suggestSavedFilterName(
+  filter: TransactionFilter,
+  rawQuery?: string,
+): string {
+  const parts: string[] = [];
+  if (rawQuery && rawQuery.trim()) { parts.push(rawQuery.trim()); }
+  if (filter.type) { parts.push(filter.type); }
+  if (filter.currency) { parts.push(filter.currency); }
+  if (filter.minAmount !== undefined || filter.maxAmount !== undefined) {
+    const min = filter.minAmount !== undefined
+      ? `>=${(filter.minAmount / 100).toFixed(0)}`
+      : '';
+    const max = filter.maxAmount !== undefined
+      ? `<=${(filter.maxAmount / 100).toFixed(0)}`
+      : '';
+    parts.push([min, max].filter(Boolean).join(' '));
+  }
+  if (filter.tags && filter.tags.length > 0) {
+    parts.push(`#${filter.tags.join(' #')}`);
+  }
+  return parts.filter(Boolean).join(' · ') || `Filter ${new Date().toLocaleDateString()}`;
 }
 
 const MAX_RECENT = 20;
@@ -108,8 +143,9 @@ export function getSavedFilters(): SavedFilter[] {
 export function addSavedFilter(
   name: string,
   filter: TransactionFilter,
+  rawQuery?: string,
 ): SavedFilter {
-  const saved = createSavedFilter(name, filter);
+  const saved = createSavedFilter(name, filter, rawQuery);
   savedFilters.unshift(saved);
   void persistFilters();
   return saved;

@@ -1,6 +1,15 @@
 import type {Transaction, TransactionType, TransactionSource} from '@domain/entities/Transaction';
 import type {DateRange} from '@domain/value-objects/DateRange';
 
+// Keyset cursor for stable, index-friendly pagination. Repositories must
+// order by (transaction_date DESC, id DESC) when a cursor is present, and
+// every caller that wants the "next page" passes back the last row's
+// (transactionDate, id) pair.
+export type TransactionCursor = {
+  afterDate: number;
+  afterId: string;
+};
+
 export type TransactionFilter = {
   walletId?: string;
   categoryId?: string;
@@ -13,6 +22,8 @@ export type TransactionFilter = {
   minAmount?: number;
   maxAmount?: number;
   searchQuery?: string;
+  cursor?: TransactionCursor;
+  limit?: number;
 };
 
 export type TransactionSortField = 'transactionDate' | 'amount' | 'createdAt';

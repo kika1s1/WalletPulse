@@ -1,0 +1,6 @@
+node_modules/
+coverage/
+android/
+ios/
+# Deno runtime — different module/type resolution; linted in isolation if needed.
+supabase/functions/

@@ -12,6 +12,7 @@ import {SettingsRepository} from '@data/repositories/SettingsRepository';
 import {TagRepository} from '@data/repositories/TagRepository';
 import {ParsingRuleRepository} from '@data/repositories/ParsingRuleRepository';
 import {TransactionTemplateRepository} from '@data/repositories/TransactionTemplateRepository';
+import {UniversalSearchRepository} from '@data/repositories/UniversalSearchRepository';
 
 import type {ITransactionRepository} from '@domain/repositories/ITransactionRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
@@ -41,6 +42,9 @@ export type SupabaseDataSource = {
   tags: ITagRepository;
   parsingRules: IParsingRuleRepository;
   templates: ITransactionTemplateRepository;
+  // Concrete class (no interface yet) because the RPC is the only
+  // implementation and the shape is tied to server behaviour.
+  search: UniversalSearchRepository;
 };
 
 let cachedUserId: string | null = null;
@@ -77,6 +81,7 @@ export function getSupabaseDataSource(userId?: string): SupabaseDataSource {
     tags: new TagRepository(supabase, uid),
     parsingRules: new ParsingRuleRepository(supabase, uid),
     templates: new TransactionTemplateRepository(supabase, uid),
+    search: new UniversalSearchRepository(supabase),
   };
 
   return instance;

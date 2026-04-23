@@ -1,0 +1,10 @@
+# Supabase project config. Linked via `supabase link --project-ref bcfoapakolbatnubxgqt`.
+project_id = "bcfoapakolbatnubxgqt"
+
+[functions.send-reset-email]
+# Unauthenticated: called from the auth flow before the user has a session.
+verify_jwt = false
+
+[functions.reset-password]
+# Unauthenticated: called with an email + one-time code, no session yet.
+verify_jwt = false

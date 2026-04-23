@@ -9,10 +9,14 @@ import type {
 
 type Row = Record<string, unknown>;
 
-function parseTagsJson(tagsJson: string): string[] {
-  if (!tagsJson) { return []; }
+// Transactions migrated to a native `text[]` column in 20260423_search_schema.
+// For safety against older backups or a partially-rolled-out deploy the
+// parser also accepts the legacy JSON-encoded string form.
+function toTagArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) { return raw.map(String); }
+  if (typeof raw !== 'string' || raw === '') { return []; }
   try {
-    const parsed = JSON.parse(tagsJson);
+    const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map(String) : [];
   } catch { return []; }
 }
@@ -29,7 +33,7 @@ function rowToDomain(row: Row): Transaction {
     merchant: (row.merchant as string) ?? '',
     source: (row.source as TransactionSource) ?? 'manual',
     sourceHash: (row.source_hash as string) ?? '',
-    tags: parseTagsJson((row.tags as string) ?? '[]'),
+    tags: toTagArray(row.tags),
     receiptUri: (row.receipt_uri as string) ?? '',
     isRecurring: (row.is_recurring as boolean) ?? false,
     recurrenceRule: (row.recurrence_rule as string) ?? '',
@@ -71,7 +75,7 @@ export class TransactionRepository implements ITransactionRepository {
       merchant: t.merchant,
       source: t.source,
       source_hash: t.sourceHash,
-      tags: JSON.stringify(t.tags),
+      tags: t.tags,
       receipt_uri: t.receiptUri,
       is_recurring: t.isRecurring,
       recurrence_rule: t.recurrenceRule,
@@ -106,9 +110,48 @@ export class TransactionRepository implements ITransactionRepository {
     }
     if (filter.minAmount !== undefined) { q = q.gte('amount', filter.minAmount); }
     if (filter.maxAmount !== undefined) { q = q.lte('amount', filter.maxAmount); }
+    if (filter.tags && filter.tags.length > 0) {
+      // `tags` is now a native text[] column (migrated by
+      // 20260423_search_schema). `contains` maps to Postgres `@>` which
+      // is GIN-indexed, so this is the fast path for tag filtering.
+      q = q.contains('tags', filter.tags);
+    }
     if (filter.searchQuery?.trim()) {
+      // Legacy inline substring search, kept for callers that don't go
+      // through the search_everything RPC (e.g. the Transactions list
+      // filter store). The RPC is the preferred path when
+      // ranking/fuzzy/fulltext is needed — see UniversalSearchRepository.
+      //
+      // TODO(universal-search-cleanup): once `useTransactions` routes its
+      // `searchQuery` through the RPC, delete this branch. See the
+      // `cleanup` todo in the universal-search-overhaul plan.
       const term = `%${filter.searchQuery.trim()}%`;
       q = q.or(`description.ilike.${term},merchant.ilike.${term},notes.ilike.${term}`);
+    }
+    return q;
+  }
+
+  private applyCursorAndLimit(
+    query: any,
+    filter: TransactionFilter | undefined,
+    defaultSortColumn: string,
+    defaultAscending: boolean,
+  ) {
+    let q = query;
+    if (filter?.cursor) {
+      // Keyset pagination — relies on the compound index
+      // (user_id, transaction_date DESC). For ascending sorts we'd flip
+      // the operators; every caller today uses desc.
+      const {afterDate, afterId} = filter.cursor;
+      // Use .or(...) to express "date < afterDate OR (date == afterDate
+      // AND id < afterId)" which is how keyset handles tied dates.
+      q = q.or(
+        `transaction_date.lt.${afterDate},and(transaction_date.eq.${afterDate},id.lt.${afterId})`,
+      );
+    }
+    void defaultSortColumn; void defaultAscending;
+    if (filter?.limit !== undefined && filter.limit > 0) {
+      q = q.limit(filter.limit);
     }
     return q;
   }
@@ -127,6 +170,10 @@ export class TransactionRepository implements ITransactionRepository {
     const col = sort ? sortColumnForField(sort.field) : 'transaction_date';
     const asc = sort ? sort.direction === 'asc' : false;
     query = query.order(col, {ascending: asc});
+    // Secondary ordering by id keeps keyset pagination stable across
+    // transactions that share a timestamp.
+    query = query.order('id', {ascending: asc});
+    query = this.applyCursorAndLimit(query, filter, col, asc);
     const {data, error} = await query;
     if (error) { throw new Error(error.message); }
     return (data ?? []).map(rowToDomain);

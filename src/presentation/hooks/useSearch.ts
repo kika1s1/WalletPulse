@@ -1,3 +1,12 @@
+/**
+ * @deprecated Prefer `useUniversalSearch` from
+ * `@presentation/hooks/useUniversalSearch`. This hook predates the universal
+ * search overhaul (2026-04) and only drives simple `.or(ilike)` queries
+ * against transactions. It is kept for one release cycle so that any still-
+ * live callers (currently only the `SearchFilters` type re-export used by
+ * `FilterSheet`) can migrate gradually. Delete this file once that cycle has
+ * shipped — see the `cleanup` todo in the universal-search-overhaul plan.
+ */
 import {useState, useEffect, useRef, useCallback, useMemo} from 'react';
 import type {Transaction, TransactionType, TransactionSource} from '@domain/entities/Transaction';
 import type {
