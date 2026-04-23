@@ -44,11 +44,17 @@ export async function reEnrollBiometricIfEnabled(newPin: string): Promise<void> 
 }
 
 export async function isBiometricEnabled(): Promise<boolean> {
+  // IMPORTANT: use `hasGenericPassword` — not `getGenericPassword` — because
+  // the biometric-protected entry was written with ACCESS_CONTROL.BIOMETRY_ANY,
+  // which means any attempt to *read* its value triggers decryption and
+  // therefore requires biometric authentication. Merely checking whether the
+  // entry exists must not prompt for a fingerprint, otherwise the PIN lock
+  // screen would silently decide biometric is disabled whenever it can't
+  // decrypt eagerly (UserNotAuthenticatedException is swallowed as false).
   try {
-    const entry = await Keychain.getGenericPassword({
+    return await Keychain.hasGenericPassword({
       service: BIOMETRIC_KEYCHAIN_SERVICE,
     });
-    return Boolean(entry);
   } catch {
     return false;
   }

@@ -1,5 +1,17 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
+import ReactNativeHapticFeedback, {
+  HapticFeedbackTypes,
+} from 'react-native-haptic-feedback';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import {PinPad} from '@presentation/components/PinPad';
 import {AppIcon} from '@presentation/components/common/AppIcon';
 import {usePinStore} from '@presentation/stores/usePinStore';
@@ -9,11 +21,14 @@ import {
   unlockWithBiometric,
 } from '@infrastructure/security/biometric-service';
 import {useTheme} from '@shared/theme';
-import {fontWeight} from '@shared/theme/typography';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 const VERIFY_TIMEOUT_MS = 10_000;
+// Match the numeric key size so the biometric button visually balances
+// its siblings in the 3-column keypad grid.
+const BIOMETRIC_KEY_SIZE = 76;
+const BIOMETRIC_ICON_SIZE = 30;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -31,7 +46,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export default function PinLockScreen() {
-  const {colors, radius} = useTheme();
   const verifyPin = usePinStore((s) => s.verifyPin);
   const unlock = usePinStore((s) => s.unlock);
   const biometricEnabled = usePinStore((s) => s.biometricEnabled);
@@ -43,6 +57,7 @@ export default function PinLockScreen() {
   const [countdown, setCountdown] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricAuthInFlight, setBiometricAuthInFlight] = useState(false);
   const [ready, setReady] = useState(false);
   const autoPromptedRef = useRef(false);
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -83,6 +98,7 @@ export default function PinLockScreen() {
   }, []);
 
   const tryBiometric = useCallback(async () => {
+    setBiometricAuthInFlight(true);
     try {
       const bioPin = await unlockWithBiometric();
       if (!bioPin) {
@@ -94,6 +110,8 @@ export default function PinLockScreen() {
       }
     } catch {
       /* biometric cancelled or failed — user can still type PIN */
+    } finally {
+      setBiometricAuthInFlight(false);
     }
   }, [unlock, verifyPin]);
 
@@ -212,21 +230,12 @@ export default function PinLockScreen() {
 
   const showBiometric = biometricEnabled && biometricSupported && !locked;
 
-  const biometricAction = showBiometric ? (
-    <Pressable
-      accessibilityLabel="Use biometric to unlock"
-      accessibilityRole="button"
+  const biometricSlot = showBiometric ? (
+    <BiometricKey
+      busy={biometricAuthInFlight}
+      disabled={isVerifying || biometricAuthInFlight}
       onPress={tryBiometric}
-      style={[
-        styles.bioBtn,
-        {
-          backgroundColor: colors.primaryLight + '25',
-          borderRadius: radius.full,
-        },
-      ]}>
-      <AppIcon name="fingerprint" size={18} color={colors.primary} />
-      <Text style={[styles.bioLabel, {color: colors.primary}]}>Use biometric</Text>
-    </Pressable>
+    />
   ) : null;
 
   return (
@@ -238,24 +247,148 @@ export default function PinLockScreen() {
         length={pinLength}
         onPinChange={locked || isVerifying ? () => {} : handleChange}
         error={error}
-        footerSlot={biometricAction}
+        biometricSlot={biometricSlot}
       />
+    </View>
+  );
+}
+
+type BiometricKeyProps = {
+  onPress: () => void;
+  busy: boolean;
+  disabled: boolean;
+};
+
+/**
+ * The biometric unlock key. Positioned in the empty bottom-left cell of the
+ * keypad (same 76pt size as a numeric key) so it belongs to the keypad grid
+ * but reads as the primary call-to-action:
+ *
+ *   - Filled with `colors.primary`, white fingerprint icon — the only
+ *     non-white tile on the screen, so the eye lands here first.
+ *   - Sibling "halo" ring pulses softly at rest to invite a tap, and stops
+ *     while busy/disabled so the key doesn't fight the system prompt.
+ *   - Press-down spring + darker `primaryDark` fill + medium haptic — the
+ *     same interaction model as the digits, just with a heavier haptic
+ *     because it triggers an OS-level sheet.
+ */
+function BiometricKey({onPress, busy, disabled}: BiometricKeyProps) {
+  const {colors, shadows} = useTheme();
+  const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
+  const haloScale = useSharedValue(1);
+  const haloOpacity = useSharedValue(0.45);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{scale: scale.value}],
+  }));
+
+  const pressedStyle = useAnimatedStyle(() => ({
+    backgroundColor:
+      pressed.value > 0.5 ? colors.primaryDark : colors.primary,
+  }));
+
+  const haloStyle = useAnimatedStyle(() => ({
+    transform: [{scale: haloScale.value}],
+    opacity: haloOpacity.value,
+  }));
+
+  React.useEffect(() => {
+    if (busy || disabled) {
+      haloScale.value = withTiming(1, {duration: 150});
+      haloOpacity.value = withTiming(0, {duration: 150});
+      return;
+    }
+    haloScale.value = withRepeat(
+      withSequence(
+        withTiming(1.35, {duration: 1100, easing: Easing.out(Easing.quad)}),
+        withTiming(1, {duration: 0}),
+      ),
+      -1,
+      false,
+    );
+    haloOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0, {duration: 1100, easing: Easing.out(Easing.quad)}),
+        withTiming(0.45, {duration: 0}),
+      ),
+      -1,
+      false,
+    );
+  }, [busy, disabled, haloOpacity, haloScale]);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.92, {damping: 15, stiffness: 300});
+    pressed.value = withTiming(1, {duration: 80});
+    ReactNativeHapticFeedback.trigger(HapticFeedbackTypes.impactMedium, {
+      enableVibrateFallback: true,
+    });
+  }, [pressed, scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, {damping: 15, stiffness: 300});
+    pressed.value = withTiming(0, {duration: 120});
+  }, [pressed, scale]);
+
+  return (
+    <View style={styles.bioKeyHost}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.bioHalo,
+          haloStyle,
+          {borderColor: colors.primary},
+        ]}
+      />
+      <Animated.View style={animatedStyle}>
+        <Pressable
+          accessibilityHint="Opens the device biometric prompt"
+          accessibilityLabel="Unlock with biometric"
+          accessibilityRole="button"
+          accessibilityState={{busy, disabled}}
+          disabled={disabled}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}>
+          <Animated.View
+            style={[
+              styles.bioKeyPress,
+              shadows.md,
+              {shadowColor: colors.primary},
+              pressedStyle,
+            ]}>
+            <AppIcon
+              color={colors.onPrimary}
+              name="fingerprint"
+              size={BIOMETRIC_ICON_SIZE}
+            />
+          </Animated.View>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {flex: 1},
-  bioBtn: {
-    flexDirection: 'row',
+  bioKeyHost: {
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 44,
+    justifyContent: 'center',
+    width: BIOMETRIC_KEY_SIZE,
+    height: BIOMETRIC_KEY_SIZE,
   },
-  bioLabel: {
-    fontSize: 14,
-    fontWeight: fontWeight.semibold,
+  bioKeyPress: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: BIOMETRIC_KEY_SIZE,
+    height: BIOMETRIC_KEY_SIZE,
+    borderRadius: BIOMETRIC_KEY_SIZE / 2,
+  },
+  bioHalo: {
+    position: 'absolute',
+    width: BIOMETRIC_KEY_SIZE,
+    height: BIOMETRIC_KEY_SIZE,
+    borderRadius: BIOMETRIC_KEY_SIZE / 2,
+    borderWidth: 2,
   },
 });

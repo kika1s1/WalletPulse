@@ -32,7 +32,6 @@ import {isScreenshotProtectionAvailable} from '@infrastructure/native/SecurityBr
 import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 import {WalletPulseLogoMark} from '@presentation/components/WalletPulseLogo';
 import {AppIcon} from '@presentation/components/common/AppIcon';
-import {HolographicFingerprint} from '@presentation/components/common/HolographicFingerprint';
 import {PinPad} from '@presentation/components/PinPad';
 import {
   backupFilename,
@@ -463,47 +462,40 @@ export default function SettingsScreen() {
             />
           )}
           {isPinEnabled && biometricSupported && (
-            <Pressable
-              accessibilityLabel="Biometric Unlock"
-              accessibilityRole="switch"
-              accessibilityState={{
-                checked: biometricEnabled,
-                disabled: biometricBusy,
-              }}
-              disabled={biometricBusy}
-              onPress={() => {
-                if (biometricEnabled) {
-                  void disableBiometric();
-                  return;
-                }
-                setBiometricPinDraft('');
-                setBiometricPinError(null);
-                void getStoredPinLength().then((len) => {
-                  setBiometricPinLength(len ?? 4);
-                  setBiometricPinModalVisible(true);
-                });
-              }}
-              style={({pressed}) => [
-                styles.bioHoloRow,
-                {
-                  backgroundColor: '#0A0E1A',
-                  borderColor: biometricEnabled
-                    ? colors.primary + '55'
-                    : 'rgba(255,255,255,0.08)',
-                  borderRadius: radius.lg,
-                  paddingVertical: spacing.lg,
-                  transform: [{scale: pressed ? 0.98 : 1}],
-                },
-              ]}>
-              <HolographicFingerprint
-                accentColor={colors.primary}
-                active={biometricEnabled}
-                busy={biometricBusy}
-                disabled={biometricBusy}
-                glowColor={colors.primary}
-                size={128}
-              />
-            </Pressable>
+            <SettingsRow
+              description="Unlock with fingerprint or face"
+              icon="fingerprint"
+              label="Biometric Unlock"
+              trailing={
+                <Switch
+                  accessibilityLabel="Biometric Unlock"
+                  accessibilityRole="switch"
+                  accessibilityState={{
+                    checked: biometricEnabled,
+                    disabled: biometricBusy,
+                  }}
+                  disabled={biometricBusy}
+                  onValueChange={(val) => {
+                    if (val) {
+                      setBiometricPinDraft('');
+                      setBiometricPinError(null);
+                      void getStoredPinLength().then((len) => {
+                        setBiometricPinLength(len ?? 4);
+                        setBiometricPinModalVisible(true);
+                      });
+                    } else {
+                      void disableBiometric();
+                    }
+                  }}
+                  thumbColor={biometricEnabled ? colors.primary : colors.border}
+                  trackColor={{
+                    false: colors.borderLight,
+                    true: colors.primaryLight,
+                  }}
+                  value={biometricEnabled}
+                />
+              }
+            />
           )}
           {isPinEnabled && (
             <SettingsRow
@@ -1109,12 +1101,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: fontWeight.bold,
     marginLeft: 2,
-  },
-  bioHoloRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
   },
   permissionBanner: {
     flexDirection: 'row',

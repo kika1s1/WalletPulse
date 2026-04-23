@@ -13,6 +13,7 @@ const keychainMock = Keychain as unknown as {
   __resetStore: () => void;
   setGenericPassword: jest.Mock;
   getGenericPassword: jest.Mock;
+  hasGenericPassword: jest.Mock;
   resetGenericPassword: jest.Mock;
   getSupportedBiometryType: jest.Mock;
 };
@@ -22,6 +23,7 @@ describe('biometric-service', () => {
     keychainMock.__resetStore();
     keychainMock.setGenericPassword.mockClear();
     keychainMock.getGenericPassword.mockClear();
+    keychainMock.hasGenericPassword.mockClear();
     keychainMock.resetGenericPassword.mockClear();
     keychainMock.getSupportedBiometryType.mockReset();
     keychainMock.getSupportedBiometryType.mockResolvedValue(null);
@@ -78,6 +80,36 @@ describe('biometric-service', () => {
     it('returns false after disabling', async () => {
       await enableBiometric('1234');
       await disableBiometric();
+      expect(await isBiometricEnabled()).toBe(false);
+    });
+
+    // Regression: the old implementation called getGenericPassword which
+    // triggers decryption of the biometric-protected entry and therefore
+    // requires the user to authenticate before we even know if biometric
+    // was enrolled. On Android that manifests as a UserNotAuthenticated-
+    // Exception which the catch swallowed — making the PIN screen think
+    // biometric was disabled and hiding the unlock button. Enforce that
+    // enrollment-check never decrypts the keychain entry.
+    it('must not call getGenericPassword when checking enrollment', async () => {
+      await enableBiometric('1234');
+      keychainMock.getGenericPassword.mockClear();
+      await isBiometricEnabled();
+      expect(keychainMock.getGenericPassword).not.toHaveBeenCalled();
+    });
+
+    it('uses the existence-check keychain API (hasGenericPassword)', async () => {
+      await enableBiometric('1234');
+      keychainMock.hasGenericPassword.mockClear();
+      await isBiometricEnabled();
+      expect(keychainMock.hasGenericPassword).toHaveBeenCalledWith(
+        expect.objectContaining({service: BIOMETRIC_KEYCHAIN_SERVICE}),
+      );
+    });
+
+    it('returns false (not throws) when the existence check rejects', async () => {
+      keychainMock.hasGenericPassword.mockRejectedValueOnce(
+        new Error('keystore unavailable'),
+      );
       expect(await isBiometricEnabled()).toBe(false);
     });
   });

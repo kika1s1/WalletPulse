@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo} from 'react';
+import React, {useCallback, useMemo, useRef} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Animated, {
@@ -44,6 +44,14 @@ type Props = {
   error?: string | null;
   length?: 4 | 6;
   footerSlot?: React.ReactNode;
+  /**
+   * Optional node rendered in place of the empty bottom-left keypad cell
+   * (row 4, column 1). Use this for a biometric unlock action so it lives
+   * inside the keypad — matching the native Android / iOS lock-screen
+   * pattern — instead of floating below the keypad where it can be clipped
+   * by the gesture bar.
+   */
+  biometricSlot?: React.ReactNode;
 };
 
 function PinDot({filled}: {filled: boolean}) {
@@ -61,11 +69,10 @@ function PinDot({filled}: {filled: boolean}) {
   return (
     <Animated.View
       style={[
-        styles.dot,
+        filled ? styles.dotFilled : styles.dotEmpty,
         animatedStyle,
         {
-          backgroundColor: filled ? colors.primary : 'transparent',
-          borderColor: filled ? colors.primary : colors.border,
+          backgroundColor: filled ? colors.primary : colors.textMuted + '55',
         },
       ]}
     />
@@ -73,6 +80,40 @@ function PinDot({filled}: {filled: boolean}) {
 }
 
 function PinKey({
+  keyValue,
+  onPress,
+  onClear,
+  canDelete,
+  biometricSlot,
+}: {
+  keyValue: string;
+  onPress: (key: string) => void;
+  onClear: () => void;
+  canDelete: boolean;
+  biometricSlot?: React.ReactNode;
+}) {
+  if (keyValue === '') {
+    return (
+      <View style={styles.keyCell}>
+        {biometricSlot ?? null}
+      </View>
+    );
+  }
+
+  if (keyValue === 'del') {
+    return (
+      <DeleteKey
+        canDelete={canDelete}
+        onClear={onClear}
+        onPress={() => onPress('del')}
+      />
+    );
+  }
+
+  return <NumberKey keyValue={keyValue} onPress={onPress} />;
+}
+
+function NumberKey({
   keyValue,
   onPress,
 }: {
@@ -97,37 +138,133 @@ function PinKey({
     scale.value = withSpring(1, {damping: 15, stiffness: 300});
   }, [scale]);
 
-  if (keyValue === '') {
-    return <View style={styles.keyCell} />;
-  }
-
-  const isDel = keyValue === 'del';
-
   return (
     <Animated.View style={[styles.keyCell, animatedStyle]}>
       <Pressable
-        accessibilityLabel={isDel ? 'Delete' : keyValue}
+        accessibilityLabel={keyValue}
         accessibilityRole="button"
         onPress={() => onPress(keyValue)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={({pressed}) => [
           styles.keyBtn,
-          isDel ? {} : shadows.sm,
+          shadows.sm,
           {
             backgroundColor: pressed
               ? colors.primaryLight + '30'
-              : isDel
-                ? 'transparent'
-                : colors.surfaceElevated,
+              : colors.surfaceElevated,
             borderRadius: KEY_SIZE / 2,
           },
         ]}>
-        {isDel ? (
-          <AppIcon name="backspace-outline" size={26} color={colors.text} />
-        ) : (
-          <Text style={[styles.keyText, {color: colors.text}]}>{keyValue}</Text>
-        )}
+        <Text style={[styles.keyText, {color: colors.text}]}>{keyValue}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/**
+ * Secondary-weight delete key. Keeps the same solid-circle shape language
+ * as the number keys so the keypad reads as a unified grid, but differs
+ * subtly:
+ *   - Disabled state: transparent surface (not a hollow ring) — so an
+ *     empty PIN doesn't produce an "unrendered" looking key.
+ *   - Enabled state: `borderLight` soft fill + no shadow — the key is
+ *     present on the grid but clearly subordinate to the shadowed digits.
+ *   - Pressed state tints toward `danger` — subconscious "this removes
+ *     something" cue that number keys don't get.
+ *   - Long-press clears the entire PIN (with `notificationWarning` haptic).
+ */
+function DeleteKey({
+  canDelete,
+  onPress,
+  onClear,
+}: {
+  canDelete: boolean;
+  onPress: () => void;
+  onClear: () => void;
+}) {
+  const {colors} = useTheme();
+  const scale = useSharedValue(1);
+  const didLongPressRef = useRef(false);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{scale: scale.value}],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    if (!canDelete) {
+      return;
+    }
+    scale.value = withSpring(0.9, {damping: 15, stiffness: 300});
+    ReactNativeHapticFeedback.trigger(HapticFeedbackTypes.impactMedium, {
+      enableVibrateFallback: true,
+    });
+  }, [canDelete, scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, {damping: 15, stiffness: 300});
+  }, [scale]);
+
+  const handlePress = useCallback(() => {
+    // Swallow the tap that follows a long-press so we don't delete an
+    // extra character after clearing.
+    if (didLongPressRef.current) {
+      didLongPressRef.current = false;
+      return;
+    }
+    if (!canDelete) {
+      return;
+    }
+    onPress();
+  }, [canDelete, onPress]);
+
+  const handleLongPress = useCallback(() => {
+    if (!canDelete) {
+      return;
+    }
+    didLongPressRef.current = true;
+    ReactNativeHapticFeedback.trigger(HapticFeedbackTypes.notificationWarning, {
+      enableVibrateFallback: true,
+    });
+    onClear();
+  }, [canDelete, onClear]);
+
+  const iconColor = canDelete ? colors.textSecondary : colors.textMuted;
+
+  return (
+    <Animated.View style={[styles.keyCell, animatedStyle]}>
+      <Pressable
+        accessibilityHint={
+          canDelete
+            ? 'Double tap to remove the last digit. Long press to clear all.'
+            : 'No digits to delete'
+        }
+        accessibilityLabel="Delete last digit"
+        accessibilityRole="button"
+        accessibilityState={{disabled: !canDelete}}
+        android_ripple={{
+          borderless: true,
+          color: colors.dangerLight,
+          radius: KEY_SIZE / 2,
+        }}
+        delayLongPress={450}
+        disabled={!canDelete}
+        onLongPress={handleLongPress}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={({pressed}) => [
+          styles.keyBtn,
+          {
+            backgroundColor: !canDelete
+              ? 'transparent'
+              : pressed
+                ? colors.dangerLight
+                : colors.borderLight,
+            borderRadius: KEY_SIZE / 2,
+          },
+        ]}>
+        <AppIcon color={iconColor} name="backspace-outline" size={26} />
       </Pressable>
     </Animated.View>
   );
@@ -141,6 +278,7 @@ export function PinPad({
   error,
   length = DEFAULT_PIN_LENGTH,
   footerSlot,
+  biometricSlot,
 }: Props) {
   const {colors, spacing} = useTheme();
   const insets = useSafeAreaInsets();
@@ -180,6 +318,10 @@ export function PinPad({
     [onPinChange, pin, length],
   );
 
+  const handleClear = useCallback(() => {
+    onPinChange('');
+  }, [onPinChange]);
+
   React.useEffect(() => {
     if (error) {
       triggerShake();
@@ -197,8 +339,8 @@ export function PinPad({
       style={[
         styles.container,
         {
-          paddingTop: insets.top + 40,
-          paddingBottom: Math.max(insets.bottom, 24),
+          paddingTop: insets.top + 24,
+          paddingBottom: Math.max(insets.bottom + 16, 32),
         },
       ]}>
       <View style={styles.topSection}>
@@ -234,7 +376,14 @@ export function PinPad({
       <View style={styles.bottomSection}>
         <View style={styles.keypad}>
           {KEYS.map((key, idx) => (
-            <PinKey key={idx} keyValue={key} onPress={handleKey} />
+            <PinKey
+              key={idx}
+              biometricSlot={key === '' ? biometricSlot : undefined}
+              canDelete={pin.length > 0}
+              keyValue={key}
+              onClear={handleClear}
+              onPress={handleKey}
+            />
           ))}
         </View>
 
@@ -252,10 +401,11 @@ const styles = StyleSheet.create({
   },
   topSection: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    marginTop: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: fontWeight.bold,
     marginTop: 4,
   },
@@ -266,13 +416,17 @@ const styles = StyleSheet.create({
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 20,
-    marginTop: 28,
+    gap: 16,
+    marginTop: 24,
   },
-  dot: {
-    width: 18,
-    height: 18,
-    borderWidth: 2,
+  dotFilled: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+  },
+  dotEmpty: {
+    width: 10,
+    height: 10,
     borderRadius: 999,
   },
   errorPill: {

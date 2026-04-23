@@ -21,6 +21,10 @@ module.exports = {
     const entry = stores.get(service);
     return entry || false;
   }),
+  hasGenericPassword: jest.fn(async (options) => {
+    const service = resolveService(options);
+    return stores.has(service);
+  }),
   resetGenericPassword: jest.fn(async (options) => {
     const service = resolveService(options);
     stores.delete(service);
