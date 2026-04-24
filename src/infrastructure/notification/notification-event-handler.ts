@@ -21,6 +21,16 @@ function handleNotificationPress(data: Record<string, unknown> | undefined): voi
         params: subscriptionId ? {highlightSubscriptionId: subscriptionId} : undefined,
       },
     });
+  } else if (data.type === 'recurring_charge') {
+    const transactionId = (data.transactionId as string) ?? '';
+    if (!transactionId) { return; }
+    navigationRef.navigate('MainTabs', {
+      screen: 'HomeTab',
+      params: {
+        screen: 'TransactionDetail',
+        params: {transactionId},
+      },
+    });
   }
 }
 

@@ -1,6 +1,13 @@
-const MS_PER_WEEK = 7 * 86400000;
+const MS_PER_DAY = 86400000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
 
-export type BillingCycleForAdvance = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type BillingCycleForAdvance =
+  | 'daily'
+  | 'weekly'
+  | 'biweekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly';
 
 function addCalendarMonths(fromMs: number, monthsToAdd: number): number {
   const d = new Date(fromMs);
@@ -21,8 +28,12 @@ function addCalendarMonths(fromMs: number, monthsToAdd: number): number {
  */
 export function advanceNextDueDate(fromMs: number, cycle: BillingCycleForAdvance): number {
   switch (cycle) {
+    case 'daily':
+      return fromMs + MS_PER_DAY;
     case 'weekly':
       return fromMs + MS_PER_WEEK;
+    case 'biweekly':
+      return fromMs + 2 * MS_PER_WEEK;
     case 'monthly':
       return addCalendarMonths(fromMs, 1);
     case 'quarterly':

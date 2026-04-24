@@ -1,5 +1,6 @@
 import type {FxRate} from '@domain/entities/FxRate';
 import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
+import {generateToken} from '@shared/utils/crypto';
 import type {FxApiResponse} from './fx-types';
 
 export const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -35,7 +36,7 @@ export function makeFetchAndCacheRates(deps: FetchAndCacheDeps) {
         continue;
       }
       rates.push({
-        id: `fx-${base}-${target}-${now}`,
+        id: generateToken(),
         baseCurrency: base,
         targetCurrency: target,
         rate: rateValue,

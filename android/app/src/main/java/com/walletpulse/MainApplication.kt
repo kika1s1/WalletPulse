@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.walletpulse.filesaver.FileSaverBridgePackage
 import com.walletpulse.notification.NotificationBridgePackage
+import com.walletpulse.recurring.RecurringSchedulerBridgePackage
 import com.walletpulse.security.SecurityBridgePackage
 
 class MainApplication : Application(), ReactApplication {
@@ -20,6 +21,7 @@ class MainApplication : Application(), ReactApplication {
           add(NotificationBridgePackage())
           add(SecurityBridgePackage())
           add(FileSaverBridgePackage())
+          add(RecurringSchedulerBridgePackage())
         },
     )
   }

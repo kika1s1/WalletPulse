@@ -657,6 +657,24 @@ export default function SettingsScreen() {
               />
             }
           />
+          <SettingsRow
+            description="Notify when a recurring transaction is auto-posted"
+            icon="repeat"
+            label="Recurring Transaction Alerts"
+            trailing={
+              <Switch
+                onValueChange={(val) => settings.setRecurringChargeNotificationsEnabled(val)}
+                thumbColor={
+                  settings.recurringChargeNotificationsEnabled ? colors.primary : colors.border
+                }
+                trackColor={{
+                  false: colors.borderLight,
+                  true: colors.primaryLight,
+                }}
+                value={settings.recurringChargeNotificationsEnabled}
+              />
+            }
+          />
         </View>
 
         <SectionHeader title="DATA" />

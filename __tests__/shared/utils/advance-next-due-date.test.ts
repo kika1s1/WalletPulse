@@ -1,6 +1,18 @@
 import {advanceNextDueDate} from '@shared/utils/advance-next-due-date';
 
 describe('advanceNextDueDate', () => {
+  it('adds 1 day for daily', () => {
+    const from = new Date(2024, 5, 10, 12, 0, 0).getTime();
+    const next = advanceNextDueDate(from, 'daily');
+    expect(next - from).toBe(86400000);
+  });
+
+  it('adds 14 days for biweekly', () => {
+    const from = new Date(2024, 5, 10, 12, 0, 0).getTime();
+    const next = advanceNextDueDate(from, 'biweekly');
+    expect(next - from).toBe(14 * 86400000);
+  });
+
   it('adds 7 days for weekly', () => {
     const from = new Date(2024, 5, 10, 12, 0, 0).getTime();
     const next = advanceNextDueDate(from, 'weekly');

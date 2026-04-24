@@ -11,6 +11,7 @@ type SettingsState = {
   notificationEnabled: boolean;
   billReminderNotificationsEnabled: boolean;
   subscriptionNotificationsEnabled: boolean;
+  recurringChargeNotificationsEnabled: boolean;
   onboardingCompleted: boolean;
   hideAmounts: boolean;
   onboardingCurrency: string;
@@ -22,6 +23,7 @@ type SettingsState = {
   setNotificationEnabled: (enabled: boolean) => void;
   setBillReminderNotificationsEnabled: (enabled: boolean) => void;
   setSubscriptionNotificationsEnabled: (enabled: boolean) => void;
+  setRecurringChargeNotificationsEnabled: (enabled: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => void;
   toggleHideAmounts: () => void;
   setOnboardingCurrency: (currency: string) => void;
@@ -38,6 +40,7 @@ export const useSettingsStore = create<SettingsState>()(
       notificationEnabled: true,
       billReminderNotificationsEnabled: true,
       subscriptionNotificationsEnabled: true,
+      recurringChargeNotificationsEnabled: true,
       onboardingCompleted: false,
       hideAmounts: false,
       onboardingCurrency: 'USD',
@@ -49,6 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
       setNotificationEnabled: (enabled) => set({notificationEnabled: enabled}),
       setBillReminderNotificationsEnabled: (enabled) => set({billReminderNotificationsEnabled: enabled}),
       setSubscriptionNotificationsEnabled: (enabled) => set({subscriptionNotificationsEnabled: enabled}),
+      setRecurringChargeNotificationsEnabled: (enabled) => set({recurringChargeNotificationsEnabled: enabled}),
       setOnboardingCompleted: (completed) => set({onboardingCompleted: completed}),
       toggleHideAmounts: () => set((s) => ({hideAmounts: !s.hideAmounts})),
       setOnboardingCurrency: (currency) => set({onboardingCurrency: currency}),

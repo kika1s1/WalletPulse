@@ -2,8 +2,10 @@ import type {CreateTransactionInput, Transaction} from '@domain/entities/Transac
 import type {Subscription} from '@domain/entities/Subscription';
 import type {BillReminder} from '@domain/entities/BillReminder';
 import type {Wallet} from '@domain/entities/Wallet';
+import type {RecurringSchedule} from '@domain/entities/RecurringSchedule';
 import {
   processRecurringItemsWithDeps,
+  type RecurringChargeNotification,
   type RecurringSchedulerDeps,
 } from '@infrastructure/recurring/recurring-scheduler-core';
 
@@ -111,6 +113,15 @@ describe('processRecurringItemsWithDeps', () => {
         markPaid: jest.fn(),
         delete: jest.fn(),
       },
+      recurringSchedules: {
+        findById: jest.fn(),
+        findByTemplateTransactionId: jest.fn(),
+        findActive: jest.fn().mockResolvedValue([]),
+        save: jest.fn(),
+        update: jest.fn(),
+        deactivate: jest.fn(),
+        delete: jest.fn(),
+      },
       wallets: {
         findActive: jest.fn().mockResolvedValue([baseWallet()]),
         findById: jest.fn(),
@@ -210,5 +221,116 @@ describe('processRecurringItemsWithDeps', () => {
 
     const call = (deps.createTransaction as jest.Mock).mock.calls[0][0];
     expect(call.walletId).toBe('wallet-1');
+  });
+
+  describe('recurring schedules', () => {
+    function baseSchedule(over: Partial<RecurringSchedule> = {}): RecurringSchedule {
+      return {
+        id: 'rs-1',
+        templateTransactionId: 'tx-template',
+        walletId: 'wallet-99',
+        categoryId: 'cat-r',
+        type: 'expense',
+        amount: 1234,
+        currency: 'USD',
+        merchant: 'Gym',
+        description: 'Membership',
+        tags: ['fitness'],
+        cadence: 'monthly',
+        nextDueDate: fixedNow - 86400000,
+        isActive: true,
+        createdAt: fixedNow - 86400000 * 30,
+        updatedAt: fixedNow - 86400000 * 30,
+        ...over,
+      };
+    }
+
+    it('processes a due recurring schedule and advances its nextDueDate', async () => {
+      const sched = baseSchedule();
+      const deps = makeDeps();
+      (deps.recurringSchedules.findActive as jest.Mock).mockResolvedValue([sched]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      expect(deps.createTransaction).toHaveBeenCalledTimes(1);
+      const call = (deps.createTransaction as jest.Mock).mock.calls[0][0];
+      expect(call.type).toBe('expense');
+      expect(call.amount).toBe(sched.amount);
+      expect(call.walletId).toBe('wallet-99');
+      expect(call.categoryId).toBe(sched.categoryId);
+      expect(call.merchant).toBe('Gym');
+      expect(call.tags).toEqual(['fitness']);
+
+      expect(deps.recurringSchedules.update).toHaveBeenCalled();
+      const updated = (deps.recurringSchedules.update as jest.Mock).mock.calls[0][0] as RecurringSchedule;
+      expect(updated.nextDueDate).toBeGreaterThan(fixedNow);
+    });
+
+    it('preserves income type when posting transactions', async () => {
+      const sched = baseSchedule({type: 'income', merchant: 'Acme Salary'});
+      const deps = makeDeps();
+      (deps.recurringSchedules.findActive as jest.Mock).mockResolvedValue([sched]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      const call = (deps.createTransaction as jest.Mock).mock.calls[0][0];
+      expect(call.type).toBe('income');
+    });
+
+    it('catches up multiple periods when several due dates have passed', async () => {
+      const sched = baseSchedule({
+        cadence: 'daily',
+        nextDueDate: fixedNow - 3 * 86400000,
+      });
+      const deps = makeDeps();
+      (deps.recurringSchedules.findActive as jest.Mock).mockResolvedValue([sched]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      // 3 days behind + today's run -> at least 3 catch-up postings
+      expect((deps.createTransaction as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('skips schedules whose nextDueDate is in the future', async () => {
+      const sched = baseSchedule({nextDueDate: fixedNow + 86400000});
+      const deps = makeDeps();
+      (deps.recurringSchedules.findActive as jest.Mock).mockResolvedValue([sched]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      expect(deps.createTransaction).not.toHaveBeenCalled();
+      expect(deps.recurringSchedules.update).not.toHaveBeenCalled();
+    });
+
+    it('emits a notification payload for each created transaction', async () => {
+      const sched = baseSchedule({type: 'income', merchant: 'Acme Salary'});
+      const emit = jest.fn();
+      const deps = makeDeps({emit});
+      (deps.recurringSchedules.findActive as jest.Mock).mockResolvedValue([sched]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      expect(emit).toHaveBeenCalledTimes(1);
+      const payload = emit.mock.calls[0][0] as RecurringChargeNotification;
+      expect(payload.source).toBe('recurring');
+      expect(payload.type).toBe('income');
+      expect(payload.merchant).toBe('Acme Salary');
+      expect(payload.walletId).toBe('wallet-99');
+    });
+
+    it('emits notifications for subscription and bill auto-postings too', async () => {
+      const sub = baseSubscription({nextDueDate: fixedNow - 1000});
+      const bill = baseBill(fixedNow, {recurrence: 'once'});
+      const emit = jest.fn();
+      const deps = makeDeps({emit});
+      (deps.subscriptions.findActive as jest.Mock).mockResolvedValue([sub]);
+      (deps.billReminders.findUnpaid as jest.Mock).mockResolvedValue([bill]);
+
+      await processRecurringItemsWithDeps(deps);
+
+      const sources = emit.mock.calls.map((c) => (c[0] as RecurringChargeNotification).source);
+      expect(sources).toContain('subscription');
+      expect(sources).toContain('bill');
+    });
   });
 });

@@ -1,20 +1,36 @@
-import type {CreateTransactionInput, Transaction} from '@domain/entities/Transaction';
+import type {CreateTransactionInput, Transaction, TransactionType} from '@domain/entities/Transaction';
 import type {Subscription} from '@domain/entities/Subscription';
 import type {BillReminder} from '@domain/entities/BillReminder';
 import type {Wallet} from '@domain/entities/Wallet';
+import type {RecurringSchedule} from '@domain/entities/RecurringSchedule';
 import type {ISubscriptionRepository} from '@domain/repositories/ISubscriptionRepository';
 import type {IBillReminderRepository} from '@domain/repositories/IBillReminderRepository';
+import type {IRecurringScheduleRepository} from '@domain/repositories/IRecurringScheduleRepository';
 import type {IWalletRepository} from '@domain/repositories/IWalletRepository';
 import {createBillReminder} from '@domain/entities/BillReminder';
 import {advanceNextDueDate} from '@shared/utils/advance-next-due-date';
+
+export type RecurringChargeNotification = {
+  transactionId: string;
+  type: TransactionType;
+  amount: number;
+  currency: string;
+  merchant: string;
+  walletId: string;
+  source: 'subscription' | 'bill' | 'recurring';
+};
 
 export type RecurringSchedulerDeps = {
   createTransaction: (input: CreateTransactionInput) => Promise<Transaction>;
   subscriptions: ISubscriptionRepository;
   billReminders: IBillReminderRepository;
+  recurringSchedules: IRecurringScheduleRepository;
   wallets: IWalletRepository;
   now: () => number;
   generateId: () => string;
+  // Optional. The headless task / app wires this to fire local
+  // notifications. Tests can omit it.
+  emit?: (n: RecurringChargeNotification) => void;
 };
 
 function pickDefaultWallet(wallets: Wallet[]): Wallet | null {
@@ -30,14 +46,16 @@ function pickDefaultWallet(wallets: Wallet[]): Wallet | null {
   })[0];
 }
 
-function buildExpenseInput(
+function buildTransactionInput(
   params: {
     walletId: string;
     categoryId: string;
     amount: number;
     currency: string;
+    type: TransactionType;
     merchant: string;
     description: string;
+    tags?: string[];
     transactionDate: number;
     nowMs: number;
     id: string;
@@ -49,11 +67,12 @@ function buildExpenseInput(
     categoryId: params.categoryId,
     amount: params.amount,
     currency: params.currency.toUpperCase(),
-    type: 'expense',
+    type: params.type,
     description: params.description,
     merchant: params.merchant,
     source: 'manual',
     sourceHash: '',
+    tags: params.tags,
     transactionDate: params.transactionDate,
     createdAt: params.nowMs,
     updatedAt: params.nowMs,
@@ -73,19 +92,29 @@ async function processDueSubscriptions(
     let current = sub;
     while (current.nextDueDate <= nowMs) {
       const txId = deps.generateId();
-      await deps.createTransaction(
-        buildExpenseInput({
+      const created = await deps.createTransaction(
+        buildTransactionInput({
           id: txId,
           walletId,
           categoryId: current.categoryId,
           amount: current.amount,
           currency: current.currency,
+          type: 'expense',
           merchant: current.name,
           description: 'Subscription charge',
           transactionDate: current.nextDueDate,
           nowMs,
         }),
       );
+      deps.emit?.({
+        transactionId: created.id,
+        type: 'expense',
+        amount: created.amount,
+        currency: created.currency,
+        merchant: current.name,
+        walletId,
+        source: 'subscription',
+      });
       const nextDue = advanceNextDueDate(current.nextDueDate, current.billingCycle);
       const updated: Subscription = {
         ...current,
@@ -115,19 +144,29 @@ async function processDueBills(deps: RecurringSchedulerDeps, defaultWalletId: st
     }
     const effectiveWalletId = bill.walletId || defaultWalletId;
     const txId = deps.generateId();
-    await deps.createTransaction(
-      buildExpenseInput({
+    const created = await deps.createTransaction(
+      buildTransactionInput({
         id: txId,
         walletId: effectiveWalletId,
         categoryId: bill.categoryId,
         amount: bill.amount,
         currency: bill.currency,
+        type: 'expense',
         merchant: bill.name,
         description: 'Bill payment',
         transactionDate: bill.dueDate,
         nowMs,
       }),
     );
+    deps.emit?.({
+      transactionId: created.id,
+      type: 'expense',
+      amount: created.amount,
+      currency: created.currency,
+      merchant: bill.name,
+      walletId: effectiveWalletId,
+      source: 'bill',
+    });
     await deps.billReminders.markPaid(bill.id, txId);
 
     if (bill.recurrence !== 'once') {
@@ -152,6 +191,51 @@ async function processDueBills(deps: RecurringSchedulerDeps, defaultWalletId: st
   }
 }
 
+async function processDueRecurringSchedules(
+  deps: RecurringSchedulerDeps,
+  nowMs: number,
+): Promise<void> {
+  const schedules = await deps.recurringSchedules.findActive();
+  for (const sched of schedules) {
+    let current = sched;
+    while (current.isActive && current.nextDueDate <= nowMs) {
+      const txId = deps.generateId();
+      const created = await deps.createTransaction(
+        buildTransactionInput({
+          id: txId,
+          walletId: current.walletId,
+          categoryId: current.categoryId,
+          amount: current.amount,
+          currency: current.currency,
+          type: current.type,
+          merchant: current.merchant,
+          description: current.description || 'Recurring transaction',
+          tags: current.tags,
+          transactionDate: current.nextDueDate,
+          nowMs,
+        }),
+      );
+      deps.emit?.({
+        transactionId: created.id,
+        type: current.type,
+        amount: created.amount,
+        currency: created.currency,
+        merchant: current.merchant,
+        walletId: current.walletId,
+        source: 'recurring',
+      });
+      const nextDue = advanceNextDueDate(current.nextDueDate, current.cadence);
+      const updated: RecurringSchedule = {
+        ...current,
+        nextDueDate: nextDue,
+        updatedAt: nowMs,
+      };
+      await deps.recurringSchedules.update(updated);
+      current = updated;
+    }
+  }
+}
+
 export async function processRecurringItemsWithDeps(deps: RecurringSchedulerDeps): Promise<void> {
   const wallets = await deps.wallets.findActive();
   const defaultWallet = pickDefaultWallet(wallets);
@@ -161,4 +245,5 @@ export async function processRecurringItemsWithDeps(deps: RecurringSchedulerDeps
   const nowMs = deps.now();
   await processDueSubscriptions(deps, defaultWallet.id, nowMs);
   await processDueBills(deps, defaultWallet.id, nowMs);
+  await processDueRecurringSchedules(deps, nowMs);
 }

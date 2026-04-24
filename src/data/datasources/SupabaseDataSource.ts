@@ -6,6 +6,7 @@ import {BudgetRepository} from '@data/repositories/BudgetRepository';
 import {GoalRepository} from '@data/repositories/GoalRepository';
 import {SubscriptionRepository} from '@data/repositories/SubscriptionRepository';
 import {BillReminderRepository} from '@data/repositories/BillReminderRepository';
+import {RecurringScheduleRepository} from '@data/repositories/RecurringScheduleRepository';
 import {FxRateRepository} from '@data/repositories/FxRateRepository';
 import {NotificationLogRepository} from '@data/repositories/NotificationLogRepository';
 import {SettingsRepository} from '@data/repositories/SettingsRepository';
@@ -21,6 +22,7 @@ import type {IBudgetRepository} from '@domain/repositories/IBudgetRepository';
 import type {IGoalRepository} from '@domain/repositories/IGoalRepository';
 import type {ISubscriptionRepository} from '@domain/repositories/ISubscriptionRepository';
 import type {IBillReminderRepository} from '@domain/repositories/IBillReminderRepository';
+import type {IRecurringScheduleRepository} from '@domain/repositories/IRecurringScheduleRepository';
 import type {IFxRateRepository} from '@domain/repositories/IFxRateRepository';
 import type {INotificationLogRepository} from '@domain/repositories/INotificationLogRepository';
 import type {ISettingsRepository} from '@domain/repositories/ISettingsRepository';
@@ -36,6 +38,7 @@ export type SupabaseDataSource = {
   goals: IGoalRepository;
   subscriptions: ISubscriptionRepository;
   billReminders: IBillReminderRepository;
+  recurringSchedules: IRecurringScheduleRepository;
   fxRates: IFxRateRepository;
   notificationLogs: INotificationLogRepository;
   settings: ISettingsRepository;
@@ -75,6 +78,7 @@ export function getSupabaseDataSource(userId?: string): SupabaseDataSource {
     goals: new GoalRepository(supabase, uid),
     subscriptions: new SubscriptionRepository(supabase, uid),
     billReminders: new BillReminderRepository(supabase, uid),
+    recurringSchedules: new RecurringScheduleRepository(supabase, uid),
     fxRates: new FxRateRepository(supabase),
     notificationLogs: new NotificationLogRepository(supabase, uid),
     settings: new SettingsRepository(supabase, uid),

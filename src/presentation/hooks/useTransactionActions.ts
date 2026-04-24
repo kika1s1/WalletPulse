@@ -8,7 +8,9 @@ import {
 import {makeUpdateTransaction} from '@domain/usecases/update-transaction';
 import type {UpdateTransactionInput} from '@domain/usecases/update-transaction';
 import {makeDeleteTransaction} from '@domain/usecases/delete-transaction';
+import {makeSyncRecurringSchedule} from '@domain/usecases/sync-recurring-schedule';
 import type {CreateTransactionInput, Transaction} from '@domain/entities/Transaction';
+import {generateId} from '@shared/utils/hash';
 
 export type UseTransactionActionsReturn = {
   createTransaction: (input: CreateTransactionInput) => Promise<Transaction>;
@@ -23,8 +25,8 @@ export function useTransactionActions(): UseTransactionActionsReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {create, createTransfer, update, remove} = useMemo(() => {
-    const {transactions, wallets} = getSupabaseDataSource();
+  const {create, createTransfer, update, remove, syncRecurring} = useMemo(() => {
+    const {transactions, wallets, recurringSchedules} = getSupabaseDataSource();
     return {
       create: makeCreateTransaction({
         transactionRepo: transactions,
@@ -42,6 +44,11 @@ export function useTransactionActions(): UseTransactionActionsReturn {
         transactionRepo: transactions,
         walletRepo: wallets,
       }),
+      syncRecurring: makeSyncRecurringSchedule({
+        recurringSchedules,
+        now: () => Date.now(),
+        generateId,
+      }),
     };
   }, []);
 
@@ -51,6 +58,13 @@ export function useTransactionActions(): UseTransactionActionsReturn {
       setError(null);
       try {
         const result = await create(input);
+        try {
+          // Recurring sidecar is best-effort. A failure here must not
+          // block the user — the transaction is already saved.
+          await syncRecurring(result);
+        } catch {
+          /* offline-first: ignore */
+        }
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -60,7 +74,7 @@ export function useTransactionActions(): UseTransactionActionsReturn {
         setIsSubmitting(false);
       }
     },
-    [create],
+    [create, syncRecurring],
   );
 
   const createWalletTransfer = useCallback(
@@ -87,6 +101,11 @@ export function useTransactionActions(): UseTransactionActionsReturn {
       setError(null);
       try {
         const result = await update(input);
+        try {
+          await syncRecurring(result);
+        } catch {
+          /* offline-first: ignore */
+        }
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -96,7 +115,7 @@ export function useTransactionActions(): UseTransactionActionsReturn {
         setIsSubmitting(false);
       }
     },
-    [update],
+    [update, syncRecurring],
   );
 
   const deleteTransaction = useCallback(

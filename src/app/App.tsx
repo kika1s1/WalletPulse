@@ -13,8 +13,11 @@ import {
 import {processRecurringItems} from '@infrastructure/recurring/recurring-scheduler';
 import {scheduleBillNotifications, cancelAllBillNotifications} from '@infrastructure/notification/bill-reminder-notifications';
 import {scheduleSubscriptionNotifications, cancelAllSubscriptionNotifications} from '@infrastructure/notification/subscription-notifications';
+import {showRecurringChargeNotification} from '@infrastructure/notification/recurring-charge-notifications';
 import {setupNotifeeEventHandlers, checkInitialNotification} from '@infrastructure/notification/notification-event-handler';
+import {enqueueRecurringPeriodic} from '@infrastructure/native/RecurringSchedulerBridge';
 import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
+import type {RecurringChargeNotification} from '@infrastructure/recurring/recurring-scheduler-core';
 import {useTheme} from '@shared/theme';
 
 async function requestNotificationPermission(): Promise<void> {
@@ -29,9 +32,28 @@ async function requestNotificationPermission(): Promise<void> {
 }
 
 const RECURRING_SCHEDULER_INTERVAL_MS = 3600_000;
+// WorkManager's minimum periodic interval is 15 minutes. 60 minutes is a
+// good battery / freshness trade-off for this app — recurring transactions
+// have day-level granularity, so missing a 60-minute window is fine.
+const RECURRING_BACKGROUND_INTERVAL_MIN = 60;
 
 function useRecurringScheduler(splashDone: boolean) {
   const lastRunAtRef = useRef(0);
+  const periodicEnqueuedRef = useRef(false);
+  const recurringChargeNotificationsEnabled = useSettingsStore(
+    (s) => s.recurringChargeNotificationsEnabled,
+  );
+
+  const resolveWalletName = useCallback(async (walletId: string): Promise<string> => {
+    try {
+      if (!isDataSourceReady()) { return 'Wallet'; }
+      const ds = getSupabaseDataSource();
+      const wallet = await ds.wallets.findById(walletId);
+      return wallet?.name ?? 'Wallet';
+    } catch {
+      return 'Wallet';
+    }
+  }, []);
 
   const maybeProcessRecurring = useCallback(() => {
     const now = Date.now();
@@ -39,16 +61,39 @@ function useRecurringScheduler(splashDone: boolean) {
       return;
     }
     lastRunAtRef.current = now;
-    void processRecurringItems().catch(() => {
-      /* offline-first: failures are non-fatal */
-    });
-  }, []);
+
+    const queue: RecurringChargeNotification[] = [];
+    void processRecurringItems({
+      emit: (n) => queue.push(n),
+    })
+      .then(async () => {
+        if (!recurringChargeNotificationsEnabled || queue.length === 0) { return; }
+        for (const n of queue) {
+          try {
+            const walletName = await resolveWalletName(n.walletId);
+            await showRecurringChargeNotification({...n, walletName});
+          } catch {
+            /* per-notification failure is non-fatal */
+          }
+        }
+      })
+      .catch(() => {
+        /* offline-first: failures are non-fatal */
+      });
+  }, [recurringChargeNotificationsEnabled, resolveWalletName]);
 
   useEffect(() => {
     if (!splashDone) {
       return;
     }
     maybeProcessRecurring();
+    // Schedule the periodic WorkManager job once per cold start. The
+    // native side uses ExistingPeriodicWorkPolicy.KEEP, so calling this
+    // on every splash is idempotent.
+    if (!periodicEnqueuedRef.current) {
+      periodicEnqueuedRef.current = true;
+      void enqueueRecurringPeriodic(RECURRING_BACKGROUND_INTERVAL_MIN);
+    }
   }, [splashDone, maybeProcessRecurring]);
 
   useEffect(() => {
