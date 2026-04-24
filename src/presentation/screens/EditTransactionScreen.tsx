@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -162,6 +162,35 @@ export default function EditTransactionScreen() {
       JSON.stringify(tags) !== JSON.stringify(existing.tags)
     : false;
 
+  const isDirtyRef = useRef(false);
+  const bypassDirtyGuardRef = useRef(false);
+  isDirtyRef.current = hasUnsavedChanges;
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!isDirtyRef.current || bypassDirtyGuardRef.current) {
+        return;
+      }
+      e.preventDefault();
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Leave without saving?',
+        [
+          {text: 'Keep editing', style: 'cancel'},
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              bypassDirtyGuardRef.current = true;
+              navigation.dispatch(e.data.action);
+            },
+          },
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const handleReset = useCallback(() => {
     if (!existing) {
       return;
@@ -233,6 +262,7 @@ export default function EditTransactionScreen() {
         recurrenceRule: draft.recurrenceRule,
         updatedAt: Date.now(),
       });
+      bypassDirtyGuardRef.current = true;
       navigation.goBack();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

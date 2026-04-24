@@ -316,6 +316,38 @@ export default function AddTransactionScreen() {
     categoryId.length > 0 ||
     receiptUri.length > 0;
 
+  // Refs mirror state for the beforeRemove listener, which only reads closures
+  // at mount. Keeping them in refs avoids stale-closure bugs when the user
+  // types, navigates, then the listener fires.
+  const isDirtyRef = useRef(false);
+  const bypassDirtyGuardRef = useRef(false);
+  isDirtyRef.current = hasFormData;
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!isDirtyRef.current || bypassDirtyGuardRef.current) {
+        return;
+      }
+      e.preventDefault();
+      Alert.alert(
+        'Discard transaction?',
+        'You have unsaved changes. Leave without saving?',
+        [
+          {text: 'Keep editing', style: 'cancel'},
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              bypassDirtyGuardRef.current = true;
+              navigation.dispatch(e.data.action);
+            },
+          },
+        ],
+      );
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const handleClear = useCallback(() => {
     setAmount(0);
     const defaultWallet = wallets.find((x) => x.isActive) ?? wallets[0];
@@ -388,6 +420,7 @@ export default function AddTransactionScreen() {
           fromWalletName: fromWallet.name,
           toWalletName: toWallet.name,
         });
+        bypassDirtyGuardRef.current = true;
         navigation.goBack();
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -431,6 +464,7 @@ export default function AddTransactionScreen() {
     try {
       await createTransaction(input);
       newTransactionIdRef.current = generateId();
+      bypassDirtyGuardRef.current = true;
       navigation.goBack();
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

@@ -1,5 +1,14 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import ReactNativeHapticFeedback, {
+  HapticFeedbackTypes,
+} from 'react-native-haptic-feedback';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTheme} from '@shared/theme';
@@ -12,19 +21,40 @@ import {Spacer} from '@presentation/components/layout/Spacer';
 import {EmptyState} from '@presentation/components/feedback/EmptyState';
 import {Skeleton} from '@presentation/components/feedback/Skeleton';
 import {WalletCard} from '@presentation/components/WalletCard';
+import {AppIcon} from '@presentation/components/common/AppIcon';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import type {WalletsStackParamList} from '@presentation/navigation/types';
 
 type Nav = NativeStackNavigationProp<WalletsStackParamList>;
 
+const FAB_SIZE = 56;
+// Distance from the tab bar's top edge — matches the existing QuickActionsFAB
+// pattern. The tab screen's coordinate space already ends above the tab bar,
+// so the safe-area inset is already consumed by the tab bar itself.
+const FAB_BOTTOM_OFFSET = 20;
+const FAB_SIDE_OFFSET = 20;
+const FAB_PRESS_SPRING = {damping: 18, stiffness: 320} as const;
+
 export default function WalletsScreen() {
-  const {colors, spacing, radius} = useTheme();
+  const {colors, spacing, radius, shadows} = useTheme();
   const navigation = useNavigation<Nav>();
   const [refreshing, setRefreshing] = useState(false);
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading, refetch} = useWallets();
   const hide = useSettingsStore((s) => s.hideAmounts);
+
+  const fabScale = useSharedValue(1);
+  const fabStyle = useAnimatedStyle(() => ({
+    transform: [{scale: fabScale.value}],
+  }));
+
+  const handleAddWallet = useCallback(() => {
+    ReactNativeHapticFeedback.trigger(HapticFeedbackTypes.impactLight, {
+      enableVibrateFallback: true,
+    });
+    navigation.navigate('CreateWallet');
+  }, [navigation]);
 
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(
@@ -54,128 +84,149 @@ export default function WalletsScreen() {
   const totalBalance = activeWallets.reduce((sum, w) => sum + w.balance, 0);
 
   return (
-    <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
-      <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
-        <Spacer size={spacing.base} />
+    <View style={styles.root}>
+      <ScreenContainer onRefresh={handleRefresh} refreshing={refreshing}>
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          <Spacer size={spacing.base} />
 
-        <View style={styles.titleRow}>
-          <Text
-            style={[
-              styles.screenTitle,
-              {color: colors.text},
-            ]}>
-            Wallets
-          </Text>
-          <Pressable
-            accessibilityLabel="Add wallet"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => {
-              navigation.navigate('CreateWallet');
-            }}
-            style={[styles.addBtn, {backgroundColor: colors.primary, borderRadius: radius.sm}]}>
-            <View style={styles.addBtnContent}>
-              <Text style={styles.addBtnText}>+ Add</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.screenTitle, {color: colors.text}]}>
+              Wallets
+            </Text>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.summaryLoading}>
+              <Skeleton width="60%" height={32} borderRadius={radius.sm} />
+              <Spacer size={8} />
+              <Skeleton width="40%" height={14} borderRadius={radius.sm} />
             </View>
-          </Pressable>
+          ) : (
+            <View style={styles.summaryBlock}>
+              <Text
+                style={[styles.totalBalance, {color: colors.text}]}
+                accessibilityLabel={`Total balance ${formatAmountMasked(totalBalance, baseCurrency, hide)}`}>
+                {formatAmountMasked(totalBalance, baseCurrency, hide)}
+              </Text>
+              <Text style={[styles.totalLabel, {color: colors.textSecondary}]}>
+                Total across {activeWallets.length} active{' '}
+                {activeWallets.length === 1 ? 'wallet' : 'wallets'}
+              </Text>
+            </View>
+          )}
+
+          <Spacer size={spacing.lg} />
         </View>
 
-        {isLoading ? (
-          <View style={styles.summaryLoading}>
-            <Skeleton width="60%" height={32} borderRadius={radius.sm} />
-            <Spacer size={8} />
-            <Skeleton width="40%" height={14} borderRadius={radius.sm} />
-          </View>
-        ) : (
-          <View style={styles.summaryBlock}>
-            <Text
-              style={[styles.totalBalance, {color: colors.text}]}
-              accessibilityLabel={`Total balance ${formatAmountMasked(totalBalance, baseCurrency, hide)}`}>
-              {formatAmountMasked(totalBalance, baseCurrency, hide)}
-            </Text>
-            <Text style={[styles.totalLabel, {color: colors.textSecondary}]}>
-              Total across {activeWallets.length} active{' '}
-              {activeWallets.length === 1 ? 'wallet' : 'wallets'}
-            </Text>
-          </View>
-        )}
+        <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
+          {isLoading ? (
+            <>
+              <SectionHeader title="Active Wallets" />
+              {[1, 2, 3].map((i) => (
+                <View key={i} style={styles.walletGap}>
+                  <Skeleton
+                    width="100%"
+                    height={100}
+                    borderRadius={radius.xl}
+                  />
+                </View>
+              ))}
+            </>
+          ) : wallets.length === 0 ? (
+            <EmptyState
+              title="No wallets yet"
+              message="Create your first wallet to start tracking expenses across your accounts."
+              actionLabel="Add Wallet"
+              onAction={() => navigation.navigate('CreateWallet')}
+            />
+          ) : (
+            <>
+              {activeWallets.length > 0 && (
+                <>
+                  <SectionHeader title="Active Wallets" />
+                  {activeWallets.map((w) => (
+                    <View key={w.id} style={styles.walletGap}>
+                      <WalletCard
+                        id={w.id}
+                        name={w.name}
+                        balance={w.balance}
+                        currency={w.currency}
+                        icon={w.icon}
+                        color={w.color}
+                        isActive={w.isActive}
+                        onPress={handleWalletPress}
+                      />
+                    </View>
+                  ))}
+                </>
+              )}
 
-        <Spacer size={spacing.lg} />
-      </View>
+              {inactiveWallets.length > 0 && (
+                <>
+                  <Spacer size={spacing.lg} />
+                  <SectionHeader title="Inactive Wallets" />
+                  {inactiveWallets.map((w) => (
+                    <View key={w.id} style={styles.walletGap}>
+                      <WalletCard
+                        id={w.id}
+                        name={w.name}
+                        balance={w.balance}
+                        currency={w.currency}
+                        icon={w.icon}
+                        color={w.color}
+                        isActive={w.isActive}
+                        onPress={handleWalletPress}
+                      />
+                    </View>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </View>
 
-      <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
-        {isLoading ? (
-          <>
-            <SectionHeader title="Active Wallets" />
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={styles.walletGap}>
-                <Skeleton
-                  width="100%"
-                  height={100}
-                  borderRadius={radius.xl}
-                />
-              </View>
-            ))}
-          </>
-        ) : wallets.length === 0 ? (
-          <EmptyState
-            title="No wallets yet"
-            message="Create your first wallet to start tracking expenses across your accounts."
-            actionLabel="Add Wallet"
-            onAction={() => navigation.navigate('CreateWallet')}
-          />
-        ) : (
-          <>
-            {activeWallets.length > 0 && (
-              <>
-                <SectionHeader title="Active Wallets" />
-                {activeWallets.map((w) => (
-                  <View key={w.id} style={styles.walletGap}>
-                    <WalletCard
-                      id={w.id}
-                      name={w.name}
-                      balance={w.balance}
-                      currency={w.currency}
-                      icon={w.icon}
-                      color={w.color}
-                      isActive={w.isActive}
-                      onPress={handleWalletPress}
-                    />
-                  </View>
-                ))}
-              </>
-            )}
+        <Spacer size={spacing.xl} />
+      </ScreenContainer>
 
-            {inactiveWallets.length > 0 && (
-              <>
-                <Spacer size={spacing.lg} />
-                <SectionHeader title="Inactive Wallets" />
-                {inactiveWallets.map((w) => (
-                  <View key={w.id} style={styles.walletGap}>
-                    <WalletCard
-                      id={w.id}
-                      name={w.name}
-                      balance={w.balance}
-                      currency={w.currency}
-                      icon={w.icon}
-                      color={w.color}
-                      isActive={w.isActive}
-                      onPress={handleWalletPress}
-                    />
-                  </View>
-                ))}
-              </>
-            )}
-          </>
-        )}
-      </View>
-
-      <Spacer size={spacing.xl} />
-    </ScreenContainer>
+      <Animated.View
+        style={[
+          styles.fabWrap,
+          fabStyle,
+          shadows.lg,
+          {
+            backgroundColor: colors.primary,
+            borderRadius: FAB_SIZE / 2,
+          },
+        ]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add wallet"
+          accessibilityHint="Create a new wallet"
+          onPress={handleAddWallet}
+          onPressIn={() => {
+            fabScale.value = withSpring(0.92, FAB_PRESS_SPRING);
+          }}
+          onPressOut={() => {
+            fabScale.value = withTiming(1, {duration: 140});
+          }}
+          android_ripple={{
+            color: 'rgba(255,255,255,0.24)',
+            borderless: true,
+            radius: FAB_SIZE / 2,
+          }}
+          style={styles.fabPressable}
+          hitSlop={8}>
+          <AppIcon name="plus" size={28} color="#FFFFFF" />
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   padded: {
     alignSelf: 'stretch',
   },
@@ -189,19 +240,22 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     letterSpacing: -0.3,
   },
-  addBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  fabWrap: {
+    position: 'absolute',
+    bottom: FAB_BOTTOM_OFFSET,
+    right: FAB_SIDE_OFFSET,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    zIndex: 20,
+    elevation: 8,
   },
-  addBtnContent: {
-    flexDirection: 'row',
+  fabPressable: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     alignItems: 'center',
-    gap: 6,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: fontWeight.semibold,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   summaryBlock: {
     marginTop: 8,
