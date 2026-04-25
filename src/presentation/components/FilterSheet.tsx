@@ -7,6 +7,7 @@ import BottomSheet, {
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import type {BottomSheetDefaultBackdropProps} from '@gorhom/bottom-sheet/lib/typescript/components/bottomSheetBackdrop/types';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {Chip} from './common/Chip';
@@ -107,7 +108,8 @@ function formatDateInput(ms?: number): string {
 export const FilterSheet = forwardRef<BottomSheet, Props>(
   function FilterSheet({filters, onApply, categories, wallets, knownTags = []}, ref) {
     const {colors, spacing, radius, typography} = useTheme();
-    const snapPoints = useMemo(() => ['85%'], []);
+    const insets = useSafeAreaInsets();
+    const snapPoints = useMemo(() => ['96%'], []);
 
     const [draft, setDraft] = useState<SearchFilters>({...filters});
     const [minAmountText, setMinAmountText] = useState(
@@ -198,9 +200,14 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
         const existing = getPresetLabel(prev.dateRange);
         const targetLabel = DATE_PRESETS.find((p) => p.daysBack === daysBack)?.label;
         if (existing === targetLabel) {
+          setStartDateText('');
+          setEndDateText('');
           return {...prev, dateRange: undefined};
         }
-        return {...prev, dateRange: getDateRangeForPreset(daysBack)};
+        const nextRange = getDateRangeForPreset(daysBack);
+        setStartDateText(formatDateInput(nextRange?.startMs));
+        setEndDateText(formatDateInput(nextRange?.endMs));
+        return {...prev, dateRange: nextRange};
       });
     }, []);
 
@@ -274,7 +281,10 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
           </View>
 
           <BottomSheetScrollView
-            contentContainerStyle={[styles.scrollContent, {paddingHorizontal: spacing.base}]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {paddingHorizontal: spacing.base, paddingBottom: insets.bottom + 128},
+            ]}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.section}>
@@ -524,7 +534,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
               paddingHorizontal: spacing.base,
-              paddingBottom: spacing.lg,
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
             },
           ]}>
             <Pressable

@@ -125,6 +125,58 @@ describe('useUniversalSearch', () => {
     jest.useRealTimers();
   });
 
+  it('replaces filter overrides instead of keeping stale filters', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValue(emptyResults);
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+
+    act(() => { result.current.setFilters({categoryId: 'cat-1'}); });
+    act(() => { jest.advanceTimersByTime(300); });
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(1));
+
+    act(() => { result.current.setFilters({walletId: 'wallet-1'}); });
+    act(() => { jest.advanceTimersByTime(300); });
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2));
+
+    const args = mockSearch.mock.calls[1][0];
+    expect(args.filters).toEqual(expect.objectContaining({walletId: 'wallet-1'}));
+    expect(args.filters.categoryId).toBeUndefined();
+    jest.useRealTimers();
+  });
+
+  it('clears stale results when the text query becomes too short', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValueOnce({
+      ...emptyResults,
+      wallets: [{entity: 'wallet', id: 'wallet-1', rank: 1, wallet: {
+        id: 'wallet-1',
+        currency: 'USD',
+        name: 'Main Wallet',
+        balance: 0,
+        isActive: true,
+        icon: '',
+        color: '',
+        sortOrder: 0,
+        createdAt: 0,
+        updatedAt: 0,
+      }}],
+    });
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+
+    act(() => { result.current.setRaw('main'); });
+    act(() => { jest.advanceTimersByTime(300); });
+    await waitFor(() => expect(result.current.results.wallets).toHaveLength(1));
+
+    act(() => { result.current.setRaw('m'); });
+    act(() => { jest.advanceTimersByTime(300); });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('idle');
+      expect(result.current.results.wallets).toHaveLength(0);
+    });
+    jest.useRealTimers();
+  });
+
   it('passes parsed has and is operators through to the RPC', async () => {
     jest.useFakeTimers();
     mockSearch.mockResolvedValue(emptyResults);

@@ -98,6 +98,17 @@ function applyLocalSort(
   return {...results, transactions: sorted};
 }
 
+function hasMeaningfulFilters(filters: SearchFilters): boolean {
+  return Boolean(
+    filters.walletId || filters.categoryId || filters.type || filters.source ||
+    filters.currency || filters.merchant || filters.startMs || filters.endMs ||
+    filters.minAmount !== undefined || filters.maxAmount !== undefined ||
+    filters.hasReceipt || filters.hasNotes || filters.hasLocation || filters.hasTags ||
+    filters.isRecurring || filters.isTemplate || filters.isUncategorized ||
+    (filters.tags && filters.tags.length > 0),
+  );
+}
+
 export function useUniversalSearch(options: UseUniversalSearchOptions): UseUniversalSearchReturn {
   const {ctx} = options;
   const [raw, setRaw] = useState('');
@@ -151,15 +162,7 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
 
   const hasActiveSearch = useMemo(() => {
     if (parsed.text.length > 0 || parsed.phrases.length > 0) { return true; }
-    const f = effectiveFilters;
-    return Boolean(
-      f.walletId || f.categoryId || f.type || f.source || f.currency ||
-      f.merchant || f.startMs || f.endMs ||
-      f.minAmount !== undefined || f.maxAmount !== undefined ||
-      f.hasReceipt || f.hasNotes || f.hasLocation || f.hasTags ||
-      f.isRecurring || f.isTemplate || f.isUncategorized ||
-      (f.tags && f.tags.length > 0),
-    );
+    return hasMeaningfulFilters(effectiveFilters);
   }, [parsed, effectiveFilters]);
 
   const runSearch = useCallback(async (cursor: SearchCursor | null) => {
@@ -180,19 +183,30 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
 
     // Minimum text length guard — except when the user has only operators
     // or chip filters (then text is empty but filters are non-empty).
-    if (parsed.text.length > 0 && parsed.text.length < MIN_TEXT_LENGTH) {
+    const hasFilters = hasMeaningfulFilters(effectiveFilters);
+    if (
+      parsed.text.length > 0 &&
+      parsed.text.length < MIN_TEXT_LENGTH &&
+      parsed.phrases.length === 0 &&
+      !hasFilters
+    ) {
+      setResults(EMPTY_RESULTS);
+      setStatus('idle');
+      setNextCursor(null);
+      setUsingOfflineIndex(false);
       return;
     }
 
     setStatus('searching');
 
-    const queryForRpc = [parsed.text, ...parsed.phrases.map((p) => `"${p}"`)]
+    const textForRpc = parsed.text.length >= MIN_TEXT_LENGTH ? parsed.text : '';
+    const queryForRpc = [textForRpc, ...parsed.phrases.map((p) => `"${p}"`)]
       .filter(Boolean)
       .join(' ');
 
     emitSearchEvent('search_submitted', {
       textLength: parsed.text.length,
-      hasFilters: Object.keys(effectiveFilters).length > 0,
+      hasFilters,
     });
 
     try {
@@ -287,7 +301,7 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
   }, []);
 
   const setFilters = useCallback((f: Partial<SearchFilters>) => {
-    setOverrideFiltersState((prev) => ({...prev, ...f}));
+    setOverrideFiltersState(f);
   }, []);
 
   const totalCount =

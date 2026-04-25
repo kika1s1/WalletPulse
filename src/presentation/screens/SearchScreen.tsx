@@ -466,6 +466,17 @@ export default function SearchScreen() {
     [navigation],
   );
 
+  const openWalletDetail = useCallback(
+    (walletId: string) => {
+      emitSearchEvent('search_result_opened', {entity: 'wallet'});
+      navigation.navigate('WalletsTab', {
+        screen: 'WalletDetail',
+        params: {walletId},
+      });
+    },
+    [navigation],
+  );
+
   const openEdit = useCallback(
     (id: string) => {
       navigation.navigate('EditTransaction', {transactionId: id});
@@ -697,6 +708,8 @@ export default function SearchScreen() {
         return (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={`Open wallet ${item.wallet.name}`}
+            onPress={() => openWalletDetail(item.wallet.id)}
             style={({pressed}) => [
               styles.rowCard,
               {
@@ -854,7 +867,7 @@ export default function SearchScreen() {
     }
   }, [
     colors, spacing, radius, highlightNeedles, hideAmounts, isSelecting, selectedIds,
-    openEdit, openTransactionDetail, handleApplySavedFilter,
+    openEdit, openTransactionDetail, openWalletDetail, handleApplySavedFilter,
     handleRemoveSavedFilter, handleRenameSavedFilter, handleToggleSavedFilterPin,
     handleSuggestionPress, handleRecentPress, getCategoryDisplay, toggleSelected,
   ]);
