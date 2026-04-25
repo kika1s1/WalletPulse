@@ -11,7 +11,11 @@ import {getLocalSearchIndex} from '@infrastructure/search/LocalSearchIndex';
 import {emitSearchEvent} from '@shared/analytics/searchEvents';
 
 const DEBOUNCE_MS = 250;
-const MIN_TEXT_LENGTH = 2;
+// Single character is enough — wallet names like "M" (Main), or category
+// shortcuts like "F" (Food), should still hit the RPC and come back
+// instantly thanks to the GIN trigram index. Anything stricter risks the
+// "I typed and nothing happened" experience the user reported.
+const MIN_TEXT_LENGTH = 1;
 const PAGE_SIZE = 50;
 
 export type SearchStatus =

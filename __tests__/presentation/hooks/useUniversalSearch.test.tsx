@@ -167,13 +167,25 @@ describe('useUniversalSearch', () => {
     act(() => { jest.advanceTimersByTime(300); });
     await waitFor(() => expect(result.current.results.wallets).toHaveLength(1));
 
-    act(() => { result.current.setRaw('m'); });
+    act(() => { result.current.setRaw(''); });
     act(() => { jest.advanceTimersByTime(300); });
 
     await waitFor(() => {
       expect(result.current.status).toBe('idle');
       expect(result.current.results.wallets).toHaveLength(0);
     });
+    jest.useRealTimers();
+  });
+
+  it('runs a search even for single-character queries (wallet name lookup)', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValue(emptyResults);
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+    act(() => { result.current.setRaw('m'); });
+    act(() => { jest.advanceTimersByTime(300); });
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    expect(mockSearch.mock.calls[0][0].query).toBe('m');
     jest.useRealTimers();
   });
 

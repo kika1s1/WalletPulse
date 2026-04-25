@@ -59,6 +59,7 @@ import {HighlightedText} from '@presentation/components/search/HighlightedText';
 import {SearchSectionHeader} from '@presentation/components/search/SearchSectionHeader';
 import {SuggestionRow} from '@presentation/components/search/SuggestionRow';
 import {SmartListsSection, type SmartList} from '@presentation/components/search/SmartListsSection';
+import {buildActiveFilterChips} from '@presentation/screens/search/activeFilterChips';
 import type {ResolveCtx} from '@domain/usecases/search/parseSearchQuery';
 import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import type {Transaction} from '@domain/entities/Transaction';
@@ -498,97 +499,55 @@ export default function SearchScreen() {
     [categories],
   );
 
-  // Active filter chips + parsed operator chips (operator chips are
-  // read-only — they were typed as part of the query).
+  // Active filter chips for the row above the result list. We delegate
+  // the (filters → chip[]) projection to a pure helper so it can be unit
+  // tested without rendering the screen, then attach the per-chip clear
+  // callbacks here where we have access to setLegacyFilters.
   const activeChips = useMemo(() => {
-    const chips: {key: string; label: string; onClear?: () => void}[] = [];
-    if (legacyFilters.type) {
-      chips.push({
-        key: 'type',
-        label: legacyFilters.type,
-        onClear: () => setLegacyFilters({...legacyFilters, type: undefined}),
-      });
-    }
-    if (legacyFilters.categoryId) {
-      const c = categories.find((x) => x.id === legacyFilters.categoryId);
-      chips.push({
-        key: 'category',
-        label: c?.name ?? 'Category',
-        onClear: () => setLegacyFilters({...legacyFilters, categoryId: undefined}),
-      });
-    }
-    if (legacyFilters.walletId) {
-      const w = wallets.find((x) => x.id === legacyFilters.walletId);
-      chips.push({
-        key: 'wallet',
-        label: w?.name ?? 'Wallet',
-        onClear: () => setLegacyFilters({...legacyFilters, walletId: undefined}),
-      });
-    }
-    if (legacyFilters.merchant) {
-      chips.push({
-        key: 'merchant',
-        label: legacyFilters.merchant,
-        onClear: () => setLegacyFilters({...legacyFilters, merchant: undefined}),
-      });
-    }
-    if (legacyFilters.currency) {
-      chips.push({
-        key: 'currency',
-        label: legacyFilters.currency,
-        onClear: () => setLegacyFilters({...legacyFilters, currency: undefined}),
-      });
-    }
-    if (legacyFilters.dateRange) {
-      chips.push({
-        key: 'date',
-        label: 'Date range',
-        onClear: () => setLegacyFilters({...legacyFilters, dateRange: undefined}),
-      });
-    }
-    if (legacyFilters.minAmount !== undefined || legacyFilters.maxAmount !== undefined) {
-      const min = legacyFilters.minAmount !== undefined
-        ? `>=${(legacyFilters.minAmount / 100).toFixed(0)}`
-        : '';
-      const max = legacyFilters.maxAmount !== undefined
-        ? `<=${(legacyFilters.maxAmount / 100).toFixed(0)}`
-        : '';
-      chips.push({
-        key: 'amount',
-        label: `${min} ${max}`.trim(),
-        onClear: () => setLegacyFilters({
-          ...legacyFilters,
-          minAmount: undefined,
-          maxAmount: undefined,
-        }),
-      });
-    }
-    if (legacyFilters.tags && legacyFilters.tags.length > 0) {
-      chips.push({
-        key: 'tags',
-        label: `#${legacyFilters.tags.join(' #')}`,
-        onClear: () => setLegacyFilters({...legacyFilters, tags: undefined}),
-      });
-    }
-    const booleanChips: Array<{key: keyof LegacyFilters; label: string}> = [
-      {key: 'hasReceipt', label: 'Has receipt'},
-      {key: 'hasNotes', label: 'Has notes'},
-      {key: 'hasLocation', label: 'Has location'},
-      {key: 'hasTags', label: 'Has tags'},
-      {key: 'isRecurring', label: 'Recurring'},
-      {key: 'isTemplate', label: 'Template'},
-      {key: 'isUncategorized', label: 'Uncategorized'},
-    ];
-    for (const chip of booleanChips) {
-      if (legacyFilters[chip.key]) {
-        chips.push({
-          key: String(chip.key),
-          label: chip.label,
-          onClear: () => setLegacyFilters({...legacyFilters, [chip.key]: undefined}),
-        });
+    const base = buildActiveFilterChips(legacyFilters, {categories, wallets});
+    return base.map((chip) => {
+      let onClear: (() => void) | undefined;
+      switch (chip.key) {
+        case 'type':
+          onClear = () => setLegacyFilters({...legacyFilters, type: undefined});
+          break;
+        case 'source':
+          onClear = () => setLegacyFilters({...legacyFilters, source: undefined});
+          break;
+        case 'category':
+          onClear = () => setLegacyFilters({...legacyFilters, categoryId: undefined});
+          break;
+        case 'wallet':
+          onClear = () => setLegacyFilters({...legacyFilters, walletId: undefined});
+          break;
+        case 'merchant':
+          onClear = () => setLegacyFilters({...legacyFilters, merchant: undefined});
+          break;
+        case 'currency':
+          onClear = () => setLegacyFilters({...legacyFilters, currency: undefined});
+          break;
+        case 'date':
+          onClear = () => setLegacyFilters({...legacyFilters, dateRange: undefined});
+          break;
+        case 'amount':
+          onClear = () => setLegacyFilters({
+            ...legacyFilters,
+            minAmount: undefined,
+            maxAmount: undefined,
+          });
+          break;
+        case 'tags':
+          onClear = () => setLegacyFilters({...legacyFilters, tags: undefined});
+          break;
+        default:
+          // Boolean chips (hasReceipt, isRecurring, ...) — clear by key.
+          onClear = () => setLegacyFilters({
+            ...legacyFilters,
+            [chip.key as keyof LegacyFilters]: undefined,
+          });
       }
-    }
-    return chips;
+      return {key: chip.key, label: chip.label, onClear};
+    });
   }, [legacyFilters, categories, wallets]);
 
   const highlightNeedles = useMemo(

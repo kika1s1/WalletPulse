@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -43,6 +43,15 @@ export default function WalletsScreen() {
   const baseCurrency = useAppStore((s) => s.baseCurrency);
   const {wallets, isLoading, refetch} = useWallets();
   const hide = useSettingsStore((s) => s.hideAmounts);
+  const [query, setQuery] = useState('');
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredWallets = useMemo(() => {
+    if (!trimmedQuery) { return wallets; }
+    return wallets.filter((w) =>
+      w.name.toLowerCase().includes(trimmedQuery) ||
+      w.currency.toLowerCase().includes(trimmedQuery),
+    );
+  }, [wallets, trimmedQuery]);
 
   const fabScale = useSharedValue(1);
   const fabStyle = useAnimatedStyle(() => ({
@@ -78,10 +87,13 @@ export default function WalletsScreen() {
     [navigation],
   );
 
-  const activeWallets = wallets.filter((w) => w.isActive);
-  const inactiveWallets = wallets.filter((w) => !w.isActive);
+  const activeWallets = filteredWallets.filter((w) => w.isActive);
+  const inactiveWallets = filteredWallets.filter((w) => !w.isActive);
 
-  const totalBalance = activeWallets.reduce((sum, w) => sum + w.balance, 0);
+  const totalBalance = wallets
+    .filter((w) => w.isActive)
+    .reduce((sum, w) => sum + w.balance, 0);
+  const noMatch = trimmedQuery.length > 0 && filteredWallets.length === 0;
 
   return (
     <View style={styles.root}>
@@ -94,6 +106,40 @@ export default function WalletsScreen() {
               Wallets
             </Text>
           </View>
+
+          {wallets.length > 0 && (
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: colors.surfaceElevated ?? colors.surface,
+                  borderColor: colors.borderLight,
+                  borderRadius: radius.md,
+                },
+              ]}>
+              <AppIcon name="magnify" size={18} color={colors.textTertiary} />
+              <TextInput
+                accessibilityLabel="Search wallets"
+                placeholder="Search wallets"
+                placeholderTextColor={colors.textTertiary}
+                value={query}
+                onChangeText={setQuery}
+                style={[styles.searchInput, {color: colors.text}]}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear wallet search"
+                  hitSlop={8}
+                  onPress={() => setQuery('')}>
+                  <AppIcon name="close" size={16} color={colors.textTertiary} />
+                </Pressable>
+              )}
+            </View>
+          )}
 
           {isLoading ? (
             <View style={styles.summaryLoading}>
@@ -138,6 +184,11 @@ export default function WalletsScreen() {
               message="Create your first wallet to start tracking expenses across your accounts."
               actionLabel="Add Wallet"
               onAction={() => navigation.navigate('CreateWallet')}
+            />
+          ) : noMatch ? (
+            <EmptyState
+              title="No wallets match"
+              message={`Nothing matches "${query.trim()}". Try a different name or currency code.`}
             />
           ) : (
             <>
@@ -274,5 +325,20 @@ const styles = StyleSheet.create({
   },
   walletGap: {
     marginTop: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 42,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+    height: 42,
   },
 });
