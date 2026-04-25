@@ -113,34 +113,19 @@ describe('useUniversalSearch', () => {
     jest.useRealTimers();
   });
 
-  it('passes chip filter overrides through to the RPC', async () => {
+  it('passes operator-derived filters through to the RPC', async () => {
     jest.useFakeTimers();
     mockSearch.mockResolvedValue(emptyResults);
-    const {result} = renderHook(() => useUniversalSearch({ctx}));
-    act(() => { result.current.setFilters({categoryId: 'cat-1'}); });
+    const ctxWithCategory = {
+      wallets: [],
+      categories: [{id: 'cat-1', name: 'Food', type: 'expense' as const}],
+    };
+    const {result} = renderHook(() => useUniversalSearch({ctx: ctxWithCategory}));
+    act(() => { result.current.setRaw('category:food'); });
     act(() => { jest.advanceTimersByTime(300); });
     await waitFor(() => expect(mockSearch).toHaveBeenCalled());
     const args = mockSearch.mock.calls[0][0];
     expect(args.filters.categoryId).toBe('cat-1');
-    jest.useRealTimers();
-  });
-
-  it('replaces filter overrides instead of keeping stale filters', async () => {
-    jest.useFakeTimers();
-    mockSearch.mockResolvedValue(emptyResults);
-    const {result} = renderHook(() => useUniversalSearch({ctx}));
-
-    act(() => { result.current.setFilters({categoryId: 'cat-1'}); });
-    act(() => { jest.advanceTimersByTime(300); });
-    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(1));
-
-    act(() => { result.current.setFilters({walletId: 'wallet-1'}); });
-    act(() => { jest.advanceTimersByTime(300); });
-    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2));
-
-    const args = mockSearch.mock.calls[1][0];
-    expect(args.filters).toEqual(expect.objectContaining({walletId: 'wallet-1'}));
-    expect(args.filters.categoryId).toBeUndefined();
     jest.useRealTimers();
   });
 
@@ -189,25 +174,21 @@ describe('useUniversalSearch', () => {
     jest.useRealTimers();
   });
 
-  it('passes parsed has and is operators through to the RPC', async () => {
+  it('does not send the removed has:/is: filter flags', async () => {
     jest.useFakeTimers();
     mockSearch.mockResolvedValue(emptyResults);
     const {result} = renderHook(() => useUniversalSearch({ctx}));
 
     act(() => {
-      result.current.setRaw('has:receipt has:notes has:location has:tags is:recurring is:template is:uncategorized');
+      result.current.setRaw('has:receipt is:recurring');
     });
     act(() => { jest.advanceTimersByTime(300); });
 
     await waitFor(() => expect(mockSearch).toHaveBeenCalled());
     const args = mockSearch.mock.calls[0][0];
-    expect(args.filters.hasReceipt).toBe(true);
-    expect(args.filters.hasNotes).toBe(true);
-    expect(args.filters.hasLocation).toBe(true);
-    expect(args.filters.hasTags).toBe(true);
-    expect(args.filters.isRecurring).toBe(true);
-    expect(args.filters.isTemplate).toBe(true);
-    expect(args.filters.isUncategorized).toBe(true);
+    expect(args.filters).not.toHaveProperty('hasReceipt');
+    expect(args.filters).not.toHaveProperty('isRecurring');
+    expect(args.filters).not.toHaveProperty('isUncategorized');
     jest.useRealTimers();
   });
 });

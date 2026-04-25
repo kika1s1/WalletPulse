@@ -51,8 +51,6 @@ const OPERATOR_HINTS: Array<{token: string; label: string; hint: string}> = [
   {token: 'type:',     label: 'type:',     hint: 'Filter by type (type:expense)'},
   {token: 'source:',   label: 'source:',   hint: 'Filter by source (source:payoneer)'},
   {token: 'date:',     label: 'date:',     hint: 'Filter by date (date:last-month)'},
-  {token: 'has:',      label: 'has:',      hint: 'Filter by field (has:receipt, has:notes)'},
-  {token: 'is:',       label: 'is:',       hint: 'Filter by flag (is:recurring)'},
 ];
 
 export function useSearchSuggestions(rawQuery: string): SearchSuggestion[] {

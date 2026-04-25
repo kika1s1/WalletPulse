@@ -22,13 +22,6 @@ export type TransactionFilter = {
   minAmount?: number;
   maxAmount?: number;
   searchQuery?: string;
-  hasReceipt?: boolean;
-  hasNotes?: boolean;
-  hasLocation?: boolean;
-  hasTags?: boolean;
-  isRecurring?: boolean;
-  isTemplate?: boolean;
-  isUncategorized?: boolean;
   cursor?: TransactionCursor;
   limit?: number;
 };

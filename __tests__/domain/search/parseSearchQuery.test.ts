@@ -32,7 +32,7 @@ describe('parseSearchQuery', () => {
 
     it('returns empty for empty input', () => {
       expect(parseSearchQuery('', ctx)).toEqual({
-        text: '', filters: {}, negated: [], phrases: [], has: [], is: [],
+        text: '', filters: {}, negated: [], phrases: [],
       });
     });
 
@@ -192,35 +192,20 @@ describe('parseSearchQuery', () => {
     });
   });
 
-  describe('has: and is: operators', () => {
-    it('parses has tokens', () => {
-      const p = parseSearchQuery('has:receipt has:notes', ctx);
-      expect(p.has).toEqual(expect.arrayContaining(['receipt', 'notes']));
+  describe('removed has:/is: operators', () => {
+    // The FilterSheet UI was removed and with it the has:/is: operator
+    // family. They now fall through to free text so the user still gets
+    // *something* if they type the old syntax out of muscle memory.
+    it('treats has:receipt as free text', () => {
+      const p = parseSearchQuery('has:receipt', ctx);
+      expect(p.text).toContain('has:receipt');
+      expect(p.filters).toEqual({});
     });
 
-    it('parses is tokens', () => {
+    it('treats is:recurring as free text', () => {
       const p = parseSearchQuery('is:recurring', ctx);
-      expect(p.is).toEqual(['recurring']);
-    });
-
-    it('maps has tokens to backend filters', () => {
-      const p = parseSearchQuery('has:receipt has:notes has:location has:tags', ctx);
-      expect(p.filters.hasReceipt).toBe(true);
-      expect(p.filters.hasNotes).toBe(true);
-      expect(p.filters.hasLocation).toBe(true);
-      expect(p.filters.hasTags).toBe(true);
-    });
-
-    it('maps is tokens to backend filters', () => {
-      const p = parseSearchQuery('is:recurring is:template', ctx);
-      expect(p.filters.isRecurring).toBe(true);
-      expect(p.filters.isTemplate).toBe(true);
-    });
-
-    it('maps uncategorized to a backend filter', () => {
-      const p = parseSearchQuery('is:uncategorized', ctx);
-      expect(p.is).toEqual(['uncategorized']);
-      expect(p.filters.isUncategorized).toBe(true);
+      expect(p.text).toContain('is:recurring');
+      expect(p.filters).toEqual({});
     });
   });
 

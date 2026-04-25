@@ -18,13 +18,6 @@ export type SearchFilters = {
   minAmount?: number;
   maxAmount?: number;
   tags?: string[];
-  hasReceipt?: boolean;
-  hasNotes?: boolean;
-  hasLocation?: boolean;
-  hasTags?: boolean;
-  isRecurring?: boolean;
-  isTemplate?: boolean;
-  isUncategorized?: boolean;
 };
 
 export type SearchCursor = {
@@ -164,13 +157,6 @@ function filtersToJson(filters?: SearchFilters): Record<string, unknown> {
   if (filters.minAmount !== undefined) { out.minAmount = String(filters.minAmount); }
   if (filters.maxAmount !== undefined) { out.maxAmount = String(filters.maxAmount); }
   if (filters.tags && filters.tags.length > 0) { out.tags = filters.tags; }
-  if (filters.hasReceipt) { out.hasReceipt = 'true'; }
-  if (filters.hasNotes) { out.hasNotes = 'true'; }
-  if (filters.hasLocation) { out.hasLocation = 'true'; }
-  if (filters.hasTags) { out.hasTags = 'true'; }
-  if (filters.isRecurring) { out.isRecurring = 'true'; }
-  if (filters.isTemplate) { out.isTemplate = 'true'; }
-  if (filters.isUncategorized) { out.isUncategorized = 'true'; }
   return out;
 }
 

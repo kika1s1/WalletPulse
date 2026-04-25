@@ -1,9 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
-  Modal,
   Pressable,
   SectionList,
   StyleSheet,
@@ -24,20 +22,17 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {CompositeNavigationProp} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
-import BottomSheet from '@gorhom/bottom-sheet';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
 import {TransactionCard} from '@presentation/components/TransactionCard';
 import {EmptyState} from '@presentation/components/feedback';
 import {BackButton} from '@presentation/components/common';
-import {FilterSheet} from '@presentation/components/FilterSheet';
 import {
   UNIVERSAL_SORT_OPTIONS,
   useUniversalSearch,
   type UniversalSortOption,
 } from '@presentation/hooks/useUniversalSearch';
 import {useSearchSuggestions, type SearchSuggestion} from '@presentation/hooks/useSearchSuggestions';
-import type {SearchFilters as UniversalFilters} from '@data/repositories/UniversalSearchRepository';
 import {useCategories} from '@presentation/hooks/useCategories';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
@@ -46,29 +41,19 @@ import {
   getRecentSearches,
   clearRecentSearches,
   loadSavedData,
-  getSavedFilters,
-  addSavedFilter,
-  removeSavedFilter,
-  renameSavedFilter,
-  suggestSavedFilterName,
-  toggleSavedFilterPin,
-  type SavedFilter,
-} from '@domain/usecases/saved-filters';
+} from '@domain/usecases/recent-searches';
 import {emitSearchEvent} from '@shared/analytics/searchEvents';
 import {HighlightedText} from '@presentation/components/search/HighlightedText';
 import {SearchSectionHeader} from '@presentation/components/search/SearchSectionHeader';
 import {SuggestionRow} from '@presentation/components/search/SuggestionRow';
 import {SmartListsSection, type SmartList} from '@presentation/components/search/SmartListsSection';
-import {buildActiveFilterChips} from '@presentation/screens/search/activeFilterChips';
 import type {ResolveCtx} from '@domain/usecases/search/parseSearchQuery';
-import type {TransactionFilter} from '@domain/repositories/ITransactionRepository';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
 import type {Category} from '@domain/entities/Category';
 import type {Budget} from '@domain/entities/Budget';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
 import type {GroupedSearchResults} from '@data/repositories/UniversalSearchRepository';
-import {useTagSuggestions} from '@presentation/hooks/useTagSuggestions';
 import {useTransactionSelectionStore} from '@presentation/stores/useTransactionSelectionStore';
 import {TransactionBulkActionsHost} from '@presentation/components/transactions/TransactionBulkActionsHost';
 
@@ -76,53 +61,6 @@ type SearchNav = CompositeNavigationProp<
   NativeStackNavigationProp<TransactionsStackParamList, 'Search'>,
   BottomTabNavigationProp<TabParamList>
 >;
-
-// Mirrors the old `useSearch`'s SearchFilters shape so FilterSheet and
-// saved-presets (which still pass TransactionFilter) continue to work.
-type LegacyFilters = {
-  type?: TransactionFilter['type'];
-  source?: TransactionFilter['source'];
-  categoryId?: string;
-  walletId?: string;
-  currency?: string;
-  merchant?: string;
-  minAmount?: number;
-  maxAmount?: number;
-  dateRange?: {startMs: number; endMs: number};
-  tags?: string[];
-  hasReceipt?: boolean;
-  hasNotes?: boolean;
-  hasLocation?: boolean;
-  hasTags?: boolean;
-  isRecurring?: boolean;
-  isTemplate?: boolean;
-  isUncategorized?: boolean;
-};
-
-function legacyToUniversal(f: LegacyFilters): UniversalFilters {
-  const out: UniversalFilters = {};
-  if (f.type) { out.type = f.type; }
-  if (f.source) { out.source = f.source; }
-  if (f.categoryId) { out.categoryId = f.categoryId; }
-  if (f.walletId) { out.walletId = f.walletId; }
-  if (f.currency) { out.currency = f.currency; }
-  if (f.merchant) { out.merchant = f.merchant; }
-  if (f.minAmount !== undefined) { out.minAmount = f.minAmount; }
-  if (f.maxAmount !== undefined) { out.maxAmount = f.maxAmount; }
-  if (f.dateRange) {
-    out.startMs = f.dateRange.startMs;
-    out.endMs = f.dateRange.endMs;
-  }
-  if (f.tags && f.tags.length > 0) { out.tags = f.tags; }
-  if (f.hasReceipt) { out.hasReceipt = true; }
-  if (f.hasNotes) { out.hasNotes = true; }
-  if (f.hasLocation) { out.hasLocation = true; }
-  if (f.hasTags) { out.hasTags = true; }
-  if (f.isRecurring) { out.isRecurring = true; }
-  if (f.isTemplate) { out.isTemplate = true; }
-  if (f.isUncategorized) { out.isUncategorized = true; }
-  return out;
-}
 
 function SortSheet({
   current,
@@ -180,17 +118,13 @@ function SortSheet({
   );
 }
 
-// Grouped entity rendering — the SectionList stitches all entity types
-// (transactions / wallets / categories / budgets / suggestions / recent)
-// together so pagination and keyboard handling are uniform across them.
 type SectionItem =
   | {kind: 'transaction'; id: string; transaction: Transaction}
   | {kind: 'wallet'; id: string; wallet: Wallet}
   | {kind: 'category'; id: string; category: Category}
   | {kind: 'budget'; id: string; budget: Budget}
   | {kind: 'suggestion'; id: string; suggestion: SearchSuggestion}
-  | {kind: 'recent'; id: string; label: string}
-  | {kind: 'saved'; id: string; preset: SavedFilter};
+  | {kind: 'recent'; id: string; label: string};
 
 type Section = {
   title: string;
@@ -204,13 +138,11 @@ export default function SearchScreen() {
   const navigation = useNavigation<SearchNav>();
   const {colors, spacing, radius} = useTheme();
   const insets = useSafeAreaInsets();
-  const filterRef = useRef<BottomSheet>(null);
   const inputRef = useRef<TextInput>(null);
 
   const {categories} = useCategories();
   const {wallets} = useWallets();
   const hideAmounts = useSettingsStore((s) => s.hideAmounts);
-  const {allKnownTags} = useTagSuggestions();
   const isSelecting = useTransactionSelectionStore((s) => s.isSelecting);
   const selectedIds = useTransactionSelectionStore((s) => s.selectedIds);
   const toggleSelected = useTransactionSelectionStore((s) => s.toggleSelected);
@@ -226,23 +158,8 @@ export default function SearchScreen() {
   const search = useUniversalSearch({ctx: resolveCtx});
   const suggestions = useSearchSuggestions(search.raw);
 
-  // Legacy filter state mirrors the hook's override filters but in the
-  // `dateRange` / TransactionFilter shape that FilterSheet expects.
-  const [legacyFilters, setLegacyFilters] = useState<LegacyFilters>({});
-
-  useEffect(() => {
-    search.setFilters(legacyToUniversal(legacyFilters));
-    // We purposely only sync when `legacyFilters` changes — hook handles
-    // its own debouncing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [legacyFilters]);
-
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
-  const [savedFiltersList, setSavedFiltersList] = useState<SavedFilter[]>([]);
   const [showSort, setShowSort] = useState(false);
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
-  const [saveNameDraft, setSaveNameDraft] = useState('');
-  const [renameTarget, setRenameTarget] = useState<SavedFilter | null>(null);
   const searchBarFocus = useSharedValue(0);
 
   useEffect(() => {
@@ -251,7 +168,6 @@ export default function SearchScreen() {
       await loadSavedData();
       if (!cancelled) {
         setRecentSearches(getRecentSearches());
-        setSavedFiltersList(getSavedFilters());
       }
     })();
     return () => { cancelled = true; };
@@ -279,8 +195,6 @@ export default function SearchScreen() {
 
   const handleSuggestionPress = useCallback((suggestion: SearchSuggestion) => {
     const tokens = search.raw.trim().split(/\s+/).filter(Boolean);
-    // Replace only the last token — keeps previous tokens intact so
-    // `cat tag:w...` -> `category: tag:work`.
     if (tokens.length > 0) { tokens.pop(); }
     tokens.push(suggestion.token);
     search.setRaw(tokens.join(' ') + (suggestion.token.endsWith(':') ? '' : ' '));
@@ -305,157 +219,6 @@ export default function SearchScreen() {
     navigation.goBack();
   }, [navigation]);
 
-  const openFilters = useCallback(() => {
-    Keyboard.dismiss();
-    filterRef.current?.expand();
-  }, []);
-
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (legacyFilters.type) { count++; }
-    if (legacyFilters.source) { count++; }
-    if (legacyFilters.categoryId) { count++; }
-    if (legacyFilters.walletId) { count++; }
-    if (legacyFilters.currency) { count++; }
-    if (legacyFilters.merchant) { count++; }
-    if (legacyFilters.minAmount !== undefined) { count++; }
-    if (legacyFilters.maxAmount !== undefined) { count++; }
-    if (legacyFilters.dateRange) { count++; }
-    if (legacyFilters.tags && legacyFilters.tags.length > 0) { count++; }
-    if (legacyFilters.hasReceipt) { count++; }
-    if (legacyFilters.hasNotes) { count++; }
-    if (legacyFilters.hasLocation) { count++; }
-    if (legacyFilters.hasTags) { count++; }
-    if (legacyFilters.isRecurring) { count++; }
-    if (legacyFilters.isTemplate) { count++; }
-    if (legacyFilters.isUncategorized) { count++; }
-    return count;
-  }, [legacyFilters]);
-
-  const handleSaveFilters = useCallback(() => {
-    const payload: TransactionFilter = {
-      type: legacyFilters.type,
-      source: legacyFilters.source,
-      categoryId: legacyFilters.categoryId,
-      walletId: legacyFilters.walletId,
-      currency: legacyFilters.currency,
-      merchant: legacyFilters.merchant,
-      minAmount: legacyFilters.minAmount,
-      maxAmount: legacyFilters.maxAmount,
-      dateRange: legacyFilters.dateRange,
-      tags: legacyFilters.tags,
-      hasReceipt: legacyFilters.hasReceipt,
-      hasNotes: legacyFilters.hasNotes,
-      hasLocation: legacyFilters.hasLocation,
-      hasTags: legacyFilters.hasTags,
-      isRecurring: legacyFilters.isRecurring,
-      isTemplate: legacyFilters.isTemplate,
-      isUncategorized: legacyFilters.isUncategorized,
-    };
-    const rawQuery = search.raw.trim();
-    const suggested = suggestSavedFilterName(payload, rawQuery);
-    setSaveNameDraft(suggested);
-    setShowNamePrompt(true);
-  }, [legacyFilters, search.raw]);
-
-  const confirmSaveFilter = useCallback(() => {
-    const payload: TransactionFilter = {
-      type: legacyFilters.type,
-      source: legacyFilters.source,
-      categoryId: legacyFilters.categoryId,
-      walletId: legacyFilters.walletId,
-      currency: legacyFilters.currency,
-      merchant: legacyFilters.merchant,
-      minAmount: legacyFilters.minAmount,
-      maxAmount: legacyFilters.maxAmount,
-      dateRange: legacyFilters.dateRange,
-      tags: legacyFilters.tags,
-      hasReceipt: legacyFilters.hasReceipt,
-      hasNotes: legacyFilters.hasNotes,
-      hasLocation: legacyFilters.hasLocation,
-      hasTags: legacyFilters.hasTags,
-      isRecurring: legacyFilters.isRecurring,
-      isTemplate: legacyFilters.isTemplate,
-      isUncategorized: legacyFilters.isUncategorized,
-    };
-    try {
-      addSavedFilter(saveNameDraft, payload, search.raw.trim());
-      setSavedFiltersList(getSavedFilters());
-      setSaveNameDraft('');
-      setShowNamePrompt(false);
-      emitSearchEvent('search_filter_applied', {saved: true});
-    } catch {
-      Alert.alert('Could not save', 'Please enter a valid name.');
-    }
-  }, [legacyFilters, saveNameDraft, search.raw]);
-
-  const handleApplySavedFilter = useCallback((preset: SavedFilter) => {
-    setLegacyFilters({
-      type: preset.filter.type,
-      source: preset.filter.source,
-      categoryId: preset.filter.categoryId,
-      walletId: preset.filter.walletId,
-      currency: preset.filter.currency,
-      merchant: preset.filter.merchant,
-      minAmount: preset.filter.minAmount,
-      maxAmount: preset.filter.maxAmount,
-      dateRange: preset.filter.dateRange,
-      tags: preset.filter.tags,
-      hasReceipt: preset.filter.hasReceipt,
-      hasNotes: preset.filter.hasNotes,
-      hasLocation: preset.filter.hasLocation,
-      hasTags: preset.filter.hasTags,
-      isRecurring: preset.filter.isRecurring,
-      isTemplate: preset.filter.isTemplate,
-      isUncategorized: preset.filter.isUncategorized,
-    });
-    if (preset.rawQuery) {
-      search.setRaw(preset.rawQuery);
-    }
-  }, [search]);
-
-  const handleRemoveSavedFilter = useCallback((id: string) => {
-    Alert.alert('Remove saved filter?', 'This removes the preset from your saved filters.', [
-      {text: 'Cancel', style: 'cancel'},
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          removeSavedFilter(id);
-          setSavedFiltersList(getSavedFilters());
-        },
-      },
-    ]);
-  }, []);
-
-  const handleRenameSavedFilter = useCallback((preset: SavedFilter) => {
-    setRenameTarget(preset);
-    setSaveNameDraft(preset.name);
-    setShowNamePrompt(true);
-  }, []);
-
-  const confirmRenameFilter = useCallback(() => {
-    if (!renameTarget) { return; }
-    try {
-      renameSavedFilter(renameTarget.id, saveNameDraft);
-      setSavedFiltersList(getSavedFilters());
-      setRenameTarget(null);
-      setSaveNameDraft('');
-      setShowNamePrompt(false);
-    } catch {
-      Alert.alert('Could not rename', 'Please enter a valid name.');
-    }
-  }, [renameTarget, saveNameDraft]);
-
-  const handleToggleSavedFilterPin = useCallback((id: string) => {
-    toggleSavedFilterPin(id);
-    setSavedFiltersList(getSavedFilters());
-  }, []);
-
-  const handleApplyFilters = useCallback((f: LegacyFilters) => {
-    setLegacyFilters(f);
-  }, []);
-
   const openTransactionDetail = useCallback(
     (id: string) => {
       emitSearchEvent('search_result_opened', {entity: 'transaction'});
@@ -473,6 +236,17 @@ export default function SearchScreen() {
       navigation.navigate('WalletsTab', {
         screen: 'WalletDetail',
         params: {walletId},
+      });
+    },
+    [navigation],
+  );
+
+  const openTransactionsForCategory = useCallback(
+    (categoryId: string) => {
+      emitSearchEvent('search_result_opened', {entity: 'category'});
+      navigation.navigate('TransactionsTab', {
+        screen: 'TransactionsList',
+        params: {filterCategoryId: categoryId},
       });
     },
     [navigation],
@@ -499,57 +273,6 @@ export default function SearchScreen() {
     [categories],
   );
 
-  // Active filter chips for the row above the result list. We delegate
-  // the (filters → chip[]) projection to a pure helper so it can be unit
-  // tested without rendering the screen, then attach the per-chip clear
-  // callbacks here where we have access to setLegacyFilters.
-  const activeChips = useMemo(() => {
-    const base = buildActiveFilterChips(legacyFilters, {categories, wallets});
-    return base.map((chip) => {
-      let onClear: (() => void) | undefined;
-      switch (chip.key) {
-        case 'type':
-          onClear = () => setLegacyFilters({...legacyFilters, type: undefined});
-          break;
-        case 'source':
-          onClear = () => setLegacyFilters({...legacyFilters, source: undefined});
-          break;
-        case 'category':
-          onClear = () => setLegacyFilters({...legacyFilters, categoryId: undefined});
-          break;
-        case 'wallet':
-          onClear = () => setLegacyFilters({...legacyFilters, walletId: undefined});
-          break;
-        case 'merchant':
-          onClear = () => setLegacyFilters({...legacyFilters, merchant: undefined});
-          break;
-        case 'currency':
-          onClear = () => setLegacyFilters({...legacyFilters, currency: undefined});
-          break;
-        case 'date':
-          onClear = () => setLegacyFilters({...legacyFilters, dateRange: undefined});
-          break;
-        case 'amount':
-          onClear = () => setLegacyFilters({
-            ...legacyFilters,
-            minAmount: undefined,
-            maxAmount: undefined,
-          });
-          break;
-        case 'tags':
-          onClear = () => setLegacyFilters({...legacyFilters, tags: undefined});
-          break;
-        default:
-          // Boolean chips (hasReceipt, isRecurring, ...) — clear by key.
-          onClear = () => setLegacyFilters({
-            ...legacyFilters,
-            [chip.key as keyof LegacyFilters]: undefined,
-          });
-      }
-      return {key: chip.key, label: chip.label, onClear};
-    });
-  }, [legacyFilters, categories, wallets]);
-
   const highlightNeedles = useMemo(
     () => [search.parsed.text, ...search.parsed.phrases].filter(Boolean),
     [search.parsed],
@@ -559,9 +282,6 @@ export default function SearchScreen() {
     const out: Section[] = [];
 
     if (!search.hasActiveSearch) {
-      // Idle state — show suggestions-equivalent: smart lists + recents +
-      // saved filters. Smart lists render as a header section; we don't
-      // nest them in SectionList to keep FlatList-style horizontal scroll.
       if (recentSearches.length > 0) {
         out.push({
           title: 'Recent searches',
@@ -573,18 +293,9 @@ export default function SearchScreen() {
           clearable: handleClearRecent,
         });
       }
-      if (savedFiltersList.length > 0) {
-        out.push({
-          title: 'Saved filters',
-          kind: 'saved',
-          count: savedFiltersList.length,
-          data: savedFiltersList.map((p) => ({kind: 'saved', id: p.id, preset: p})),
-        });
-      }
       return out;
     }
 
-    // Active search — suggestions above results.
     if (suggestions.length > 0 && search.raw.length > 0 && search.status !== 'searching') {
       out.push({
         title: 'Suggestions',
@@ -630,7 +341,7 @@ export default function SearchScreen() {
       });
     }
     return out;
-  }, [search.hasActiveSearch, search.raw, search.status, search.results, recentSearches, savedFiltersList, suggestions, handleClearRecent]);
+  }, [search.hasActiveSearch, search.raw, search.status, search.results, recentSearches, suggestions, handleClearRecent]);
 
   const renderItem = useCallback(({item}: {item: SectionItem}) => {
     switch (item.kind) {
@@ -696,7 +407,8 @@ export default function SearchScreen() {
         return (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setLegacyFilters((f) => ({...f, categoryId: item.category.id}))}
+            accessibilityLabel={`See transactions in ${item.category.name}`}
+            onPress={() => openTransactionsForCategory(item.category.id)}
             style={({pressed}) => [
               styles.rowCard,
               {
@@ -769,65 +481,10 @@ export default function SearchScreen() {
             </Text>
           </Pressable>
         );
-      case 'saved':
-        return (
-          <View
-            style={[
-              styles.savedFilterCard,
-              {
-                borderColor: colors.border,
-                borderRadius: radius.md,
-                backgroundColor: colors.surfaceElevated,
-                marginHorizontal: spacing.base,
-                marginBottom: spacing.sm,
-              },
-            ]}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleApplySavedFilter(item.preset)}
-              onLongPress={() => handleRenameSavedFilter(item.preset)}
-              style={({pressed}) => [
-                styles.savedFilterMain,
-                {opacity: pressed ? 0.75 : 1},
-              ]}>
-              <Text style={[styles.savedFilterName, {color: colors.text}]} numberOfLines={1}>
-                {item.preset.pinned ? 'Pinned · ' : ''}{item.preset.name}
-              </Text>
-              {item.preset.rawQuery ? (
-                <Text style={[styles.savedFilterHint, {color: colors.textTertiary}]} numberOfLines={1}>
-                  {item.preset.rawQuery}
-                </Text>
-              ) : (
-                <Text style={[styles.savedFilterHint, {color: colors.textTertiary}]} numberOfLines={1}>
-                  Tap to apply, long-press to rename
-                </Text>
-              )}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${item.preset.pinned ? 'Unpin' : 'Pin'} saved filter ${item.preset.name}`}
-              onPress={() => handleToggleSavedFilterPin(item.preset.id)}
-              hitSlop={12}
-              style={styles.savedFilterRemove}>
-              <Text style={[styles.savedFilterRemoveLabel, {color: item.preset.pinned ? colors.primary : colors.textTertiary}]}>
-                {item.preset.pinned ? 'On' : 'Pin'}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Remove saved filter ${item.preset.name}`}
-              onPress={() => handleRemoveSavedFilter(item.preset.id)}
-              hitSlop={12}
-              style={styles.savedFilterRemove}>
-              <Text style={[styles.savedFilterRemoveLabel, {color: colors.textTertiary}]}>×</Text>
-            </Pressable>
-          </View>
-        );
     }
   }, [
     colors, spacing, radius, highlightNeedles, hideAmounts, isSelecting, selectedIds,
-    openEdit, openTransactionDetail, openWalletDetail, handleApplySavedFilter,
-    handleRemoveSavedFilter, handleRenameSavedFilter, handleToggleSavedFilterPin,
+    openEdit, openTransactionDetail, openWalletDetail, openTransactionsForCategory,
     handleSuggestionPress, handleRecentPress, getCategoryDisplay, toggleSelected,
   ]);
 
@@ -861,25 +518,25 @@ export default function SearchScreen() {
         <View style={styles.hintContainer}>
           <EmptyState
             title="No results found"
-            message={`Nothing matches "${search.raw.trim() || 'your filters'}". Try adjusting your search.`}
-            actionLabel="Clear all"
+            message={`Nothing matches "${search.raw.trim() || 'your search'}". Try a different query.`}
+            actionLabel="Clear"
             onAction={search.clearAll}
           />
         </View>
       );
     }
-    if (!search.hasActiveSearch && recentSearches.length === 0 && savedFiltersList.length === 0) {
+    if (!search.hasActiveSearch && recentSearches.length === 0) {
       return (
         <View style={styles.hintContainer}>
           <EmptyState
             title="Search everything"
-            message="Find transactions, wallets, categories, and budgets. Use operators like category:food amount:>50 or date:last-month to narrow down."
+            message="Find transactions, wallets, categories, and budgets. Type any keyword, or use shortcuts like category:food or date:last-month."
           />
         </View>
       );
     }
     return null;
-  }, [search.status, search.raw, search.hasActiveSearch, search.clearAll, recentSearches.length, savedFiltersList.length]);
+  }, [search.status, search.raw, search.hasActiveSearch, search.clearAll, recentSearches.length]);
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
@@ -943,41 +600,6 @@ export default function SearchScreen() {
         ]}>
         <Pressable
           accessibilityRole="button"
-          onPress={openFilters}
-          style={[
-            styles.toolBtn,
-            {
-              borderColor: activeFilterCount > 0 ? colors.primary : colors.border,
-              borderRadius: radius.sm,
-              backgroundColor: activeFilterCount > 0 ? colors.primaryLight + '22' : colors.surfaceElevated,
-            },
-          ]}>
-          <Text style={{color: activeFilterCount > 0 ? colors.primary : colors.textSecondary, fontSize: 13, fontWeight: fontWeight.semibold}}>
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-          </Text>
-        </Pressable>
-
-        {(activeFilterCount > 0 || search.raw.trim().length > 0) && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Save current search"
-            onPress={handleSaveFilters}
-            style={[
-              styles.toolBtn,
-              {
-                borderColor: colors.primary,
-                borderRadius: radius.sm,
-                backgroundColor: colors.primaryLight + '22',
-              },
-            ]}>
-            <Text style={{color: colors.primary, fontSize: 13, fontWeight: fontWeight.semibold}}>
-              Save
-            </Text>
-          </Pressable>
-        )}
-
-        <Pressable
-          accessibilityRole="button"
           onPress={() => setShowSort(!showSort)}
           style={[
             styles.toolBtn,
@@ -1004,33 +626,6 @@ export default function SearchScreen() {
           </Animated.Text>
         )}
       </View>
-
-      {activeChips.length > 0 && (
-        <View
-          style={[
-            styles.chipBar,
-            {paddingHorizontal: spacing.base, backgroundColor: colors.surface, borderBottomColor: colors.border},
-          ]}>
-          {activeChips.map((chip) => (
-            <Pressable
-              key={chip.key}
-              accessibilityRole="button"
-              onPress={chip.onClear}
-              style={[
-                styles.activeChip,
-                {backgroundColor: colors.primaryLight + '22', borderRadius: radius.full, borderColor: colors.primary + '44'},
-              ]}>
-              <Text style={[styles.activeChipLabel, {color: colors.primary}]}>{chip.label}</Text>
-              <Text style={[styles.activeChipX, {color: colors.primary}]}>×</Text>
-            </Pressable>
-          ))}
-          {activeFilterCount > 1 && (
-            <Pressable accessibilityRole="button" onPress={() => setLegacyFilters({})}>
-              <Text style={[styles.clearAllLabel, {color: colors.danger}]}>Clear all</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
 
       <SectionList
         sections={sections}
@@ -1059,72 +654,11 @@ export default function SearchScreen() {
         onClose={() => setShowSort(false)}
       />
 
-      <Modal
-        visible={showNamePrompt}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowNamePrompt(false);
-          setRenameTarget(null);
-          setSaveNameDraft('');
-        }}>
-        <View style={styles.promptBackdrop}>
-          <View style={[
-            styles.promptCard,
-            {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg},
-          ]}>
-            <Text style={[styles.promptTitle, {color: colors.text}]}>
-              {renameTarget ? 'Rename saved filter' : 'Save current search'}
-            </Text>
-            <TextInput
-              value={saveNameDraft}
-              onChangeText={setSaveNameDraft}
-              style={[
-                styles.promptInput,
-                {color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceElevated, borderRadius: radius.md},
-              ]}
-              placeholder="Filter name"
-              placeholderTextColor={colors.textTertiary}
-              autoFocus
-            />
-            <View style={styles.promptActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setShowNamePrompt(false);
-                  setRenameTarget(null);
-                  setSaveNameDraft('');
-                }}
-                style={styles.promptButton}>
-                <Text style={[styles.promptButtonText, {color: colors.textSecondary}]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={renameTarget ? confirmRenameFilter : confirmSaveFilter}
-                style={[styles.promptButton, {backgroundColor: colors.primary, borderRadius: radius.md}]}>
-                <Text style={[styles.promptButtonText, {color: '#FFFFFF'}]}>
-                  {renameTarget ? 'Rename' : 'Save'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       <TransactionBulkActionsHost
         visibleIds={search.results.transactions.map((result) => result.transaction.id)}
         categories={categories}
         onComplete={search.refresh}
         bottomOffset={insets.bottom + 16}
-      />
-
-      <FilterSheet
-        ref={filterRef}
-        filters={legacyFilters}
-        onApply={handleApplyFilters}
-        categories={categories}
-        wallets={wallets}
-        knownTags={allKnownTags}
       />
     </View>
   );
@@ -1160,25 +694,6 @@ const styles = StyleSheet.create({
   },
   toolBtn: {borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6},
   resultCount: {fontSize: 12, fontWeight: '500'},
-  chipBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  activeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 4,
-    borderWidth: 1,
-  },
-  activeChipLabel: {fontSize: 12, fontWeight: '600'},
-  activeChipX: {fontSize: 12, fontWeight: '700'},
-  clearAllLabel: {fontSize: 12, fontWeight: '600', marginLeft: 4},
   hintContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1194,21 +709,6 @@ const styles = StyleSheet.create({
   },
   recentIcon: {fontSize: 14, fontWeight: '600'},
   recentLabel: {flex: 1, fontSize: 15},
-  savedFilterCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  savedFilterMain: {flex: 1, paddingVertical: 12, paddingHorizontal: 12, gap: 2},
-  savedFilterName: {fontSize: 15, fontWeight: '600'},
-  savedFilterHint: {fontSize: 11, fontWeight: '500'},
-  savedFilterRemove: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    justifyContent: 'center',
-  },
-  savedFilterRemoveLabel: {fontSize: 18, fontWeight: '700'},
   sortOverlay: {
     position: 'absolute',
     top: 100,
@@ -1247,39 +747,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   offlineText: {fontSize: 13, fontWeight: '600'},
-  promptBackdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    padding: 24,
-  },
-  promptCard: {
-    width: '100%',
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-    gap: 12,
-  },
-  promptTitle: {fontSize: 17, fontWeight: '700'},
-  promptInput: {
-    borderWidth: 1,
-    height: 44,
-    paddingHorizontal: 12,
-    fontSize: 15,
-  },
-  promptActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  promptButton: {
-    minHeight: 44,
-    minWidth: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  promptButtonText: {fontSize: 14, fontWeight: '700'},
   rowCard: {
     flexDirection: 'row',
     alignItems: 'center',

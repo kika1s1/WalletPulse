@@ -33,7 +33,7 @@ function tx(overrides: Partial<Transaction> = {}): Transaction {
 }
 
 function emptyParsed(overrides: Partial<ParsedQuery> = {}): ParsedQuery {
-  return {text: '', negated: [], phrases: [], has: [], is: [], filters: {}, ...overrides};
+  return {text: '', negated: [], phrases: [], filters: {}, ...overrides};
 }
 
 beforeEach(() => {
@@ -89,20 +89,6 @@ describe('LocalSearchIndex', () => {
     const result = idx.search(emptyParsed({
       text: 'amazon',
       filters: {tags: ['work']},
-    }));
-    expect(result.transactions.map((r) => r.id)).toEqual(['t-1']);
-  });
-
-  it('honours has:receipt', async () => {
-    const idx = new LocalSearchIndex();
-    await idx.rebuild(
-      [tx({id: 't-1', merchant: 'Acme', receiptUri: 'file://r.jpg'}),
-       tx({id: 't-2', merchant: 'Acme', receiptUri: ''})],
-      [], [], [],
-    );
-    const result = idx.search(emptyParsed({
-      text: 'acme',
-      has: ['receipt'],
     }));
     expect(result.transactions.map((r) => r.id)).toEqual(['t-1']);
   });

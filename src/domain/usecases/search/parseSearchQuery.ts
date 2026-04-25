@@ -19,15 +19,10 @@ export type ResolveCtx = {
   timezoneOffsetMinutes?: number;
 };
 
-export type ParsedHas = 'receipt' | 'notes' | 'location' | 'tags';
-export type ParsedIs = 'recurring' | 'template' | 'uncategorized';
-
 export type ParsedQuery = {
   text: string;
   negated: string[];
   phrases: string[];
-  has: ParsedHas[];
-  is: ParsedIs[];
   filters: Partial<TransactionFilter>;
 };
 
@@ -36,7 +31,7 @@ export type ParsedQuery = {
 // treat unknown operators as noise, not as errors.
 const OPERATORS = new Set([
   'amount', 'category', 'wallet', 'currency', 'tag',
-  'type', 'source', 'date', 'has', 'is',
+  'type', 'source', 'date',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -324,7 +319,7 @@ const VALID_SOURCES: ReadonlySet<TransactionSource> = new Set<TransactionSource>
 
 export function parseSearchQuery(raw: string, ctx: ResolveCtx): ParsedQuery {
   const out: ParsedQuery = {
-    text: '', negated: [], phrases: [], has: [], is: [], filters: {},
+    text: '', negated: [], phrases: [], filters: {},
   };
   if (!raw || raw.trim().length === 0) { return out; }
 
@@ -405,27 +400,6 @@ export function parseSearchQuery(raw: string, ctx: ResolveCtx): ParsedQuery {
       case 'date': {
         const range = parseDateOperator(t.value, now);
         if (range) { out.filters.dateRange = range; }
-        break;
-      }
-      case 'has': {
-        const v = t.value.trim().toLowerCase();
-        if (v === 'receipt' || v === 'notes' || v === 'location' || v === 'tags') {
-          if (!out.has.includes(v)) { out.has.push(v); }
-          if (v === 'receipt') { out.filters.hasReceipt = true; }
-          if (v === 'notes') { out.filters.hasNotes = true; }
-          if (v === 'location') { out.filters.hasLocation = true; }
-          if (v === 'tags') { out.filters.hasTags = true; }
-        }
-        break;
-      }
-      case 'is': {
-        const v = t.value.trim().toLowerCase();
-        if (v === 'recurring' || v === 'template' || v === 'uncategorized') {
-          if (!out.is.includes(v)) { out.is.push(v); }
-          if (v === 'recurring') { out.filters.isRecurring = true; }
-          if (v === 'template') { out.filters.isTemplate = true; }
-          if (v === 'uncategorized') { out.filters.isUncategorized = true; }
-        }
         break;
       }
     }

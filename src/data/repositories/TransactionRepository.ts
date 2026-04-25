@@ -116,13 +116,6 @@ export class TransactionRepository implements ITransactionRepository {
       // is GIN-indexed, so this is the fast path for tag filtering.
       q = q.contains('tags', filter.tags);
     }
-    if (filter.hasReceipt) { q = q.neq('receipt_uri', ''); }
-    if (filter.hasNotes) { q = q.neq('notes', ''); }
-    if (filter.hasLocation) { q = q.not('location_name', 'is', null); }
-    if (filter.hasTags) { q = q.not('tags', 'eq', '{}'); }
-    if (filter.isRecurring) { q = q.eq('is_recurring', true); }
-    if (filter.isTemplate) { q = q.eq('is_template', true); }
-    if (filter.isUncategorized) { q = q.is('category_id', null); }
     if (filter.searchQuery?.trim()) {
       // Legacy inline substring search, kept for callers that don't go
       // through the search_everything RPC (e.g. the Transactions list

@@ -108,17 +108,6 @@ function matchesFilters(
     const tagSet = new Set(t.tags || []);
     if (!f.tags.every((tag) => tagSet.has(tag))) { return false; }
   }
-  for (const has of parsed.has) {
-    if (has === 'receipt' && !t.receiptUri) { return false; }
-    if (has === 'notes'   && !t.notes)      { return false; }
-    if (has === 'location' && !t.locationName &&
-        (t.locationLat === null || t.locationLat === undefined)) { return false; }
-    if (has === 'tags'    && (!t.tags || t.tags.length === 0)) { return false; }
-  }
-  for (const is of parsed.is) {
-    if (is === 'recurring' && !t.isRecurring) { return false; }
-    if (is === 'template'  && !t.isTemplate)  { return false; }
-  }
   for (const n of parsed.negated) {
     const needle = normalise(n);
     if (txSearchText(t).includes(needle)) { return false; }

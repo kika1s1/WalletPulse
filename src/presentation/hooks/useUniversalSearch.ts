@@ -13,8 +13,7 @@ import {emitSearchEvent} from '@shared/analytics/searchEvents';
 const DEBOUNCE_MS = 250;
 // Single character is enough — wallet names like "M" (Main), or category
 // shortcuts like "F" (Food), should still hit the RPC and come back
-// instantly thanks to the GIN trigram index. Anything stricter risks the
-// "I typed and nothing happened" experience the user reported.
+// instantly thanks to the GIN trigram index.
 const MIN_TEXT_LENGTH = 1;
 const PAGE_SIZE = 50;
 
@@ -76,8 +75,6 @@ export type UseUniversalSearchReturn = {
   loadMore: () => void;
   refresh: () => void;
   clearAll: () => void;
-  setFilters: (filters: Partial<SearchFilters>) => void;
-  overrideFilters: SearchFilters;
 };
 
 function applyLocalSort(
@@ -107,8 +104,6 @@ function hasMeaningfulFilters(filters: SearchFilters): boolean {
     filters.walletId || filters.categoryId || filters.type || filters.source ||
     filters.currency || filters.merchant || filters.startMs || filters.endMs ||
     filters.minAmount !== undefined || filters.maxAmount !== undefined ||
-    filters.hasReceipt || filters.hasNotes || filters.hasLocation || filters.hasTags ||
-    filters.isRecurring || filters.isTemplate || filters.isUncategorized ||
     (filters.tags && filters.tags.length > 0),
   );
 }
@@ -121,13 +116,10 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [usingOfflineIndex, setUsingOfflineIndex] = useState(false);
   const [sort, setSort] = useState<UniversalSortOption>(UNIVERSAL_SORT_OPTIONS[0]);
-  const [overrideFilters, setOverrideFiltersState] = useState<SearchFilters>({});
   const [nextCursor, setNextCursor] = useState<SearchCursor | null>(null);
   const requestSeq = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Debounce text input — chip/filter changes go through setOverrideFilters
-  // which bypasses this and triggers immediately via a separate effect.
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedRaw(raw.trim());
@@ -140,29 +132,25 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     [debouncedRaw, ctx],
   );
 
+  // Filters are derived purely from the parsed query (operators like
+  // category:food, amount:>50, date:last-month). There is no separate
+  // filter UI any more — the search input is the single source of truth.
   const effectiveFilters = useMemo<SearchFilters>(() => {
     const pf = parsed.filters;
     return {
-      walletId:   overrideFilters.walletId   ?? pf.walletId,
-      categoryId: overrideFilters.categoryId ?? pf.categoryId,
-      type:       overrideFilters.type       ?? pf.type,
-      source:     overrideFilters.source     ?? pf.source,
-      currency:   overrideFilters.currency   ?? pf.currency,
-      merchant:   overrideFilters.merchant   ?? pf.merchant,
-      startMs:    overrideFilters.startMs    ?? pf.dateRange?.startMs,
-      endMs:      overrideFilters.endMs      ?? pf.dateRange?.endMs,
-      minAmount:  overrideFilters.minAmount  ?? pf.minAmount,
-      maxAmount:  overrideFilters.maxAmount  ?? pf.maxAmount,
-      tags:       overrideFilters.tags       ?? pf.tags,
-      hasReceipt: overrideFilters.hasReceipt ?? pf.hasReceipt,
-      hasNotes: overrideFilters.hasNotes ?? pf.hasNotes,
-      hasLocation: overrideFilters.hasLocation ?? pf.hasLocation,
-      hasTags: overrideFilters.hasTags ?? pf.hasTags,
-      isRecurring: overrideFilters.isRecurring ?? pf.isRecurring,
-      isTemplate: overrideFilters.isTemplate ?? pf.isTemplate,
-      isUncategorized: overrideFilters.isUncategorized ?? pf.isUncategorized,
+      walletId:   pf.walletId,
+      categoryId: pf.categoryId,
+      type:       pf.type,
+      source:     pf.source,
+      currency:   pf.currency,
+      merchant:   pf.merchant,
+      startMs:    pf.dateRange?.startMs,
+      endMs:      pf.dateRange?.endMs,
+      minAmount:  pf.minAmount,
+      maxAmount:  pf.maxAmount,
+      tags:       pf.tags,
     } as SearchFilters;
-  }, [parsed, overrideFilters]);
+  }, [parsed]);
 
   const hasActiveSearch = useMemo(() => {
     if (parsed.text.length > 0 || parsed.phrases.length > 0) { return true; }
@@ -170,8 +158,6 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
   }, [parsed, effectiveFilters]);
 
   const runSearch = useCallback(async (cursor: SearchCursor | null) => {
-    // Abort any in-flight request — important so a fast typist doesn't
-    // fire-and-forget a stale request that later clobbers the state.
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -185,8 +171,6 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
       return;
     }
 
-    // Minimum text length guard — except when the user has only operators
-    // or chip filters (then text is empty but filters are non-empty).
     const hasFilters = hasMeaningfulFilters(effectiveFilters);
     if (
       parsed.text.length > 0 &&
@@ -237,7 +221,6 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
       setResults(sorted);
       setUsingOfflineIndex(false);
 
-      // Build next cursor from the last transaction row.
       const last = sorted.transactions[sorted.transactions.length - 1];
       setNextCursor(
         last && sorted.transactions.length >= PAGE_SIZE
@@ -256,7 +239,6 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     } catch (err) {
       if (seq !== requestSeq.current) { return; }
       if (isNetworkLikeError(err)) {
-        // Offline fallback — hydrate and query the local index.
         try {
           const idx = getLocalSearchIndex();
           await idx.hydrate();
@@ -279,13 +261,8 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     }
   }, [hasActiveSearch, parsed, effectiveFilters, sort, results]);
 
-  // Fire a fresh search whenever the parsed query or filter overrides
-  // change. Cursor is reset so we always start at page 1.
   useEffect(() => {
     void runSearch(null);
-    // Intentionally leaving `runSearch` out — runSearch depends on
-    // `results` for pagination merging, but we only want to restart when
-    // the query itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsed, effectiveFilters, sort]);
 
@@ -300,12 +277,7 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
 
   const clearAll = useCallback(() => {
     setRaw('');
-    setOverrideFiltersState({});
     setSort(UNIVERSAL_SORT_OPTIONS[0]);
-  }, []);
-
-  const setFilters = useCallback((f: Partial<SearchFilters>) => {
-    setOverrideFiltersState(f);
   }, []);
 
   const totalCount =
@@ -324,7 +296,5 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     loadMore,
     refresh,
     clearAll,
-    setFilters,
-    overrideFilters,
   };
 }
