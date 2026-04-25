@@ -78,6 +78,7 @@ export default function TransactionsScreen() {
   const route = useRoute<RouteProp<TransactionsStackParamList, 'TransactionsList'>>();
   const filterCategoryId = route.params?.filterCategoryId;
   const filterWalletId = route.params?.filterWalletId;
+  const filterMerchant = route.params?.filterMerchant;
   const {colors, spacing, radius, typography} = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -101,8 +102,12 @@ export default function TransactionsScreen() {
     if (filterWalletId) {
       list = list.filter((t) => t.walletId === filterWalletId);
     }
+    if (filterMerchant) {
+      const needle = filterMerchant.trim().toLowerCase();
+      list = list.filter((t) => (t.merchant ?? '').toLowerCase().includes(needle));
+    }
     return list;
-  }, [allTransactions, filterCategoryId, filterWalletId]);
+  }, [allTransactions, filterCategoryId, filterWalletId, filterMerchant]);
 
   const filterWalletLabel = useMemo(() => {
     if (!filterWalletId) {return null;}
@@ -314,6 +319,20 @@ export default function TransactionsScreen() {
                 accessibilityLabel="Clear wallet filter"
                 hitSlop={8}
                 onPress={() => navigation.setParams({filterWalletId: undefined})}>
+                <Text style={{color: colors.primary, fontSize: 13, fontWeight: '600'}}>Clear</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {filterMerchant ? (
+            <View style={[styles.filterBanner, {backgroundColor: `${colors.primary}12`, borderRadius: radius.md, marginHorizontal: spacing.base, marginTop: spacing.xs, padding: spacing.sm}]}>
+              <Text style={{color: colors.primary, fontSize: 13, flex: 1}} numberOfLines={1}>
+                Merchant: {filterMerchant}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear merchant filter"
+                hitSlop={8}
+                onPress={() => navigation.setParams({filterMerchant: undefined})}>
                 <Text style={{color: colors.primary, fontSize: 13, fontWeight: '600'}}>Clear</Text>
               </Pressable>
             </View>

@@ -174,6 +174,46 @@ describe('useUniversalSearch', () => {
     jest.useRealTimers();
   });
 
+  it('sends date:this-month as startMs/endMs to the RPC even with no text query', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValue(emptyResults);
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+
+    act(() => { result.current.setRaw('date:this-month'); });
+    act(() => { jest.advanceTimersByTime(300); });
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    const args = mockSearch.mock.calls[0][0];
+    expect(args.query).toBe('');
+    expect(typeof args.filters.startMs).toBe('number');
+    expect(typeof args.filters.endMs).toBe('number');
+    expect(args.filters.startMs).toBeLessThan(args.filters.endMs);
+    jest.useRealTimers();
+  });
+
+  it('treats a one-row result from the RPC as ok, not empty', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValue({
+      ...emptyResults,
+      transactions: [{
+        entity: 'transaction',
+        id: 't-1',
+        rank: 1,
+        transaction: tx('t-1', 'Coffee', 1776000000000),
+      }],
+    });
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+
+    act(() => { result.current.setRaw('date:this-month'); });
+    act(() => { jest.advanceTimersByTime(300); });
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ok');
+      expect(result.current.results.transactions).toHaveLength(1);
+    });
+    jest.useRealTimers();
+  });
+
   it('does not send the removed has:/is: filter flags', async () => {
     jest.useFakeTimers();
     mockSearch.mockResolvedValue(emptyResults);

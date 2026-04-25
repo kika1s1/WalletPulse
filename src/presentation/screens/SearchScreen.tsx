@@ -156,7 +156,11 @@ export default function SearchScreen() {
   );
 
   const search = useUniversalSearch({ctx: resolveCtx});
-  const suggestions = useSearchSuggestions(search.raw);
+  const suggestionSources = useMemo(
+    () => ({wallets, categories}),
+    [wallets, categories],
+  );
+  const suggestions = useSearchSuggestions(search.raw, suggestionSources);
 
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const [showSort, setShowSort] = useState(false);
@@ -194,12 +198,47 @@ export default function SearchScreen() {
   }, [search]);
 
   const handleSuggestionPress = useCallback((suggestion: SearchSuggestion) => {
+    // Entity suggestions navigate directly — that's why we surface them.
+    // Tapping "Payoneer" should open the wallet, not silently mutate the
+    // search bar.
+    if (suggestion.kind === 'wallet' && suggestion.entityId) {
+      Keyboard.dismiss();
+      navigation.navigate('WalletsTab', {
+        screen: 'WalletDetail',
+        params: {walletId: suggestion.entityId},
+      });
+      return;
+    }
+    if (suggestion.kind === 'category' && suggestion.entityId) {
+      Keyboard.dismiss();
+      navigation.navigate('TransactionsTab', {
+        screen: 'TransactionsList',
+        params: {filterCategoryId: suggestion.entityId},
+      });
+      return;
+    }
+    if (suggestion.kind === 'merchant') {
+      // Merchant taps open the transactions list filtered by that merchant.
+      // That's what "lead me there" means in practice — the user wants to
+      // see those transactions, not retype them in the search bar.
+      Keyboard.dismiss();
+      emitSearchEvent('search_result_opened', {entity: 'transaction'});
+      navigation.navigate('TransactionsTab', {
+        screen: 'TransactionsList',
+        params: {filterMerchant: suggestion.label},
+      });
+      return;
+    }
+
+    // Operator hints leave the colon attached so the user keeps typing the value.
+    // Tag suggestions complete the current word and let the debounced
+    // search re-run against the new query.
     const tokens = search.raw.trim().split(/\s+/).filter(Boolean);
     if (tokens.length > 0) { tokens.pop(); }
     tokens.push(suggestion.token);
     search.setRaw(tokens.join(' ') + (suggestion.token.endsWith(':') ? '' : ' '));
     inputRef.current?.focus();
-  }, [search]);
+  }, [search, navigation]);
 
   const handleSmartListPress = useCallback((list: SmartList) => {
     if (list.id === 'sl-duplicates') {

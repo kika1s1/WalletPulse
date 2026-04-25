@@ -1,5 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
+import type {Wallet} from '@domain/entities/Wallet';
+import type {Category} from '@domain/entities/Category';
 
 export type SuggestionKind = 'merchant' | 'tag' | 'category' | 'wallet' | 'operator';
 
@@ -13,6 +15,15 @@ export type SearchSuggestion = {
   token: string;
   // Optional pre-rendered hint (e.g. "Category · 12 transactions").
   hint?: string;
+  // For `wallet` and `category` suggestions, the underlying entity id.
+  // Used by the screen to navigate directly to the entity rather than
+  // forcing a free-text search through the typed name.
+  entityId?: string;
+};
+
+export type SuggestionSources = {
+  wallets?: Pick<Wallet, 'id' | 'name' | 'currency'>[];
+  categories?: Pick<Category, 'id' | 'name' | 'type'>[];
 };
 
 type Cached = {
@@ -53,9 +64,13 @@ const OPERATOR_HINTS: Array<{token: string; label: string; hint: string}> = [
   {token: 'date:',     label: 'date:',     hint: 'Filter by date (date:last-month)'},
 ];
 
-export function useSearchSuggestions(rawQuery: string): SearchSuggestion[] {
+export function useSearchSuggestions(
+  rawQuery: string,
+  sources: SuggestionSources = {},
+): SearchSuggestion[] {
   const [cache, setCache] = useState<Cached>({merchants: [], tags: []});
   const loadedRef = useRef(false);
+  const {wallets, categories} = sources;
 
   useEffect(() => {
     if (loadedRef.current) { return; }
@@ -113,6 +128,48 @@ export function useSearchSuggestions(rawQuery: string): SearchSuggestion[] {
       }
     }
 
+    // Wallets and categories are highest-signal entity matches when the
+    // user is searching for something they created — surface them ahead
+    // of merchants and tags. We bump their score so an exact wallet
+    // name beats a partial merchant overlap.
+    if (wallets) {
+      for (const w of wallets) {
+        const score = matchScore(w.name, lastToken);
+        if (score > 0) {
+          results.push({
+            s: {
+              id: `wallet-${w.id}`,
+              kind: 'wallet',
+              label: w.name,
+              token: w.name,
+              hint: `Wallet · ${w.currency}`,
+              entityId: w.id,
+            },
+            score: score + 1,
+          });
+        }
+      }
+    }
+
+    if (categories) {
+      for (const c of categories) {
+        const score = matchScore(c.name, lastToken);
+        if (score > 0) {
+          results.push({
+            s: {
+              id: `category-${c.id}`,
+              kind: 'category',
+              label: c.name,
+              token: c.name,
+              hint: `Category · ${c.type}`,
+              entityId: c.id,
+            },
+            score: score + 1,
+          });
+        }
+      }
+    }
+
     for (const m of cache.merchants) {
       const score = matchScore(m, lastToken);
       if (score > 0) {
@@ -147,5 +204,5 @@ export function useSearchSuggestions(rawQuery: string): SearchSuggestion[] {
 
     results.sort((a, b) => b.score - a.score || a.s.label.localeCompare(b.s.label));
     return results.slice(0, MAX_RESULTS).map((r) => r.s);
-  }, [rawQuery, cache]);
+  }, [rawQuery, cache, wallets, categories]);
 }

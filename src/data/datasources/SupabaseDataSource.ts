@@ -85,7 +85,7 @@ export function getSupabaseDataSource(userId?: string): SupabaseDataSource {
     tags: new TagRepository(supabase, uid),
     parsingRules: new ParsingRuleRepository(supabase, uid),
     templates: new TransactionTemplateRepository(supabase, uid),
-    search: new UniversalSearchRepository(supabase),
+    search: new UniversalSearchRepository(supabase, uid),
   };
 
   return instance;

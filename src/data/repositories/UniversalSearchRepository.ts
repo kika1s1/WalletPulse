@@ -161,13 +161,18 @@ function filtersToJson(filters?: SearchFilters): Record<string, unknown> {
 }
 
 export class UniversalSearchRepository {
-  constructor(private supabase: SupabaseClient) {}
+  // The mobile app uses its own session table for auth, so the supabase
+  // client never has a JWT — auth.uid() inside the RPC is always NULL.
+  // We pass the user id explicitly the same way every other repo in the
+  // codebase does (see TransactionRepository, WalletRepository, ...).
+  constructor(private supabase: SupabaseClient, private userId: string) {}
 
   async search(options: SearchOptions): Promise<GroupedSearchResults> {
     const rpcArgs: Record<string, unknown> = {
       p_query: options.query ?? '',
       p_filters: filtersToJson(options.filters),
       p_limit: options.limit ?? 50,
+      p_user_id: this.userId,
     };
     if (options.cursor) {
       rpcArgs.p_after_date = options.cursor.afterDate;
