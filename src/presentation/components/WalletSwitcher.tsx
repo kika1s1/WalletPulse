@@ -1,15 +1,17 @@
 import React, {useCallback, useRef, useEffect} from 'react';
 import {
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
   type ListRenderItemInfo,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {useTheme} from '@shared/theme';
 import {fontWeight} from '@shared/theme/typography';
-import {formatAmountMasked} from '@shared/utils/format-currency';
+import {formatAmountCompactMasked} from '@shared/utils/format-currency';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {AppIcon, resolveIconName} from './common/AppIcon';
 import type {Wallet} from '@domain/entities/Wallet';
@@ -70,7 +72,7 @@ function SwitcherChip({
 }) {
   const {colors, radius, spacing} = useTheme();
   const hide = useSettingsStore((s) => s.hideAmounts);
-  const balanceLabel = formatAmountMasked(item.balance, item.currency, hide);
+  const balanceLabel = formatAmountCompactMasked(item.balance, item.currency, hide);
 
   return (
     <Pressable
@@ -105,7 +107,6 @@ function SwitcherChip({
           {item.name}
         </Text>
         <Text
-          numberOfLines={1}
           style={[
             styles.chipBalance,
             {color: isSelected ? 'rgba(255,255,255,0.85)' : colors.textSecondary},
@@ -158,31 +159,55 @@ export function WalletSwitcher({
     [],
   );
 
+  const {colors} = useTheme();
+  const showFade = items.length > 2;
+
   return (
-    <FlatList
-      ref={listRef}
-      data={items}
-      horizontal
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.list}
-      onScrollToIndexFailed={() => {}}
-    />
+    <View style={styles.wrapper}>
+      <FlatList
+        ref={listRef}
+        data={items}
+        horizontal
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        showsHorizontalScrollIndicator={Platform.OS === 'android'}
+        contentContainerStyle={styles.list}
+        onScrollToIndexFailed={() => {}}
+      />
+      {showFade ? (
+        <LinearGradient
+          colors={['transparent', colors.background]}
+          start={{x: 0, y: 0.5}}
+          end={{x: 1, y: 0.5}}
+          pointerEvents="none"
+          style={styles.fade}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
+  fade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 24,
+  },
   list: {
     gap: 10,
     paddingVertical: 2,
+    paddingRight: 4,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     minWidth: 120,
-    maxWidth: 180,
   },
   chipIcon: {
     width: 32,

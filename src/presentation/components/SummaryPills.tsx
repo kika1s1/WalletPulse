@@ -77,7 +77,7 @@ export function SummaryPills({
           styles.pill,
           {borderColor: colors.borderLight, backgroundColor: colors.card, borderRadius: radius.md},
         ]}
-        accessibilityLabel={`Income ${incomeLabel}`}
+        accessibilityLabel={`Income this month ${incomeLabel}`}
         accessible
       >
         <View style={styles.pillRow}>
@@ -91,8 +91,9 @@ export function SummaryPills({
               style={[styles.label, {color: colors.textSecondary}]}
               importantForAccessibility="no"
               maxFontSizeMultiplier={1.4}
+              numberOfLines={1}
             >
-              Income
+              Income · This month
             </Text>
             <Text
               style={[styles.amount, {color: colors.income}]}
@@ -109,7 +110,7 @@ export function SummaryPills({
           styles.pill,
           {borderColor: colors.borderLight, backgroundColor: colors.card, borderRadius: radius.md},
         ]}
-        accessibilityLabel={`Expenses ${expenseLabel}`}
+        accessibilityLabel={`Expenses this month ${expenseLabel}`}
         accessible
       >
         <View style={styles.pillRow}>
@@ -123,8 +124,9 @@ export function SummaryPills({
               style={[styles.label, {color: colors.textSecondary}]}
               importantForAccessibility="no"
               maxFontSizeMultiplier={1.4}
+              numberOfLines={1}
             >
-              Expenses
+              Expenses · This month
             </Text>
             <Text
               style={[styles.amount, {color: colors.expense}]}

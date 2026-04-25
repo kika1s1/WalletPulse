@@ -9,7 +9,7 @@ import {makeGenerateInsights} from '@domain/usecases/generate-insight';
 import {makeGetConversionRate} from '@infrastructure/currency/fx-service';
 import type {Transaction} from '@domain/entities/Transaction';
 import type {Wallet} from '@domain/entities/Wallet';
-import type {DaySpending} from '@presentation/components/charts/MiniBarChart';
+import type {DayActivity} from '@presentation/components/charts/MiniBarChart';
 import type {InsightCardProps} from '@presentation/components/InsightCard';
 
 export type DashboardData = {
@@ -21,7 +21,7 @@ export type DashboardData = {
   monthIncome: number;
   monthExpenses: number;
   prevMonthExpenses: number;
-  weeklySpending: DaySpending[];
+  weeklyActivity: DayActivity[];
   recentTransactions: Transaction[];
   insights: InsightCardProps[];
   wallets: Wallet[];
@@ -53,15 +53,15 @@ function getPrevMonthRange(): {startMs: number; endMs: number} {
   };
 }
 
-function buildWeeklySpending(
+export function buildWeeklyActivity(
   transactions: Transaction[],
   baseCurrency: string,
   rates: RateMap,
   dayLabels: string[] = DEFAULT_DAY_LABELS,
-): DaySpending[] {
+): DayActivity[] {
   const now = Date.now();
   const todayDow = new Date(now).getDay();
-  const result: DaySpending[] = [];
+  const result: DayActivity[] = [];
 
   for (let i = 6; i >= 0; i--) {
     const dayMs = daysAgo(i, now);
@@ -69,22 +69,22 @@ function buildWeeklySpending(
     const dayEnd = endOfDay(dayMs);
     const dow = new Date(dayMs).getDay();
 
-    const dayTotal = transactions
-      .filter(
-        (t) =>
-          t.type === 'expense' &&
-          t.transactionDate >= dayStart &&
-          t.transactionDate <= dayEnd,
-      )
-      .reduce(
-        (sum, t) =>
-          sum + convertToBase(t.amount, t.currency, baseCurrency, rates),
-        0,
-      );
+    let incomeAmount = 0;
+    let expenseAmount = 0;
+    for (const t of transactions) {
+      if (t.transactionDate < dayStart || t.transactionDate > dayEnd) {continue;}
+      const converted = convertToBase(t.amount, t.currency, baseCurrency, rates);
+      if (t.type === 'income') {
+        incomeAmount += converted;
+      } else if (t.type === 'expense') {
+        expenseAmount += converted;
+      }
+    }
 
     result.push({
       label: dayLabels[dow] ?? DEFAULT_DAY_LABELS[dow],
-      amount: dayTotal,
+      incomeAmount,
+      expenseAmount,
       isToday: dow === todayDow && i === 0,
     });
   }
@@ -298,11 +298,11 @@ export function useDashboard(): DashboardData {
   const firstDayOfWeek = useSettingsStore((s) => s.firstDayOfWeek);
   const dayLabels = useMemo(() => getWeekDayLabels(firstDayOfWeek), [firstDayOfWeek]);
 
-  const weeklySpending = useMemo(
+  const weeklyActivity = useMemo(
     () =>
       selectedWalletId
-        ? buildWeeklySpending(transactions, activeCurrency, {}, dayLabels)
-        : buildWeeklySpending(transactions, baseCurrency, fxRates, dayLabels),
+        ? buildWeeklyActivity(transactions, activeCurrency, {}, dayLabels)
+        : buildWeeklyActivity(transactions, baseCurrency, fxRates, dayLabels),
     [transactions, baseCurrency, activeCurrency, fxRates, dayLabels, selectedWalletId],
   );
 
@@ -362,7 +362,7 @@ export function useDashboard(): DashboardData {
     monthIncome,
     monthExpenses,
     prevMonthExpenses,
-    weeklySpending,
+    weeklyActivity,
     recentTransactions,
     insights,
     wallets,

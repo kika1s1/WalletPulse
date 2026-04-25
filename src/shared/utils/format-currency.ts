@@ -29,6 +29,41 @@ export function formatCompactAmount(amountInCents: number): string {
   return `${sign}${(abs / 100).toFixed(2)}`;
 }
 
+const COMPACT_THRESHOLD_CHARS = 10;
+
+export function formatAmountCompact(amountInCents: number, currency: string): string {
+  const full = formatAmount(amountInCents, currency);
+  if (full.length <= COMPACT_THRESHOLD_CHARS) {
+    return full;
+  }
+  const symbol = (() => {
+    if (isValidCurrencyCode(currency)) {
+      try {
+        const parts = new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency,
+          currencyDisplay: 'narrowSymbol',
+        }).formatToParts(0);
+        const sym = parts.find((p) => p.type === 'currency')?.value;
+        return sym ?? currency;
+      } catch {
+        return currency;
+      }
+    }
+    return currency;
+  })();
+  return `${symbol}${formatCompactAmount(amountInCents)}`;
+}
+
+export function formatAmountCompactMasked(
+  amountInCents: number,
+  currency: string,
+  hidden: boolean,
+): string {
+  if (hidden) {return `${MASKED} ${currency}`;}
+  return formatAmountCompact(amountInCents, currency);
+}
+
 export function centsToMajor(cents: number): number {
   return cents / 100;
 }

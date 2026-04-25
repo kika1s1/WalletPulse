@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   RefreshControl,
   View,
@@ -33,7 +34,9 @@ export function ScreenContainer({
 }: Props) {
   const {colors} = useTheme();
   const insets = useSafeAreaInsets();
-  const topPad = noTopInset ? 0 : insets.top;
+  const minTop =
+    Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 20;
+  const topPad = noTopInset ? 0 : Math.max(insets.top, minTop);
   const bottomPad = Math.max(insets.bottom, TAB_BAR_CLEARANCE) + 24;
 
   const inner = !scrollable ? (

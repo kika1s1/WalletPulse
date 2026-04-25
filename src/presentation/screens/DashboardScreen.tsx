@@ -69,7 +69,7 @@ export default function DashboardScreen() {
     monthIncome,
     monthExpenses,
     prevMonthExpenses,
-    weeklySpending,
+    weeklyActivity,
     recentTransactions,
     insights,
     wallets,
@@ -322,9 +322,18 @@ export default function DashboardScreen() {
 
       <View style={[styles.padded, {paddingHorizontal: spacing.base}]}>
         <MiniBarChart
-          data={weeklySpending}
+          data={weeklyActivity}
           currency={displayCurrency}
           isLoading={isLoading}
+          onAddPress={() =>
+            navigateToTab(navigation, 'TransactionsTab', {
+              screen: 'AddTransaction',
+              params: {
+                type: 'expense',
+                walletId: selectedWalletId ?? undefined,
+              },
+            })
+          }
         />
       </View>
 
@@ -527,7 +536,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
   },
   insightGap: {
     marginTop: 8,

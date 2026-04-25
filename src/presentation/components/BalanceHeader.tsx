@@ -114,36 +114,36 @@ export function BalanceHeader({
   const changeVisual = useMemo(() => {
     if (percentChange > 0) {
       return {
-        bg: colors.successLight,
-        fg: colors.success,
-        prefix: '↑ +',
-        suffix: `${formatPercentChange(percentChange)}% vs last month`,
+        bg: colors.dangerLight,
+        fg: colors.danger,
+        icon: 'trending-up' as const,
+        text: `+${formatPercentChange(percentChange)}% Spending vs last month`,
       };
     }
     if (percentChange < 0) {
       return {
-        bg: colors.dangerLight,
-        fg: colors.danger,
-        prefix: '↓ -',
-        suffix: `${formatPercentChange(percentChange)}% vs last month`,
+        bg: colors.successLight,
+        fg: colors.success,
+        icon: 'trending-down' as const,
+        text: `-${formatPercentChange(percentChange)}% Spending vs last month`,
       };
     }
     return {
       bg: colors.surfaceElevated,
       fg: colors.textSecondary,
-      prefix: '',
-      suffix: '0% vs last month',
+      icon: 'trending-neutral' as const,
+      text: 'Spending unchanged vs last month',
     };
   }, [colors.danger, colors.dangerLight, colors.success, colors.successLight, colors.surfaceElevated, colors.textSecondary, percentChange]);
 
   const changeA11yLabel = useMemo(() => {
     if (percentChange > 0) {
-      return `Up ${formatPercentChange(percentChange)} percent versus last month`;
+      return `Spending up ${formatPercentChange(percentChange)} percent versus last month`;
     }
     if (percentChange < 0) {
-      return `Down ${formatPercentChange(percentChange)} percent versus last month`;
+      return `Spending down ${formatPercentChange(percentChange)} percent versus last month`;
     }
-    return 'No change versus last month';
+    return 'Spending unchanged versus last month';
   }, [percentChange]);
 
   if (isLoading) {
@@ -220,13 +220,17 @@ export function BalanceHeader({
         ]}
         importantForAccessibility="no"
       >
+        <AppIcon
+          name={changeVisual.icon}
+          size={14}
+          color={changeVisual.fg}
+        />
         <Text
           style={[typography.footnote, {color: changeVisual.fg, fontWeight: fontWeight.semibold}]}
           importantForAccessibility="no"
           maxFontSizeMultiplier={1.4}
         >
-          {changeVisual.prefix}
-          {changeVisual.suffix}
+          {changeVisual.text}
         </Text>
       </View>
     </View>
@@ -256,5 +260,8 @@ const styles = StyleSheet.create({
   },
   changePill: {
     marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });
