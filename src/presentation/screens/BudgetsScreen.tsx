@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {SettingsStackParamList} from '@presentation/navigation/types';
 import {useTheme} from '@shared/theme';
@@ -101,17 +101,30 @@ export default function BudgetsScreen() {
   const {colors, spacing, radius} = useTheme();
   const navigation = useNavigation<Nav>();
   const {activeBudgets, isLoading, error, refetch} = useBudgets();
-  const {items, totalBudget, totalSpent, isLoading: progressLoading, refetch: refreshProgress} =
-    useBudgetProgress(activeBudgets);
+  const {
+    items,
+    overallItem,
+    totalBudget,
+    totalSpent,
+    isLoading: progressLoading,
+    refetch: refreshProgress,
+  } = useBudgetProgress(activeBudgets);
   const hide = useSettingsStore((s) => s.hideAmounts);
 
   const currency = activeBudgets.length > 0 ? activeBudgets[0].currency : 'USD';
   const loading = isLoading || progressLoading;
+  const hasAnyBudgets = activeBudgets.length > 0;
 
-  const handleRefresh = useCallback(() => {
+  const refreshData = useCallback(() => {
     refetch();
     refreshProgress();
   }, [refetch, refreshProgress]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshData();
+    }, [refreshData]),
+  );
 
   const handleBudgetPress = useCallback(
     (id: string) => {
@@ -141,25 +154,31 @@ export default function BudgetsScreen() {
   );
 
   const keyExtractor = useCallback((item: BudgetProgressItem) => item.budget.id, []);
+  const listItems = useMemo(
+    () => (overallItem ? [overallItem, ...items] : items),
+    [items, overallItem],
+  );
+  const overviewBudget = items.length > 0 ? totalBudget : overallItem?.budget.amount ?? 0;
+  const overviewSpent = items.length > 0 ? totalSpent : overallItem?.spent ?? 0;
 
   const header = useMemo(() => {
     const parts: React.ReactNode[] = [];
 
-    if (items.length > 0) {
+    if (listItems.length > 0) {
       parts.push(
         <OverviewCard
           key="overview"
-          count={items.length}
+          count={listItems.length}
           currency={currency}
           hide={hide}
-          totalBudget={totalBudget}
-          totalSpent={totalSpent}
+          totalBudget={overviewBudget}
+          totalSpent={overviewSpent}
         />,
       );
     }
 
     return parts.length > 0 ? <>{parts}</> : null;
-  }, [currency, hide, items.length, totalBudget, totalSpent]);
+  }, [currency, hide, listItems.length, overviewBudget, overviewSpent]);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background}]}>
@@ -191,7 +210,7 @@ export default function BudgetsScreen() {
         </View>
       </View>
 
-      {loading && items.length === 0 ? (
+      {loading && !hasAnyBudgets ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
           <Text style={[styles.loadingText, {color: colors.textSecondary}]}>
@@ -206,12 +225,12 @@ export default function BudgetsScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            onPress={handleRefresh}
+            onPress={refreshData}
             style={[styles.retryBtn, {backgroundColor: colors.primary, borderRadius: radius.sm}]}>
             <Text style={styles.retryText}>Try Again</Text>
           </Pressable>
         </View>
-      ) : items.length === 0 ? (
+      ) : !hasAnyBudgets ? (
         <View style={styles.center}>
           <AppIcon name="cash-multiple" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, {color: colors.text}]}>
@@ -238,12 +257,12 @@ export default function BudgetsScreen() {
             gap: spacing.md,
             paddingBottom: insets.bottom + 24,
           }}
-          data={items}
+          data={listItems}
           keyExtractor={keyExtractor}
           refreshControl={
             <RefreshControl
               colors={[colors.primary]}
-              onRefresh={handleRefresh}
+              onRefresh={refreshData}
               refreshing={loading}
               tintColor={colors.primary}
             />
