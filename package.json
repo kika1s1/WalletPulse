@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
+    "e2e:android": "node scripts/e2e-android-budget.js",
     "start": "react-native start",
     "test": "jest",
     "test:watch": "jest --watch",
