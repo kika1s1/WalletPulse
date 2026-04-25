@@ -124,4 +124,26 @@ describe('useUniversalSearch', () => {
     expect(args.filters.categoryId).toBe('cat-1');
     jest.useRealTimers();
   });
+
+  it('passes parsed has and is operators through to the RPC', async () => {
+    jest.useFakeTimers();
+    mockSearch.mockResolvedValue(emptyResults);
+    const {result} = renderHook(() => useUniversalSearch({ctx}));
+
+    act(() => {
+      result.current.setRaw('has:receipt has:notes has:location has:tags is:recurring is:template is:uncategorized');
+    });
+    act(() => { jest.advanceTimersByTime(300); });
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled());
+    const args = mockSearch.mock.calls[0][0];
+    expect(args.filters.hasReceipt).toBe(true);
+    expect(args.filters.hasNotes).toBe(true);
+    expect(args.filters.hasLocation).toBe(true);
+    expect(args.filters.hasTags).toBe(true);
+    expect(args.filters.isRecurring).toBe(true);
+    expect(args.filters.isTemplate).toBe(true);
+    expect(args.filters.isUncategorized).toBe(true);
+    jest.useRealTimers();
+  });
 });

@@ -11,6 +11,7 @@ export type SavedFilter = {
   // `category:food amount:>50`). Older presets may not have this field,
   // so callers must treat it as optional.
   rawQuery?: string;
+  pinned?: boolean;
   createdAt: number;
 };
 
@@ -64,6 +65,15 @@ const MAX_RECENT = 20;
 let recentSearches: string[] = [];
 let savedFilters: SavedFilter[] = [];
 let initialized = false;
+
+function orderedSavedFilters(): SavedFilter[] {
+  return [...savedFilters].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+      return a.pinned ? -1 : 1;
+    }
+    return b.createdAt - a.createdAt;
+  });
+}
 
 async function ensureLoaded(): Promise<void> {
   if (initialized) {
@@ -137,7 +147,7 @@ export async function loadSavedData(): Promise<void> {
 }
 
 export function getSavedFilters(): SavedFilter[] {
-  return [...savedFilters];
+  return orderedSavedFilters();
 }
 
 export function addSavedFilter(
@@ -153,5 +163,23 @@ export function addSavedFilter(
 
 export function removeSavedFilter(id: string): void {
   savedFilters = savedFilters.filter((f) => f.id !== id);
+  void persistFilters();
+}
+
+export function renameSavedFilter(id: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Filter name is required');
+  }
+  savedFilters = savedFilters.map((filter) => (
+    filter.id === id ? {...filter, name: trimmed} : filter
+  ));
+  void persistFilters();
+}
+
+export function toggleSavedFilterPin(id: string): void {
+  savedFilters = savedFilters.map((filter) => (
+    filter.id === id ? {...filter, pinned: !filter.pinned} : filter
+  ));
   void persistFilters();
 }

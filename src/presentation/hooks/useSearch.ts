@@ -24,10 +24,18 @@ export type SearchFilters = {
   categoryId?: string;
   walletId?: string;
   currency?: string;
+  merchant?: string;
   minAmount?: number;
   maxAmount?: number;
   dateRange?: {startMs: number; endMs: number};
   tags?: string[];
+  hasReceipt?: boolean;
+  hasNotes?: boolean;
+  hasLocation?: boolean;
+  hasTags?: boolean;
+  isRecurring?: boolean;
+  isTemplate?: boolean;
+  isUncategorized?: boolean;
 };
 
 export type SortOption = {
@@ -82,10 +90,18 @@ export function useSearch(): UseSearchReturn {
     if (filters.categoryId) { count++; }
     if (filters.walletId) { count++; }
     if (filters.currency) { count++; }
+    if (filters.merchant) { count++; }
     if (filters.minAmount !== undefined) { count++; }
     if (filters.maxAmount !== undefined) { count++; }
     if (filters.dateRange) { count++; }
     if (filters.tags && filters.tags.length > 0) { count++; }
+    if (filters.hasReceipt) { count++; }
+    if (filters.hasNotes) { count++; }
+    if (filters.hasLocation) { count++; }
+    if (filters.hasTags) { count++; }
+    if (filters.isRecurring) { count++; }
+    if (filters.isTemplate) { count++; }
+    if (filters.isUncategorized) { count++; }
     return count;
   }, [filters]);
 
@@ -112,10 +128,18 @@ export function useSearch(): UseSearchReturn {
         if (filters.categoryId) { filter.categoryId = filters.categoryId; }
         if (filters.walletId) { filter.walletId = filters.walletId; }
         if (filters.currency) { filter.currency = filters.currency; }
+        if (filters.merchant) { filter.merchant = filters.merchant; }
         if (filters.minAmount !== undefined) { filter.minAmount = filters.minAmount; }
         if (filters.maxAmount !== undefined) { filter.maxAmount = filters.maxAmount; }
         if (filters.dateRange) { filter.dateRange = filters.dateRange; }
         if (filters.tags && filters.tags.length > 0) { filter.tags = filters.tags; }
+        if (filters.hasReceipt) { filter.hasReceipt = true; }
+        if (filters.hasNotes) { filter.hasNotes = true; }
+        if (filters.hasLocation) { filter.hasLocation = true; }
+        if (filters.hasTags) { filter.hasTags = true; }
+        if (filters.isRecurring) { filter.isRecurring = true; }
+        if (filters.isTemplate) { filter.isTemplate = true; }
+        if (filters.isUncategorized) { filter.isUncategorized = true; }
 
         const data = await ds.transactions.findAll(filter, {
           field: sort.field,

@@ -7,6 +7,7 @@ import TransactionsScreen from '@presentation/screens/TransactionsScreen';
 const AddTransactionScreen = React.lazy(() => import('@presentation/screens/AddTransactionScreen'));
 const EditTransactionScreen = React.lazy(() => import('@presentation/screens/EditTransactionScreen'));
 const SearchScreen = React.lazy(() => import('@presentation/screens/SearchScreen'));
+const DuplicateCleanupScreen = React.lazy(() => import('@presentation/screens/DuplicateCleanupScreen'));
 
 const Stack = createNativeStackNavigator<TransactionsStackParamList>();
 
@@ -30,6 +31,7 @@ export default function TransactionsStack() {
         />
         <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
         <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="DuplicateCleanup" component={DuplicateCleanupScreen} />
       </Stack.Navigator>
     </Suspense>
   );

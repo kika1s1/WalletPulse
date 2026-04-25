@@ -25,7 +25,9 @@ import {useCategories} from '@presentation/hooks/useCategories';
 import {useWallets} from '@presentation/hooks/useWallets';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useFilterStore, type TransactionTypeFilter} from '@presentation/stores/useFilterStore';
+import {useTransactionSelectionStore} from '@presentation/stores/useTransactionSelectionStore';
 import {AppIcon} from '@presentation/components/common/AppIcon';
+import {TransactionBulkActionsHost} from '@presentation/components/transactions/TransactionBulkActionsHost';
 
 const MS_PER_DAY = 86400000;
 
@@ -87,6 +89,9 @@ export default function TransactionsScreen() {
   const {categories} = useCategories();
   const {wallets} = useWallets();
   const hideAmounts = useSettingsStore((s) => s.hideAmounts);
+  const isSelecting = useTransactionSelectionStore((s) => s.isSelecting);
+  const selectedIds = useTransactionSelectionStore((s) => s.selectedIds);
+  const toggleSelected = useTransactionSelectionStore((s) => s.toggleSelected);
 
   const transactions = useMemo(() => {
     let list = allTransactions;
@@ -200,14 +205,18 @@ export default function TransactionsScreen() {
             transactionDate={item.transactionDate}
             type={item.type}
             hideAmounts={hideAmounts}
+            selectable={isSelecting}
+            selected={selectedIds.includes(item.id)}
+            onToggleSelected={toggleSelected}
             onDelete={confirmDelete}
             onEdit={openEdit}
+            onLongPress={toggleSelected}
             onPress={openDetail}
           />
         </View>
       );
     },
-    [categoryById, confirmDelete, hideAmounts, openDetail, openEdit, spacing.base, spacing.sm],
+    [categoryById, confirmDelete, hideAmounts, isSelecting, openDetail, openEdit, selectedIds, spacing.base, spacing.sm, toggleSelected],
   );
 
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
@@ -356,9 +365,17 @@ export default function TransactionsScreen() {
         )}
       </ScreenContainer>
 
-      <QuickActionsFAB
-        onSelectTemplate={handleTemplate}
-        onAddManual={openAdd}
+      {!isSelecting ? (
+        <QuickActionsFAB
+          onSelectTemplate={handleTemplate}
+          onAddManual={openAdd}
+        />
+      ) : null}
+      <TransactionBulkActionsHost
+        visibleIds={transactions.map((transaction) => transaction.id)}
+        categories={categories}
+        onComplete={refetch}
+        bottomOffset={insets.bottom + 16}
       />
     </View>
   );

@@ -17,6 +17,7 @@ export const DEFAULT_SMART_LISTS: SmartList[] = [
   {id: 'sl-this-month',      label: 'This month',      query: 'date:this-month'},
   {id: 'sl-last-month',      label: 'Last month',      query: 'date:last-month'},
   {id: 'sl-over-100',        label: 'Over 100',        query: 'amount:>100'},
+  {id: 'sl-duplicates',      label: 'Possible duplicates', query: ''},
   {id: 'sl-subscriptions',   label: 'Subscriptions',   query: 'is:recurring'},
   {id: 'sl-auto-detected',   label: 'Auto-detected',   query: '-source:manual'},
   {id: 'sl-has-receipt',     label: 'Has receipt',     query: 'has:receipt'},

@@ -3,7 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  Platform,
+  Modal,
   Pressable,
   SectionList,
   StyleSheet,
@@ -49,7 +49,9 @@ import {
   getSavedFilters,
   addSavedFilter,
   removeSavedFilter,
+  renameSavedFilter,
   suggestSavedFilterName,
+  toggleSavedFilterPin,
   type SavedFilter,
 } from '@domain/usecases/saved-filters';
 import {emitSearchEvent} from '@shared/analytics/searchEvents';
@@ -65,6 +67,9 @@ import type {Category} from '@domain/entities/Category';
 import type {Budget} from '@domain/entities/Budget';
 import type {TabParamList, TransactionsStackParamList} from '@presentation/navigation/types';
 import type {GroupedSearchResults} from '@data/repositories/UniversalSearchRepository';
+import {useTagSuggestions} from '@presentation/hooks/useTagSuggestions';
+import {useTransactionSelectionStore} from '@presentation/stores/useTransactionSelectionStore';
+import {TransactionBulkActionsHost} from '@presentation/components/transactions/TransactionBulkActionsHost';
 
 type SearchNav = CompositeNavigationProp<
   NativeStackNavigationProp<TransactionsStackParamList, 'Search'>,
@@ -79,10 +84,18 @@ type LegacyFilters = {
   categoryId?: string;
   walletId?: string;
   currency?: string;
+  merchant?: string;
   minAmount?: number;
   maxAmount?: number;
   dateRange?: {startMs: number; endMs: number};
   tags?: string[];
+  hasReceipt?: boolean;
+  hasNotes?: boolean;
+  hasLocation?: boolean;
+  hasTags?: boolean;
+  isRecurring?: boolean;
+  isTemplate?: boolean;
+  isUncategorized?: boolean;
 };
 
 function legacyToUniversal(f: LegacyFilters): UniversalFilters {
@@ -92,6 +105,7 @@ function legacyToUniversal(f: LegacyFilters): UniversalFilters {
   if (f.categoryId) { out.categoryId = f.categoryId; }
   if (f.walletId) { out.walletId = f.walletId; }
   if (f.currency) { out.currency = f.currency; }
+  if (f.merchant) { out.merchant = f.merchant; }
   if (f.minAmount !== undefined) { out.minAmount = f.minAmount; }
   if (f.maxAmount !== undefined) { out.maxAmount = f.maxAmount; }
   if (f.dateRange) {
@@ -99,6 +113,13 @@ function legacyToUniversal(f: LegacyFilters): UniversalFilters {
     out.endMs = f.dateRange.endMs;
   }
   if (f.tags && f.tags.length > 0) { out.tags = f.tags; }
+  if (f.hasReceipt) { out.hasReceipt = true; }
+  if (f.hasNotes) { out.hasNotes = true; }
+  if (f.hasLocation) { out.hasLocation = true; }
+  if (f.hasTags) { out.hasTags = true; }
+  if (f.isRecurring) { out.isRecurring = true; }
+  if (f.isTemplate) { out.isTemplate = true; }
+  if (f.isUncategorized) { out.isUncategorized = true; }
   return out;
 }
 
@@ -188,6 +209,10 @@ export default function SearchScreen() {
   const {categories} = useCategories();
   const {wallets} = useWallets();
   const hideAmounts = useSettingsStore((s) => s.hideAmounts);
+  const {allKnownTags} = useTagSuggestions();
+  const isSelecting = useTransactionSelectionStore((s) => s.isSelecting);
+  const selectedIds = useTransactionSelectionStore((s) => s.selectedIds);
+  const toggleSelected = useTransactionSelectionStore((s) => s.toggleSelected);
 
   const resolveCtx = useMemo<ResolveCtx>(
     () => ({
@@ -214,6 +239,9 @@ export default function SearchScreen() {
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const [savedFiltersList, setSavedFiltersList] = useState<SavedFilter[]>([]);
   const [showSort, setShowSort] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [saveNameDraft, setSaveNameDraft] = useState('');
+  const [renameTarget, setRenameTarget] = useState<SavedFilter | null>(null);
   const searchBarFocus = useSharedValue(0);
 
   useEffect(() => {
@@ -259,9 +287,13 @@ export default function SearchScreen() {
   }, [search]);
 
   const handleSmartListPress = useCallback((list: SmartList) => {
+    if (list.id === 'sl-duplicates') {
+      navigation.navigate('DuplicateCleanup');
+      return;
+    }
     search.setRaw(list.query);
     inputRef.current?.focus();
-  }, [search]);
+  }, [navigation, search]);
 
   const handleClearRecent = useCallback(() => {
     clearRecentSearches();
@@ -284,10 +316,18 @@ export default function SearchScreen() {
     if (legacyFilters.categoryId) { count++; }
     if (legacyFilters.walletId) { count++; }
     if (legacyFilters.currency) { count++; }
+    if (legacyFilters.merchant) { count++; }
     if (legacyFilters.minAmount !== undefined) { count++; }
     if (legacyFilters.maxAmount !== undefined) { count++; }
     if (legacyFilters.dateRange) { count++; }
     if (legacyFilters.tags && legacyFilters.tags.length > 0) { count++; }
+    if (legacyFilters.hasReceipt) { count++; }
+    if (legacyFilters.hasNotes) { count++; }
+    if (legacyFilters.hasLocation) { count++; }
+    if (legacyFilters.hasTags) { count++; }
+    if (legacyFilters.isRecurring) { count++; }
+    if (legacyFilters.isTemplate) { count++; }
+    if (legacyFilters.isUncategorized) { count++; }
     return count;
   }, [legacyFilters]);
 
@@ -298,41 +338,55 @@ export default function SearchScreen() {
       categoryId: legacyFilters.categoryId,
       walletId: legacyFilters.walletId,
       currency: legacyFilters.currency,
+      merchant: legacyFilters.merchant,
       minAmount: legacyFilters.minAmount,
       maxAmount: legacyFilters.maxAmount,
       dateRange: legacyFilters.dateRange,
       tags: legacyFilters.tags,
+      hasReceipt: legacyFilters.hasReceipt,
+      hasNotes: legacyFilters.hasNotes,
+      hasLocation: legacyFilters.hasLocation,
+      hasTags: legacyFilters.hasTags,
+      isRecurring: legacyFilters.isRecurring,
+      isTemplate: legacyFilters.isTemplate,
+      isUncategorized: legacyFilters.isUncategorized,
     };
     const rawQuery = search.raw.trim();
     const suggested = suggestSavedFilterName(payload, rawQuery);
-
-    const apply = (name: string) => {
-      const n = name.trim();
-      if (!n) { return; }
-      try {
-        addSavedFilter(n, payload, rawQuery);
-        setSavedFiltersList(getSavedFilters());
-        emitSearchEvent('search_filter_applied', {saved: true});
-      } catch {
-        Alert.alert('Could not save', 'Please enter a valid name.');
-      }
-    };
-
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Save filters',
-        'Name this filter preset',
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Save', onPress: (text?: string) => apply(text ?? suggested)},
-        ],
-        'plain-text',
-        suggested,
-      );
-    } else {
-      apply(suggested);
-    }
+    setSaveNameDraft(suggested);
+    setShowNamePrompt(true);
   }, [legacyFilters, search.raw]);
+
+  const confirmSaveFilter = useCallback(() => {
+    const payload: TransactionFilter = {
+      type: legacyFilters.type,
+      source: legacyFilters.source,
+      categoryId: legacyFilters.categoryId,
+      walletId: legacyFilters.walletId,
+      currency: legacyFilters.currency,
+      merchant: legacyFilters.merchant,
+      minAmount: legacyFilters.minAmount,
+      maxAmount: legacyFilters.maxAmount,
+      dateRange: legacyFilters.dateRange,
+      tags: legacyFilters.tags,
+      hasReceipt: legacyFilters.hasReceipt,
+      hasNotes: legacyFilters.hasNotes,
+      hasLocation: legacyFilters.hasLocation,
+      hasTags: legacyFilters.hasTags,
+      isRecurring: legacyFilters.isRecurring,
+      isTemplate: legacyFilters.isTemplate,
+      isUncategorized: legacyFilters.isUncategorized,
+    };
+    try {
+      addSavedFilter(saveNameDraft, payload, search.raw.trim());
+      setSavedFiltersList(getSavedFilters());
+      setSaveNameDraft('');
+      setShowNamePrompt(false);
+      emitSearchEvent('search_filter_applied', {saved: true});
+    } catch {
+      Alert.alert('Could not save', 'Please enter a valid name.');
+    }
+  }, [legacyFilters, saveNameDraft, search.raw]);
 
   const handleApplySavedFilter = useCallback((preset: SavedFilter) => {
     setLegacyFilters({
@@ -341,10 +395,18 @@ export default function SearchScreen() {
       categoryId: preset.filter.categoryId,
       walletId: preset.filter.walletId,
       currency: preset.filter.currency,
+      merchant: preset.filter.merchant,
       minAmount: preset.filter.minAmount,
       maxAmount: preset.filter.maxAmount,
       dateRange: preset.filter.dateRange,
       tags: preset.filter.tags,
+      hasReceipt: preset.filter.hasReceipt,
+      hasNotes: preset.filter.hasNotes,
+      hasLocation: preset.filter.hasLocation,
+      hasTags: preset.filter.hasTags,
+      isRecurring: preset.filter.isRecurring,
+      isTemplate: preset.filter.isTemplate,
+      isUncategorized: preset.filter.isUncategorized,
     });
     if (preset.rawQuery) {
       search.setRaw(preset.rawQuery);
@@ -352,7 +414,40 @@ export default function SearchScreen() {
   }, [search]);
 
   const handleRemoveSavedFilter = useCallback((id: string) => {
-    removeSavedFilter(id);
+    Alert.alert('Remove saved filter?', 'This removes the preset from your saved filters.', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          removeSavedFilter(id);
+          setSavedFiltersList(getSavedFilters());
+        },
+      },
+    ]);
+  }, []);
+
+  const handleRenameSavedFilter = useCallback((preset: SavedFilter) => {
+    setRenameTarget(preset);
+    setSaveNameDraft(preset.name);
+    setShowNamePrompt(true);
+  }, []);
+
+  const confirmRenameFilter = useCallback(() => {
+    if (!renameTarget) { return; }
+    try {
+      renameSavedFilter(renameTarget.id, saveNameDraft);
+      setSavedFiltersList(getSavedFilters());
+      setRenameTarget(null);
+      setSaveNameDraft('');
+      setShowNamePrompt(false);
+    } catch {
+      Alert.alert('Could not rename', 'Please enter a valid name.');
+    }
+  }, [renameTarget, saveNameDraft]);
+
+  const handleToggleSavedFilterPin = useCallback((id: string) => {
+    toggleSavedFilterPin(id);
     setSavedFiltersList(getSavedFilters());
   }, []);
 
@@ -419,6 +514,20 @@ export default function SearchScreen() {
         onClear: () => setLegacyFilters({...legacyFilters, walletId: undefined}),
       });
     }
+    if (legacyFilters.merchant) {
+      chips.push({
+        key: 'merchant',
+        label: legacyFilters.merchant,
+        onClear: () => setLegacyFilters({...legacyFilters, merchant: undefined}),
+      });
+    }
+    if (legacyFilters.currency) {
+      chips.push({
+        key: 'currency',
+        label: legacyFilters.currency,
+        onClear: () => setLegacyFilters({...legacyFilters, currency: undefined}),
+      });
+    }
     if (legacyFilters.dateRange) {
       chips.push({
         key: 'date',
@@ -449,6 +558,24 @@ export default function SearchScreen() {
         label: `#${legacyFilters.tags.join(' #')}`,
         onClear: () => setLegacyFilters({...legacyFilters, tags: undefined}),
       });
+    }
+    const booleanChips: Array<{key: keyof LegacyFilters; label: string}> = [
+      {key: 'hasReceipt', label: 'Has receipt'},
+      {key: 'hasNotes', label: 'Has notes'},
+      {key: 'hasLocation', label: 'Has location'},
+      {key: 'hasTags', label: 'Has tags'},
+      {key: 'isRecurring', label: 'Recurring'},
+      {key: 'isTemplate', label: 'Template'},
+      {key: 'isUncategorized', label: 'Uncategorized'},
+    ];
+    for (const chip of booleanChips) {
+      if (legacyFilters[chip.key]) {
+        chips.push({
+          key: String(chip.key),
+          label: chip.label,
+          onClear: () => setLegacyFilters({...legacyFilters, [chip.key]: undefined}),
+        });
+      }
     }
     return chips;
   }, [legacyFilters, categories, wallets]);
@@ -556,7 +683,11 @@ export default function SearchScreen() {
               transactionDate={t.transactionDate}
               type={t.type}
               hideAmounts={hideAmounts}
+              selectable={isSelecting}
+              selected={selectedIds.includes(t.id)}
+              onToggleSelected={toggleSelected}
               onEdit={openEdit}
+              onLongPress={toggleSelected}
               onPress={openTransactionDetail}
             />
           </View>
@@ -682,13 +813,13 @@ export default function SearchScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => handleApplySavedFilter(item.preset)}
-              onLongPress={() => handleRemoveSavedFilter(item.preset.id)}
+              onLongPress={() => handleRenameSavedFilter(item.preset)}
               style={({pressed}) => [
                 styles.savedFilterMain,
                 {opacity: pressed ? 0.75 : 1},
               ]}>
               <Text style={[styles.savedFilterName, {color: colors.text}]} numberOfLines={1}>
-                {item.preset.name}
+                {item.preset.pinned ? 'Pinned · ' : ''}{item.preset.name}
               </Text>
               {item.preset.rawQuery ? (
                 <Text style={[styles.savedFilterHint, {color: colors.textTertiary}]} numberOfLines={1}>
@@ -696,9 +827,19 @@ export default function SearchScreen() {
                 </Text>
               ) : (
                 <Text style={[styles.savedFilterHint, {color: colors.textTertiary}]} numberOfLines={1}>
-                  Tap to apply, long-press to remove
+                  Tap to apply, long-press to rename
                 </Text>
               )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.preset.pinned ? 'Unpin' : 'Pin'} saved filter ${item.preset.name}`}
+              onPress={() => handleToggleSavedFilterPin(item.preset.id)}
+              hitSlop={12}
+              style={styles.savedFilterRemove}>
+              <Text style={[styles.savedFilterRemoveLabel, {color: item.preset.pinned ? colors.primary : colors.textTertiary}]}>
+                {item.preset.pinned ? 'On' : 'Pin'}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -712,10 +853,10 @@ export default function SearchScreen() {
         );
     }
   }, [
-    colors, spacing, radius, highlightNeedles, hideAmounts,
+    colors, spacing, radius, highlightNeedles, hideAmounts, isSelecting, selectedIds,
     openEdit, openTransactionDetail, handleApplySavedFilter,
-    handleRemoveSavedFilter, handleSuggestionPress, handleRecentPress,
-    getCategoryDisplay,
+    handleRemoveSavedFilter, handleRenameSavedFilter, handleToggleSavedFilterPin,
+    handleSuggestionPress, handleRecentPress, getCategoryDisplay, toggleSelected,
   ]);
 
   const renderSectionHeader = useCallback(({section}: {section: Section}) => (
@@ -946,12 +1087,72 @@ export default function SearchScreen() {
         onClose={() => setShowSort(false)}
       />
 
+      <Modal
+        visible={showNamePrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowNamePrompt(false);
+          setRenameTarget(null);
+          setSaveNameDraft('');
+        }}>
+        <View style={styles.promptBackdrop}>
+          <View style={[
+            styles.promptCard,
+            {backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg},
+          ]}>
+            <Text style={[styles.promptTitle, {color: colors.text}]}>
+              {renameTarget ? 'Rename saved filter' : 'Save current search'}
+            </Text>
+            <TextInput
+              value={saveNameDraft}
+              onChangeText={setSaveNameDraft}
+              style={[
+                styles.promptInput,
+                {color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceElevated, borderRadius: radius.md},
+              ]}
+              placeholder="Filter name"
+              placeholderTextColor={colors.textTertiary}
+              autoFocus
+            />
+            <View style={styles.promptActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setShowNamePrompt(false);
+                  setRenameTarget(null);
+                  setSaveNameDraft('');
+                }}
+                style={styles.promptButton}>
+                <Text style={[styles.promptButtonText, {color: colors.textSecondary}]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={renameTarget ? confirmRenameFilter : confirmSaveFilter}
+                style={[styles.promptButton, {backgroundColor: colors.primary, borderRadius: radius.md}]}>
+                <Text style={[styles.promptButtonText, {color: '#FFFFFF'}]}>
+                  {renameTarget ? 'Rename' : 'Save'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <TransactionBulkActionsHost
+        visibleIds={search.results.transactions.map((result) => result.transaction.id)}
+        categories={categories}
+        onComplete={search.refresh}
+        bottomOffset={insets.bottom + 16}
+      />
+
       <FilterSheet
         ref={filterRef}
         filters={legacyFilters}
         onApply={handleApplyFilters}
         categories={categories}
         wallets={wallets}
+        knownTags={allKnownTags}
       />
     </View>
   );
@@ -1074,6 +1275,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   offlineText: {fontSize: 13, fontWeight: '600'},
+  promptBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    padding: 24,
+  },
+  promptCard: {
+    width: '100%',
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 12,
+  },
+  promptTitle: {fontSize: 17, fontWeight: '700'},
+  promptInput: {
+    borderWidth: 1,
+    height: 44,
+    paddingHorizontal: 12,
+    fontSize: 15,
+  },
+  promptActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  promptButton: {
+    minHeight: 44,
+    minWidth: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  promptButtonText: {fontSize: 14, fontWeight: '700'},
   rowCard: {
     flexDirection: 'row',
     alignItems: 'center',

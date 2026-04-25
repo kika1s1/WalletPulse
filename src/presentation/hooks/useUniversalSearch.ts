@@ -70,6 +70,7 @@ export type UseUniversalSearchReturn = {
   sort: UniversalSortOption;
   setSort: (s: UniversalSortOption) => void;
   loadMore: () => void;
+  refresh: () => void;
   clearAll: () => void;
   setFilters: (filters: Partial<SearchFilters>) => void;
   overrideFilters: SearchFilters;
@@ -138,6 +139,13 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
       minAmount:  overrideFilters.minAmount  ?? pf.minAmount,
       maxAmount:  overrideFilters.maxAmount  ?? pf.maxAmount,
       tags:       overrideFilters.tags       ?? pf.tags,
+      hasReceipt: overrideFilters.hasReceipt ?? pf.hasReceipt,
+      hasNotes: overrideFilters.hasNotes ?? pf.hasNotes,
+      hasLocation: overrideFilters.hasLocation ?? pf.hasLocation,
+      hasTags: overrideFilters.hasTags ?? pf.hasTags,
+      isRecurring: overrideFilters.isRecurring ?? pf.isRecurring,
+      isTemplate: overrideFilters.isTemplate ?? pf.isTemplate,
+      isUncategorized: overrideFilters.isUncategorized ?? pf.isUncategorized,
     } as SearchFilters;
   }, [parsed, overrideFilters]);
 
@@ -148,6 +156,8 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
       f.walletId || f.categoryId || f.type || f.source || f.currency ||
       f.merchant || f.startMs || f.endMs ||
       f.minAmount !== undefined || f.maxAmount !== undefined ||
+      f.hasReceipt || f.hasNotes || f.hasLocation || f.hasTags ||
+      f.isRecurring || f.isTemplate || f.isUncategorized ||
       (f.tags && f.tags.length > 0),
     );
   }, [parsed, effectiveFilters]);
@@ -266,6 +276,10 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     void runSearch(nextCursor);
   }, [nextCursor, status, runSearch]);
 
+  const refresh = useCallback(() => {
+    void runSearch(null);
+  }, [runSearch]);
+
   const clearAll = useCallback(() => {
     setRaw('');
     setOverrideFiltersState({});
@@ -290,6 +304,7 @@ export function useUniversalSearch(options: UseUniversalSearchOptions): UseUnive
     usingOfflineIndex,
     sort, setSort,
     loadMore,
+    refresh,
     clearAll,
     setFilters,
     overrideFilters,

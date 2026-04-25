@@ -31,8 +31,12 @@ export type TransactionCardProps = {
   notes?: string;
   convertedLabel?: string;
   onPress?: (id: string) => void;
+  onLongPress?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (id: string) => void;
   hideAmounts?: boolean;
   testID?: string;
 };
@@ -90,8 +94,12 @@ export const TransactionCard = React.memo(function TransactionCard({
   notes,
   convertedLabel,
   onPress,
+  onLongPress,
   onEdit,
   onDelete,
+  selectable = false,
+  selected = false,
+  onToggleSelected,
   hideAmounts = false,
   testID,
 }: TransactionCardProps) {
@@ -114,19 +122,27 @@ export const TransactionCard = React.memo(function TransactionCard({
   }, [scale]);
 
   const handlePress = useCallback(() => {
+    if (selectable) {
+      onToggleSelected?.(id);
+      return;
+    }
     onPress?.(id);
-  }, [id, onPress]);
+  }, [id, onPress, onToggleSelected, selectable]);
+
+  const handleLongPress = useCallback(() => {
+    onLongPress?.(id);
+  }, [id, onLongPress]);
 
   const rightActions = useMemo((): SwipeAction[] => {
     const actions: SwipeAction[] = [];
-    if (onEdit) {
+    if (!selectable && onEdit) {
       actions.push({
         label: 'Edit',
         color: colors.primary,
         onPress: () => onEdit(id),
       });
     }
-    if (onDelete) {
+    if (!selectable && onDelete) {
       actions.push({
         label: 'Delete',
         color: colors.danger,
@@ -134,7 +150,7 @@ export const TransactionCard = React.memo(function TransactionCard({
       });
     }
     return actions;
-  }, [colors.danger, colors.primary, id, onDelete, onEdit]);
+  }, [colors.danger, colors.primary, id, onDelete, onEdit, selectable]);
 
   const titleText = description.trim() || merchant.trim() || 'Transaction';
   const subtitleText = `${categoryName} · ${formatRelativeDate(transactionDate)}`;
@@ -153,9 +169,11 @@ export const TransactionCard = React.memo(function TransactionCard({
       <Pressable
         accessibilityRole={onPress ? 'button' : undefined}
         accessibilityLabel={`${titleText}, ${signedAmount}, ${subtitleText}`}
+        accessibilityState={selectable ? {selected} : undefined}
         accessibilityHint={onEdit ? 'Swipe left to edit or delete' : undefined}
-        disabled={!onPress}
+        disabled={!onPress && !selectable}
         onPress={handlePress}
+        onLongPress={handleLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={[
@@ -169,6 +187,22 @@ export const TransactionCard = React.memo(function TransactionCard({
           },
         ]}
         testID={testID ? `${testID}-pressable` : undefined}>
+        {selectable ? (
+          <View
+            accessibilityRole="checkbox"
+            accessibilityState={{checked: selected}}
+            style={[
+              styles.selectionBox,
+              {
+                borderColor: selected ? colors.primary : colors.border,
+                backgroundColor: selected ? colors.primary : 'transparent',
+              },
+            ]}>
+            {selected ? (
+              <AppIcon name="check" size={14} color="#FFFFFF" />
+            ) : null}
+          </View>
+        ) : null}
         <View style={[styles.categoryIcon, {backgroundColor: iconBackground}]}>
           <AppIcon name={resolveIconName(categoryIcon)} size={20} color={categoryColor} />
         </View>
@@ -265,6 +299,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

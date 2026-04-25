@@ -202,6 +202,26 @@ describe('parseSearchQuery', () => {
       const p = parseSearchQuery('is:recurring', ctx);
       expect(p.is).toEqual(['recurring']);
     });
+
+    it('maps has tokens to backend filters', () => {
+      const p = parseSearchQuery('has:receipt has:notes has:location has:tags', ctx);
+      expect(p.filters.hasReceipt).toBe(true);
+      expect(p.filters.hasNotes).toBe(true);
+      expect(p.filters.hasLocation).toBe(true);
+      expect(p.filters.hasTags).toBe(true);
+    });
+
+    it('maps is tokens to backend filters', () => {
+      const p = parseSearchQuery('is:recurring is:template', ctx);
+      expect(p.filters.isRecurring).toBe(true);
+      expect(p.filters.isTemplate).toBe(true);
+    });
+
+    it('maps uncategorized to a backend filter', () => {
+      const p = parseSearchQuery('is:uncategorized', ctx);
+      expect(p.is).toEqual(['uncategorized']);
+      expect(p.filters.isUncategorized).toBe(true);
+    });
   });
 
   describe('combinations', () => {

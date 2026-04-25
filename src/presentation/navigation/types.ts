@@ -23,6 +23,7 @@ export type TransactionsStackParamList = {
     | undefined;
   EditTransaction: {transactionId: string};
   Search: undefined;
+  DuplicateCleanup: undefined;
 };
 
 export type WalletsStackParamList = {

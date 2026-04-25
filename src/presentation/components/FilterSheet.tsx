@@ -19,6 +19,7 @@ type Props = {
   onApply: (filters: SearchFilters) => void;
   categories: Category[];
   wallets: Wallet[];
+  knownTags?: string[];
 };
 
 const TYPE_OPTIONS: {value: TransactionType; label: string}[] = [
@@ -34,7 +35,7 @@ const SOURCE_OPTIONS: {value: TransactionSource; label: string}[] = [
   {value: 'dukascopy', label: 'Dukascopy'},
 ];
 
-const COMMON_TAGS = [
+const FALLBACK_TAGS = [
   'food', 'team', 'travel', 'bills', 'payroll', 'office', 'home', 'subs', 'client-a',
 ];
 
@@ -83,8 +84,28 @@ function getPresetLabel(dateRange?: {startMs: number; endMs: number}): string | 
   return null;
 }
 
+function parseDateInput(value: string, isEnd: boolean): number | undefined {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return undefined;
+  }
+  const [year, month, day] = trimmed.split('-').map(Number);
+  const date = new Date(year, month - 1, day, isEnd ? 23 : 0, isEnd ? 59 : 0, isEnd ? 59 : 0, isEnd ? 999 : 0);
+  return date.getTime();
+}
+
+function formatDateInput(ms?: number): string {
+  if (!ms) {
+    return '';
+  }
+  const date = new Date(ms);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export const FilterSheet = forwardRef<BottomSheet, Props>(
-  function FilterSheet({filters, onApply, categories, wallets}, ref) {
+  function FilterSheet({filters, onApply, categories, wallets, knownTags = []}, ref) {
     const {colors, spacing, radius, typography} = useTheme();
     const snapPoints = useMemo(() => ['85%'], []);
 
@@ -95,6 +116,12 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
     const [maxAmountText, setMaxAmountText] = useState(
       filters.maxAmount !== undefined ? String(filters.maxAmount / 100) : '',
     );
+    const [merchantText, setMerchantText] = useState(filters.merchant ?? '');
+    const [currencyText, setCurrencyText] = useState(filters.currency ?? '');
+    const [categoryQuery, setCategoryQuery] = useState('');
+    const [walletQuery, setWalletQuery] = useState('');
+    const [startDateText, setStartDateText] = useState(formatDateInput(filters.dateRange?.startMs));
+    const [endDateText, setEndDateText] = useState(formatDateInput(filters.dateRange?.endMs));
 
     const handleOpen = useCallback(() => {
       setDraft({...filters});
@@ -104,6 +131,10 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
       setMaxAmountText(
         filters.maxAmount !== undefined ? String(filters.maxAmount / 100) : '',
       );
+      setMerchantText(filters.merchant ?? '');
+      setCurrencyText(filters.currency ?? '');
+      setStartDateText(formatDateInput(filters.dateRange?.startMs));
+      setEndDateText(formatDateInput(filters.dateRange?.endMs));
     }, [filters]);
 
     const handleApply = useCallback(() => {
@@ -112,14 +143,26 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
       const maxVal = parseFloat(maxAmountText);
       final.minAmount = !isNaN(minVal) && minVal > 0 ? Math.round(minVal * 100) : undefined;
       final.maxAmount = !isNaN(maxVal) && maxVal > 0 ? Math.round(maxVal * 100) : undefined;
+      final.merchant = merchantText.trim() || undefined;
+      const currency = currencyText.trim().toUpperCase();
+      final.currency = /^[A-Z]{3}$/.test(currency) ? currency : undefined;
+      const startMs = parseDateInput(startDateText, false);
+      const endMs = parseDateInput(endDateText, true);
+      if (startMs !== undefined && endMs !== undefined && startMs <= endMs) {
+        final.dateRange = {startMs, endMs};
+      }
       onApply(final);
       (ref as React.RefObject<BottomSheet>)?.current?.close();
-    }, [draft, minAmountText, maxAmountText, onApply, ref]);
+    }, [draft, minAmountText, maxAmountText, merchantText, currencyText, startDateText, endDateText, onApply, ref]);
 
     const handleReset = useCallback(() => {
       setDraft({});
       setMinAmountText('');
       setMaxAmountText('');
+      setMerchantText('');
+      setCurrencyText('');
+      setStartDateText('');
+      setEndDateText('');
     }, []);
 
     const toggleType = useCallback((t: TransactionType) => {
@@ -161,6 +204,10 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
       });
     }, []);
 
+    const toggleFlag = useCallback((key: keyof SearchFilters) => {
+      setDraft((prev) => ({...prev, [key]: !prev[key]}));
+    }, []);
+
     const renderBackdrop = useCallback(
       (props: BottomSheetDefaultBackdropProps) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
@@ -176,12 +223,32 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
       if (draft.walletId) {count++;}
       if (draft.dateRange) {count++;}
       if (draft.tags && draft.tags.length > 0) {count++;}
+      if (draft.hasReceipt) {count++;}
+      if (draft.hasNotes) {count++;}
+      if (draft.hasLocation) {count++;}
+      if (draft.hasTags) {count++;}
+      if (draft.isRecurring) {count++;}
+      if (draft.isTemplate) {count++;}
+      if (draft.isUncategorized) {count++;}
       if (minAmountText) {count++;}
       if (maxAmountText) {count++;}
+      if (merchantText.trim()) {count++;}
+      if (currencyText.trim()) {count++;}
+      if (startDateText.trim() || endDateText.trim()) {count++;}
       return count;
-    }, [draft, minAmountText, maxAmountText]);
+    }, [draft, minAmountText, maxAmountText, merchantText, currencyText, startDateText, endDateText]);
 
     const selectedPreset = getPresetLabel(draft.dateRange);
+    const tagOptions = knownTags.length > 0 ? knownTags : FALLBACK_TAGS;
+    const filteredCategories = categories.filter((cat) => (
+      categoryQuery.trim() === '' ||
+      cat.name.toLowerCase().includes(categoryQuery.trim().toLowerCase())
+    ));
+    const filteredWallets = wallets.filter((wallet) => (
+      walletQuery.trim() === '' ||
+      wallet.name.toLowerCase().includes(walletQuery.trim().toLowerCase()) ||
+      wallet.currency.toLowerCase().includes(walletQuery.trim().toLowerCase())
+    ));
 
     return (
       <BottomSheet
@@ -252,6 +319,34 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                   />
                 ))}
               </View>
+              <View style={styles.amountRow}>
+                <View style={[
+                  styles.amountInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <Text style={[styles.amountPrefix, {color: colors.textTertiary}]}>From</Text>
+                  <BottomSheetTextInput
+                    style={[styles.amountInput, {color: colors.text}]}
+                    value={startDateText}
+                    onChangeText={setStartDateText}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+                <View style={[
+                  styles.amountInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <Text style={[styles.amountPrefix, {color: colors.textTertiary}]}>To</Text>
+                  <BottomSheetTextInput
+                    style={[styles.amountInput, {color: colors.text}]}
+                    value={endDateText}
+                    onChangeText={setEndDateText}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
             </View>
 
             <View style={styles.section}>
@@ -291,11 +386,56 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
               </View>
             </View>
 
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>MERCHANT AND CURRENCY</Text>
+              <View style={styles.amountRow}>
+                <View style={[
+                  styles.amountInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <Text style={[styles.amountPrefix, {color: colors.textTertiary}]}>Merchant</Text>
+                  <BottomSheetTextInput
+                    style={[styles.amountInput, {color: colors.text}]}
+                    value={merchantText}
+                    onChangeText={setMerchantText}
+                    placeholder="Uber"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+                <View style={[
+                  styles.currencyInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <BottomSheetTextInput
+                    style={[styles.currencyInput, {color: colors.text}]}
+                    value={currencyText}
+                    onChangeText={setCurrencyText}
+                    autoCapitalize="characters"
+                    maxLength={3}
+                    placeholder="USD"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+            </View>
+
             {categories.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>CATEGORY</Text>
+                <View style={[
+                  styles.searchInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <BottomSheetTextInput
+                    style={[styles.searchInput, {color: colors.text}]}
+                    value={categoryQuery}
+                    onChangeText={setCategoryQuery}
+                    placeholder="Search categories"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
                 <View style={styles.chipRow}>
-                  {categories.slice(0, 15).map((cat) => (
+                  {filteredCategories.map((cat) => (
                     <Chip
                       key={cat.id}
                       label={cat.name}
@@ -311,8 +451,20 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
             {wallets.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>WALLET</Text>
+                <View style={[
+                  styles.searchInputWrap,
+                  {borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surfaceElevated},
+                ]}>
+                  <BottomSheetTextInput
+                    style={[styles.searchInput, {color: colors.text}]}
+                    value={walletQuery}
+                    onChangeText={setWalletQuery}
+                    placeholder="Search wallets"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
                 <View style={styles.chipRow}>
-                  {wallets.map((w) => (
+                  {filteredWallets.map((w) => (
                     <Chip
                       key={w.id}
                       label={w.name}
@@ -328,7 +480,7 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>TAGS</Text>
               <View style={styles.chipRow}>
-                {COMMON_TAGS.map((tag) => {
+                {tagOptions.map((tag) => {
                   const isSelected = draft.tags?.includes(tag) ?? false;
                   return (
                     <Chip
@@ -347,6 +499,19 @@ export const FilterSheet = forwardRef<BottomSheet, Props>(
                     />
                   );
                 })}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>SPECIAL FILTERS</Text>
+              <View style={styles.chipRow}>
+                <Chip label="Has receipt" selected={Boolean(draft.hasReceipt)} onPress={() => toggleFlag('hasReceipt')} />
+                <Chip label="Has notes" selected={Boolean(draft.hasNotes)} onPress={() => toggleFlag('hasNotes')} />
+                <Chip label="Has location" selected={Boolean(draft.hasLocation)} onPress={() => toggleFlag('hasLocation')} />
+                <Chip label="Has tags" selected={Boolean(draft.hasTags)} onPress={() => toggleFlag('hasTags')} />
+                <Chip label="Recurring" selected={Boolean(draft.isRecurring)} onPress={() => toggleFlag('isRecurring')} />
+                <Chip label="Template" selected={Boolean(draft.isTemplate)} onPress={() => toggleFlag('isTemplate')} />
+                <Chip label="Uncategorized" selected={Boolean(draft.isUncategorized)} onPress={() => toggleFlag('isUncategorized')} />
               </View>
             </View>
 
@@ -436,6 +601,31 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+    height: 44,
+  },
+  currencyInputWrap: {
+    width: 82,
+    borderWidth: 1,
+    height: 44,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  currencyInput: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+    paddingVertical: 0,
+    height: 44,
+    textAlign: 'center',
+  },
+  searchInputWrap: {
+    borderWidth: 1,
+    height: 44,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  searchInput: {
     fontSize: 15,
     paddingVertical: 0,
     height: 44,
