@@ -14,7 +14,7 @@ import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAuth} from '@presentation/hooks/useAuth';
 import {useTheme} from '@shared/theme';
 import {navigationRef} from './navigationRef';
-import {getSupabaseDataSource, resetSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {getSupabaseDataSource, resetSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 import {seedDefaultCategories, isCategorySeeded} from '@data/seed/categories';
 import {makeCreateWallet} from '@domain/usecases/create-wallet';
 import {generateId} from '@shared/utils/hash';
@@ -52,6 +52,29 @@ export default function AppNavigator() {
     if (!isAuthenticated || !user?.id) {
       resetSupabaseDataSource();
     }
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      return;
+    }
+    if (useSettingsStore.getState().onboardingCompleted) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        if (cancelled || !isDataSourceReady()) {
+          return;
+        }
+        await pullSettingsFromSupabase();
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {

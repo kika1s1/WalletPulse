@@ -10,6 +10,11 @@ export type NotificationHandlerCallbacks = {
   onError?: (result: OrchestratorResult) => void;
 };
 
+export type NotificationHandlerOptions = {
+  /** Return false to ignore this notification before parsing (e.g. user disabled this app). */
+  shouldProcessPackage?: (packageName: string) => boolean;
+};
+
 let dedupInstance: DedupService | null = null;
 let unsubscribe: (() => void) | null = null;
 
@@ -23,6 +28,7 @@ function getDedupService(): DedupService {
 
 export function startNotificationHandler(
   callbacks?: NotificationHandlerCallbacks,
+  options?: NotificationHandlerOptions,
 ): () => void {
   if (unsubscribe) {
     unsubscribe();
@@ -57,6 +63,9 @@ export function startNotificationHandler(
   });
 
   const handleEvent = async (event: NativeNotificationEvent) => {
+    if (options?.shouldProcessPackage && !options.shouldProcessPackage(event.packageName)) {
+      return;
+    }
     const result = await orchestrator({
       packageName: event.packageName,
       title: event.title,

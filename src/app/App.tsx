@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, Platform, StatusBar, Text, View, StyleSheet, PermissionsAndroid} from 'react-native';
 import {Providers} from './Providers';
 import AppNavigator from '@presentation/navigation/AppNavigator';
@@ -19,6 +19,7 @@ import {enqueueRecurringPeriodic} from '@infrastructure/native/RecurringSchedule
 import {getSupabaseDataSource, isDataSourceReady} from '@data/datasources/SupabaseDataSource';
 import type {RecurringChargeNotification} from '@infrastructure/recurring/recurring-scheduler-core';
 import {useTheme} from '@shared/theme';
+import {makeShouldProcessNotification} from '@shared/utils/notification-package-filter';
 
 async function requestNotificationPermission(): Promise<void> {
   if (Platform.OS !== 'android' || Platform.Version < 33) {return;}
@@ -108,21 +109,24 @@ function useRecurringScheduler(splashDone: boolean) {
 
 function useGlobalNotificationListener() {
   const notificationEnabled = useSettingsStore((s) => s.notificationEnabled);
+  const monitoredAppPackageIds = useSettingsStore((s) => s.monitoredAppPackageIds);
+  const handlerOpts = useMemo(
+    () => ({shouldProcessPackage: makeShouldProcessNotification(monitoredAppPackageIds)}),
+    [monitoredAppPackageIds],
+  );
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') {return;}
 
+    if (stopRef.current) {
+      stopRef.current();
+      stopRef.current = null;
+    }
+    stopNotificationHandler();
+
     if (notificationEnabled) {
-      if (!stopRef.current) {
-        stopRef.current = startNotificationHandler();
-      }
-    } else {
-      if (stopRef.current) {
-        stopRef.current();
-        stopRef.current = null;
-      }
-      stopNotificationHandler();
+      stopRef.current = startNotificationHandler(undefined, handlerOpts);
     }
 
     return () => {
@@ -131,7 +135,7 @@ function useGlobalNotificationListener() {
         stopRef.current = null;
       }
     };
-  }, [notificationEnabled]);
+  }, [notificationEnabled, handlerOpts]);
 }
 
 const BILL_SCHEDULE_THROTTLE_MS = 60_000;

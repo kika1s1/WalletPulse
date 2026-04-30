@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, type AppStateStatus} from 'react-native';
 import {isListenerEnabled, openListenerSettings} from '@infrastructure/native/NotificationBridge';
 import {
@@ -6,6 +6,7 @@ import {
   stopNotificationHandler,
 } from '@infrastructure/notification/notification-handler';
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
+import {makeShouldProcessNotification} from '@shared/utils/notification-package-filter';
 
 export type UseNotificationListenerReturn = {
   isEnabled: boolean;
@@ -51,19 +52,30 @@ export function useNotificationListener(): UseNotificationListenerReturn {
     await openListenerSettings();
   }, []);
 
+  const monitoredAppPackageIds = useSettingsStore((s) => s.monitoredAppPackageIds);
+  const handlerOpts = useMemo(
+    () => ({
+      shouldProcessPackage: makeShouldProcessNotification(monitoredAppPackageIds),
+    }),
+    [monitoredAppPackageIds],
+  );
+
   const startListening = useCallback(() => {
     if (stopRef.current) {
       return;
     }
-    stopRef.current = startNotificationHandler({
-      onTransactionCreated: () => {
-        if (mountedRef.current) {
-          setRecentCount((c) => c + 1);
-        }
+    stopRef.current = startNotificationHandler(
+      {
+        onTransactionCreated: () => {
+          if (mountedRef.current) {
+            setRecentCount((c) => c + 1);
+          }
+        },
       },
-    });
+      handlerOpts,
+    );
     setIsActive(true);
-  }, []);
+  }, [handlerOpts]);
 
   const stopListeningFn = useCallback(() => {
     if (stopRef.current) {
@@ -77,6 +89,7 @@ export function useNotificationListener(): UseNotificationListenerReturn {
   const notificationEnabled = useSettingsStore((s) => s.notificationEnabled);
 
   useEffect(() => {
+    mountedRef.current = true;
     let cancelled = false;
 
     async function init() {
@@ -84,15 +97,24 @@ export function useNotificationListener(): UseNotificationListenerReturn {
       if (cancelled) {return;}
 
       const enabled = await isListenerEnabled();
-      if (enabled && notificationEnabled && !stopRef.current) {
-        stopRef.current = startNotificationHandler({
-          onTransactionCreated: () => {
-            if (mountedRef.current) {
-              setRecentCount((c) => c + 1);
-            }
+      if (stopRef.current) {
+        stopRef.current();
+        stopRef.current = null;
+      }
+      if (enabled && notificationEnabled) {
+        stopRef.current = startNotificationHandler(
+          {
+            onTransactionCreated: () => {
+              if (mountedRef.current) {
+                setRecentCount((c) => c + 1);
+              }
+            },
           },
-        });
+          handlerOpts,
+        );
         if (mountedRef.current) {setIsActive(true);}
+      } else if (mountedRef.current) {
+        setIsActive(false);
       }
     }
 
@@ -111,9 +133,10 @@ export function useNotificationListener(): UseNotificationListenerReturn {
       sub.remove();
       if (stopRef.current) {
         stopRef.current();
+        stopRef.current = null;
       }
     };
-  }, [checkPermission, notificationEnabled]);
+  }, [checkPermission, notificationEnabled, handlerOpts]);
 
   return {
     isEnabled,

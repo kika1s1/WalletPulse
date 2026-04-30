@@ -1,6 +1,7 @@
 import {useSettingsStore} from '@presentation/stores/useSettingsStore';
 import {useAppStore} from '@presentation/stores/useAppStore';
 import {isDataSourceReady, getSupabaseDataSource} from '@data/datasources/SupabaseDataSource';
+import {DEFAULT_MONITORED_APP_PACKAGE_IDS} from '@shared/constants/monitored-finance-apps';
 
 const SETTINGS_KEY = 'user_preferences';
 const APP_KEY = 'app_preferences';
@@ -14,6 +15,9 @@ type SyncableSettings = {
   billReminderNotificationsEnabled: boolean;
   subscriptionNotificationsEnabled: boolean;
   hideAmounts: boolean;
+  /** When true on server, skip first-run onboarding on a fresh device after pull */
+  onboardingCompleted?: boolean;
+  monitoredAppPackageIds?: string[];
 };
 
 type SyncableAppSettings = {
@@ -52,6 +56,15 @@ export async function pullSettingsFromSupabase(): Promise<void> {
       if (typeof prefs.hideAmounts === 'boolean' && prefs.hideAmounts !== store.hideAmounts) {
         store.toggleHideAmounts();
       }
+      if (prefs.onboardingCompleted === true) {
+        store.setOnboardingCompleted(true);
+      }
+      if (
+        Array.isArray(prefs.monitoredAppPackageIds) &&
+        prefs.monitoredAppPackageIds.length > 0
+      ) {
+        store.setMonitoredAppPackageIds(prefs.monitoredAppPackageIds);
+      }
     }
 
     if (appPrefs) {
@@ -68,6 +81,10 @@ export async function pullSettingsFromSupabase(): Promise<void> {
 
 function collectSettingsSnapshot(): SyncableSettings {
   const s = useSettingsStore.getState();
+  const monitored =
+    s.monitoredAppPackageIds?.length > 0
+      ? s.monitoredAppPackageIds
+      : [...DEFAULT_MONITORED_APP_PACKAGE_IDS];
   return {
     themeMode: s.themeMode,
     activeThemeId: s.activeThemeId,
@@ -77,6 +94,8 @@ function collectSettingsSnapshot(): SyncableSettings {
     billReminderNotificationsEnabled: s.billReminderNotificationsEnabled,
     subscriptionNotificationsEnabled: s.subscriptionNotificationsEnabled,
     hideAmounts: s.hideAmounts,
+    onboardingCompleted: s.onboardingCompleted,
+    monitoredAppPackageIds: monitored,
   };
 }
 

@@ -46,6 +46,7 @@ import {
   saveFileWithPicker,
 } from '@infrastructure/native/FileSaverBridge';
 import {useAuthStore} from '@presentation/stores/useAuthStore';
+import {BUILTIN_MONITORED_FINANCE_APPS} from '@shared/constants/monitored-finance-apps';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>;
 
@@ -339,6 +340,17 @@ export default function SettingsScreen() {
     [isEnabled, requestPermission, settings, startListening, stopListening],
   );
 
+  const toggleMonitoredApp = useCallback(
+    (packageId: string) => {
+      const ids = settings.monitoredAppPackageIds;
+      const next = ids.includes(packageId)
+        ? ids.filter((id) => id !== packageId)
+        : [...ids, packageId];
+      settings.setMonitoredAppPackageIds(next);
+    },
+    [settings],
+  );
+
   const notifStatus = useMemo(() => {
     if (isChecking) {
       return 'Checking...';
@@ -559,6 +571,29 @@ export default function SettingsScreen() {
             label="Parsing Rules"
             onPress={() => navigation.navigate('ParsingRules')}
           />
+          {BUILTIN_MONITORED_FINANCE_APPS.map((app) => (
+            <SettingsRow
+              key={app.packageId}
+              description="Use the built-in parser when this app posts a notification"
+              icon="phone"
+              label={`Monitor ${app.label}`}
+              trailing={
+                <Switch
+                  onValueChange={() => toggleMonitoredApp(app.packageId)}
+                  thumbColor={
+                    settings.monitoredAppPackageIds.includes(app.packageId)
+                      ? colors.primary
+                      : colors.border
+                  }
+                  trackColor={{
+                    false: colors.borderLight,
+                    true: colors.primaryLight,
+                  }}
+                  value={settings.monitoredAppPackageIds.includes(app.packageId)}
+                />
+              }
+            />
+          ))}
           {!isEnabled && (
             <Pressable
               accessibilityRole="button"

@@ -6,8 +6,8 @@ import {
 
 describe('onboarding-validation', () => {
   describe('getOnboardingSteps', () => {
-    it('returns 4 steps including completion', () => {
-      expect(getOnboardingSteps()).toHaveLength(4);
+    it('returns 6 steps including completion', () => {
+      expect(getOnboardingSteps()).toHaveLength(6);
     });
 
     it('steps have required fields', () => {
@@ -24,6 +24,7 @@ describe('onboarding-validation', () => {
     const base: OnboardingState = {
       currency: 'USD',
       enableNotifications: false,
+      monitoredAppPackageIds: ['com.payoneer.android'],
     };
 
     it('welcome step always passes', () => {
@@ -45,6 +46,28 @@ describe('onboarding-validation', () => {
       expect(
         validateOnboardingStep('notifications', {...base, enableNotifications: true}),
       ).toBeNull();
+    });
+
+    it('apps step requires at least one package when notifications enabled', () => {
+      expect(validateOnboardingStep('apps', base)).toBeNull();
+      expect(
+        validateOnboardingStep('apps', {
+          ...base,
+          enableNotifications: true,
+          monitoredAppPackageIds: [],
+        }),
+      ).toBe('Pick at least one app to monitor, or turn off auto-detect');
+      expect(
+        validateOnboardingStep('apps', {
+          ...base,
+          enableNotifications: true,
+          monitoredAppPackageIds: ['com.grey.android'],
+        }),
+      ).toBeNull();
+    });
+
+    it('categories step always passes', () => {
+      expect(validateOnboardingStep('categories', base)).toBeNull();
     });
 
     it('returns null for unknown step', () => {

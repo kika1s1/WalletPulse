@@ -1,5 +1,6 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  Alert,
   Dimensions,
   Pressable,
   ScrollView,
@@ -25,13 +26,23 @@ import {
   validateOnboardingStep,
   type OnboardingState,
 } from '@domain/usecases/onboarding-validation';
+import {normalizeOnboardingCurrencyCode} from '@domain/usecases/normalize-onboarding-currency';
 import {POPULAR_CURRENCIES} from '@shared/constants/currencies';
+import {DEFAULT_CATEGORIES} from '@shared/constants/categories';
+import {
+  BUILTIN_MONITORED_FINANCE_APPS,
+  DEFAULT_MONITORED_APP_PACKAGE_IDS,
+} from '@shared/constants/monitored-finance-apps';
+import {useNotificationListener} from '@presentation/hooks/useNotificationListener';
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const PREVIEW_CATEGORY_COUNT = 6;
+const APP_ROW_GAP = 10;
 
 function StepIndicator({total, current, colors}: {total: number; current: number; colors: any}) {
   return (
-    <View style={styles.indicatorRow}>
+    <View
+      accessibilityLabel={`Onboarding step ${current + 1} of ${total}`}
+      style={styles.indicatorRow}>
       {Array.from({length: total}).map((_, i) => {
         const isActive = i === current;
         const isPast = i < current;
@@ -72,14 +83,14 @@ function WelcomeStep({colors}: any) {
         entering={FadeInUp.delay(400).duration(400)}
         style={[styles.heroSubtitle, {color: colors.textSecondary}]}
       >
-        Your smart, offline-first expense tracker. Track spending, set budgets, and gain insights into your finances.
+        Track spending and budgets with secure cloud sync. On Android, optionally capture transactions from supported bank app notifications on this device.
       </Animated.Text>
       <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.featureList}>
         {[
-          {icon: 'bell-outline', label: 'Auto-detect from notifications'},
-          {icon: 'swap-horizontal-circle-outline', label: 'Multi-currency support'},
-          {icon: 'wifi-off', label: 'Works completely offline'},
-          {icon: 'chart-bar', label: 'Budget planning and insights'},
+          {icon: 'bell-outline', label: 'Auto-detect from notifications (when allowed)'},
+          {icon: 'swap-horizontal-circle-outline', label: 'Multi-currency wallets and conversion'},
+          {icon: 'cloud-outline', label: 'Sync your data to your account'},
+          {icon: 'chart-bar', label: 'Budgets and spending insights'},
         ].map((f, idx) => (
           <Animated.View
             key={f.label}
@@ -108,6 +119,7 @@ function CurrencyStep({
   colors: any;
   radius: any;
 }) {
+  const {width: screenW} = Dimensions.get('window');
   return (
     <View style={styles.stepContent}>
       <Animated.Text
@@ -136,6 +148,7 @@ function CurrencyStep({
                 borderWidth: selected === code ? 2 : 1,
                 borderRadius: radius.md,
                 backgroundColor: selected === code ? colors.primaryLight + '15' : colors.surfaceElevated,
+                width: (screenW - 32 - 30) / 4,
               },
             ]}
           >
@@ -156,11 +169,17 @@ function CurrencyStep({
 
 function NotificationStep({
   enabled,
+  isListenerOn,
+  isChecking,
+  listenerStatusLabel,
   onToggle,
   colors,
   radius,
 }: {
   enabled: boolean;
+  isListenerOn: boolean;
+  isChecking: boolean;
+  listenerStatusLabel: string;
   onToggle: (v: boolean) => void;
   colors: any;
   radius: any;
@@ -177,7 +196,7 @@ function NotificationStep({
         entering={FadeInUp.delay(200).duration(300)}
         style={[styles.stepSubtitle, {color: colors.textSecondary}]}
       >
-        WalletPulse can read your bank notifications and automatically log transactions.
+        When enabled, WalletPulse can read notifications from supported finance apps on this device. Parsed amounts and details are saved to your WalletPulse account like other transactions.
       </Animated.Text>
 
       <Animated.View
@@ -197,13 +216,17 @@ function NotificationStep({
               Enable notification listener
             </Text>
             <Text style={[styles.notifDesc, {color: colors.textSecondary}]}>
-              Supported: Payoneer, Grey, Dukascopy. More banks coming soon.
+              {isChecking ? 'Checking access…' : listenerStatusLabel}
+            </Text>
+            <Text style={[styles.notifDesc, {color: colors.textSecondary}]}>
+              Supported: Payoneer, Grey, Dukascopy. More apps can use custom parsing rules in Settings.
             </Text>
           </View>
           <Switch
-            value={enabled}
+            accessibilityLabel="Enable notification listener"
+            value={enabled && isListenerOn}
             onValueChange={onToggle}
-            thumbColor={enabled ? colors.primary : colors.border}
+            thumbColor={enabled && isListenerOn ? colors.primary : colors.border}
             trackColor={{false: colors.borderLight, true: colors.primaryLight}}
           />
         </View>
@@ -215,7 +238,113 @@ function NotificationStep({
       >
         <AppIcon name="lock-outline" size={16} color={colors.success} />
         <Text style={[styles.privacyText, {color: colors.text}]}>
-          All data stays on your device. Notifications are processed locally and never sent to any server.
+          Notification text is processed on your phone to extract transactions. Your ledger syncs securely to your account when you are online.
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+function AppsStep({
+  selectedIds,
+  onTogglePackage,
+  notificationsIntentOn,
+  colors,
+  radius,
+}: {
+  selectedIds: string[];
+  onTogglePackage: (packageId: string) => void;
+  notificationsIntentOn: boolean;
+  colors: any;
+  radius: any;
+}) {
+  return (
+    <View style={styles.stepContent}>
+      <Animated.Text
+        entering={FadeInUp.delay(100).duration(300)}
+        style={[styles.stepTitle, {color: colors.text}]}
+      >
+        Which apps to watch
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeInUp.delay(200).duration(300)}
+        style={[styles.stepSubtitle, {color: colors.textSecondary}]}
+      >
+        {notificationsIntentOn
+          ? 'Turn off apps you do not want auto-detected from. You can change this later in Settings.'
+          : 'Auto-detect is off. You can still enable these later when you turn on the notification listener.'}
+      </Animated.Text>
+      <View style={{gap: APP_ROW_GAP, marginTop: 8}}>
+        {BUILTIN_MONITORED_FINANCE_APPS.map((app) => {
+          const on = selectedIds.includes(app.packageId);
+          return (
+            <View
+              key={app.packageId}
+              style={[
+                styles.notifCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: radius.lg,
+                  marginTop: 0,
+                },
+              ]}
+            >
+              <View style={styles.notifRow}>
+                <Text style={[styles.notifTitle, {color: colors.text, flex: 1}]}>{app.label}</Text>
+                <Switch
+                  accessibilityLabel={`Monitor ${app.label}`}
+                  value={on}
+                  disabled={!notificationsIntentOn}
+                  onValueChange={() => onTogglePackage(app.packageId)}
+                  thumbColor={on ? colors.primary : colors.border}
+                  trackColor={{false: colors.borderLight, true: colors.primaryLight}}
+                />
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function CategoriesPreviewStep({colors, radius}: {colors: any; radius: any}) {
+  const preview = DEFAULT_CATEGORIES.slice(0, PREVIEW_CATEGORY_COUNT);
+  return (
+    <View style={styles.stepContent}>
+      <Animated.Text
+        entering={FadeInUp.delay(100).duration(300)}
+        style={[styles.stepTitle, {color: colors.text}]}
+      >
+        Default categories
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeInUp.delay(200).duration(300)}
+        style={[styles.stepSubtitle, {color: colors.textSecondary}]}
+      >
+        We will add a starter set of categories so you can log expenses right away. Rename, hide, or add more under Settings anytime.
+      </Animated.Text>
+      <Animated.View entering={FadeIn.delay(300).duration(300)} style={{gap: 10, marginTop: 8}}>
+        {preview.map((cat, idx) => (
+          <Animated.View
+            key={cat.name}
+            entering={FadeInDown.delay(350 + idx * 60).duration(250)}
+            style={[
+              styles.categoryPreviewRow,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            <View style={[styles.categoryColorDot, {backgroundColor: cat.color}]} />
+            <Text style={[styles.featureLabel, {color: colors.text}]}>{cat.name}</Text>
+          </Animated.View>
+        ))}
+        <Text style={[styles.notifDesc, {color: colors.textTertiary, marginTop: 4}]}>
+          Plus more categories for income, transfers, and day-to-day spending.
         </Text>
       </Animated.View>
     </View>
@@ -281,22 +410,98 @@ export default function OnboardingScreen() {
   const {colors, spacing, radius} = useTheme();
   const insets = useSafeAreaInsets();
   const steps = useMemo(() => getOnboardingSteps(), []);
+  const pageScrollRef = useRef<ScrollView>(null);
+  const currentStepRef = useRef(0);
+  const [pageWidth, setPageWidth] = useState(() => Dimensions.get('window').width);
 
   const setOnboardingCompleted = useSettingsStore((s) => s.setOnboardingCompleted);
   const setBaseCurrency = useAppStore((s) => s.setBaseCurrency);
 
+  const {
+    isEnabled: isListenerEnabledFlag,
+    isChecking: isListenerChecking,
+    checkPermission,
+    requestPermission,
+    startListening,
+    stopListening,
+  } = useNotificationListener();
+
   const [currentStep, setCurrentStep] = useState(0);
   const [currency, setCurrency] = useState('USD');
   const [enableNotifications, setEnableNotifications] = useState(false);
+  const [monitoredAppPackageIds, setMonitoredAppPackageIds] = useState<string[]>(() => [
+    ...DEFAULT_MONITORED_APP_PACKAGE_IDS,
+  ]);
   const [stepError, setStepError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const sub = Dimensions.addEventListener('change', ({window}) => {
+      setPageWidth(window.width);
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
+
   const state: OnboardingState = useMemo(
-    () => ({currency, enableNotifications}),
-    [currency, enableNotifications],
+    () => ({currency, enableNotifications, monitoredAppPackageIds}),
+    [currency, enableNotifications, monitoredAppPackageIds],
+  );
+
+  const listenerStatusLabel = useMemo(() => {
+    if (!isListenerEnabledFlag) {
+      return 'Open Android settings to allow notification access for WalletPulse.';
+    }
+    return 'Notification access granted for this device.';
+  }, [isListenerEnabledFlag]);
+
+  const handleNotificationToggle = useCallback(
+    (val: boolean) => {
+      if (val) {
+        if (!isListenerEnabledFlag) {
+          Alert.alert(
+            'Permission required',
+            'WalletPulse needs notification listener access to auto-detect transactions. You will be sent to Android settings.',
+            [
+              {text: 'Cancel', style: 'cancel'},
+              {text: 'Open settings', onPress: () => void requestPermission()},
+            ],
+          );
+          return;
+        }
+        startListening();
+        setEnableNotifications(true);
+        return;
+      }
+      stopListening();
+      setEnableNotifications(false);
+    },
+    [isListenerEnabledFlag, requestPermission, startListening, stopListening],
+  );
+
+  useEffect(() => {
+    void checkPermission();
+  }, [checkPermission]);
+
+  const toggleMonitoredApp = useCallback((packageId: string) => {
+    setMonitoredAppPackageIds((prev) =>
+      prev.includes(packageId) ? prev.filter((id) => id !== packageId) : [...prev, packageId],
+    );
+    setStepError(null);
+  }, []);
+
+  const scrollToStep = useCallback(
+    (index: number) => {
+      pageScrollRef.current?.scrollTo({x: index * pageWidth, animated: true});
+      setCurrentStep(index);
+    },
+    [pageWidth],
   );
 
   const canGoNext = currentStep < steps.length - 1;
-  const isLast = currentStep === steps.length - 1;
+  const isCompleteStep = steps[currentStep]?.id === 'complete';
 
   const handleNext = useCallback(() => {
     const err = validateOnboardingStep(steps[currentStep].id, state);
@@ -306,16 +511,23 @@ export default function OnboardingScreen() {
     }
     setStepError(null);
     if (canGoNext) {
-      setCurrentStep((s) => s + 1);
+      scrollToStep(currentStep + 1);
     }
-  }, [currentStep, steps, state, canGoNext]);
+  }, [currentStep, steps, state, canGoNext, scrollToStep]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 0) {
       setStepError(null);
-      setCurrentStep((s) => s - 1);
+      scrollToStep(currentStep - 1);
     }
-  }, [currentStep]);
+  }, [currentStep, scrollToStep]);
+
+  const applyCompletionPrefs = useCallback(() => {
+    const code = normalizeOnboardingCurrencyCode(currency);
+    useSettingsStore.getState().setOnboardingCurrency(code);
+    setBaseCurrency(code);
+    useSettingsStore.getState().setMonitoredAppPackageIds(monitoredAppPackageIds);
+  }, [currency, monitoredAppPackageIds, setBaseCurrency]);
 
   const handleFinish = useCallback(async () => {
     const err = validateOnboardingStep(steps[currentStep].id, state);
@@ -323,24 +535,64 @@ export default function OnboardingScreen() {
       setStepError(err);
       return;
     }
-
-    useSettingsStore.getState().setNotificationEnabled(enableNotifications);
-    useSettingsStore.getState().setOnboardingCurrency(currency.toUpperCase());
-    setBaseCurrency(currency);
+    const effectiveNotif = enableNotifications && isListenerEnabledFlag;
+    useSettingsStore.getState().setNotificationEnabled(effectiveNotif);
+    applyCompletionPrefs();
     setOnboardingCompleted(true);
-  }, [currentStep, steps, state, currency, enableNotifications, setBaseCurrency, setOnboardingCompleted]);
+  }, [
+    applyCompletionPrefs,
+    currentStep,
+    enableNotifications,
+    isListenerEnabledFlag,
+    setOnboardingCompleted,
+    state,
+    steps,
+  ]);
 
   const handleSkip = useCallback(async () => {
+    stopListening();
+    const code = normalizeOnboardingCurrencyCode(currency);
+    useSettingsStore.getState().setOnboardingCurrency(code);
+    setBaseCurrency(code);
+    useSettingsStore.getState().setMonitoredAppPackageIds(monitoredAppPackageIds);
     useSettingsStore.getState().setNotificationEnabled(false);
-    setBaseCurrency('USD');
     setOnboardingCompleted(true);
-  }, [setBaseCurrency, setOnboardingCompleted]);
+  }, [currency, monitoredAppPackageIds, setBaseCurrency, setOnboardingCompleted, stopListening]);
+
+  const onPagerScrollEnd = useCallback(
+    (e: {nativeEvent: {contentOffset: {x: number}}}) => {
+      const x = e.nativeEvent.contentOffset.x;
+      const idx = Math.round(x / pageWidth);
+      const clamped = Math.max(0, Math.min(idx, steps.length - 1));
+      const prev = currentStepRef.current;
+      if (clamped > prev) {
+        const err = validateOnboardingStep(steps[prev].id, state);
+        if (err) {
+          setStepError(err);
+          pageScrollRef.current?.scrollTo({x: prev * pageWidth, animated: true});
+          return;
+        }
+        setStepError(null);
+      }
+      setCurrentStep(clamped);
+    },
+    [pageWidth, state, steps],
+  );
+
+  const layoutStepRef = useRef(currentStep);
+  layoutStepRef.current = currentStep;
+
+  useEffect(() => {
+    pageScrollRef.current?.scrollTo({
+      x: layoutStepRef.current * pageWidth,
+      animated: false,
+    });
+  }, [pageWidth]);
 
   const progressWidth = ((currentStep + 1) / steps.length) * 100;
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background}]}>
-      {/* Progress bar */}
       <View style={[styles.progressTrack, {backgroundColor: colors.border, marginTop: insets.top}]}>
         <Animated.View
           style={[
@@ -350,7 +602,6 @@ export default function OnboardingScreen() {
         />
       </View>
 
-      {/* Header */}
       <View style={[styles.header, {paddingHorizontal: spacing.base}]}>
         {currentStep > 0 ? (
           <Pressable
@@ -377,44 +628,68 @@ export default function OnboardingScreen() {
         </Pressable>
       </View>
 
-      {/* Step content */}
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {paddingHorizontal: spacing.base, paddingBottom: 120},
-        ]}
-        showsVerticalScrollIndicator={false}
+        ref={pageScrollRef}
+        horizontal
+        pagingEnabled
+        style={styles.pager}
         keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onPagerScrollEnd}
+        scrollEventThrottle={16}
       >
-        {currentStep === 0 && (
-          <WelcomeStep colors={colors} />
-        )}
-        {currentStep === 1 && (
-          <CurrencyStep
-            selected={currency}
-            onSelect={(c) => {
-              setCurrency(c);
-              setStepError(null);
-            }}
-            colors={colors}
-            radius={radius}
-          />
-        )}
-        {currentStep === 2 && (
-          <NotificationStep
-            enabled={enableNotifications}
-            onToggle={setEnableNotifications}
-            colors={colors}
-            radius={radius}
-          />
-        )}
-        {currentStep === 3 && (
-          <CompleteStep colors={colors} onGetStarted={handleFinish} />
-        )}
+        {steps.map((step) => (
+            <ScrollView
+            key={step.id}
+            style={[styles.pageScroll, {width: pageWidth}]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {paddingHorizontal: spacing.base, paddingBottom: 120},
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {step.id === 'welcome' && <WelcomeStep colors={colors} />}
+            {step.id === 'currency' && (
+              <CurrencyStep
+                selected={currency}
+                onSelect={(c) => {
+                  setCurrency(c);
+                  setStepError(null);
+                }}
+                colors={colors}
+                radius={radius}
+              />
+            )}
+            {step.id === 'notifications' && (
+              <NotificationStep
+                enabled={enableNotifications}
+                isListenerOn={isListenerEnabledFlag}
+                isChecking={isListenerChecking}
+                listenerStatusLabel={listenerStatusLabel}
+                onToggle={handleNotificationToggle}
+                colors={colors}
+                radius={radius}
+              />
+            )}
+            {step.id === 'apps' && (
+              <AppsStep
+                selectedIds={monitoredAppPackageIds}
+                onTogglePackage={toggleMonitoredApp}
+                notificationsIntentOn={enableNotifications && isListenerEnabledFlag}
+                colors={colors}
+                radius={radius}
+              />
+            )}
+            {step.id === 'categories' && <CategoriesPreviewStep colors={colors} radius={radius} />}
+            {step.id === 'complete' && (
+              <CompleteStep colors={colors} onGetStarted={handleFinish} />
+            )}
+          </ScrollView>
+        ))}
       </ScrollView>
 
-      {/* Bottom CTA (hidden on final step which has its own button) */}
-      {steps[currentStep]?.id !== 'complete' && (
+      {!isCompleteStep && (
         <View
           style={[
             styles.bottomBar,
@@ -437,7 +712,7 @@ export default function OnboardingScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={isLast ? handleFinish : handleNext}
+            onPress={handleNext}
             style={({pressed}) => [
               styles.ctaBtn,
               {
@@ -447,9 +722,7 @@ export default function OnboardingScreen() {
               },
             ]}
           >
-            <Text style={[styles.ctaText, {color: '#FFFFFF'}]}>
-              {isLast ? 'Get started' : 'Continue'}
-            </Text>
+            <Text style={[styles.ctaText, {color: '#FFFFFF'}]}>Continue</Text>
           </Pressable>
 
           <Text style={[styles.stepLabel, {color: colors.textTertiary}]}>
@@ -463,6 +736,12 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+  pager: {
+    flex: 1,
+  },
+  pageScroll: {
     flex: 1,
   },
   progressTrack: {
@@ -503,17 +782,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  iconBubble: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroIcon: {
-    fontSize: 36,
-    fontWeight: '700',
-  },
   heroTitle: {
     fontSize: 28,
     fontWeight: '700',
@@ -541,10 +809,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  featureDotText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
   featureLabel: {
     fontSize: 15,
     fontWeight: '500',
@@ -566,7 +830,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   currencyCard: {
-    width: (SCREEN_WIDTH - 32 - 30) / 4,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
@@ -600,13 +863,22 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  privacyIcon: {
-    fontSize: 16,
-  },
   privacyText: {
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  categoryPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+  },
+  categoryColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   bottomBar: {
     gap: 8,
@@ -644,10 +916,5 @@ const styles = StyleSheet.create({
   trialBtnText: {
     fontSize: 17,
     fontWeight: fontWeight.semibold,
-  },
-  trialSkip: {
-    fontSize: 15,
-    fontWeight: fontWeight.medium,
-    paddingVertical: 8,
   },
 });
